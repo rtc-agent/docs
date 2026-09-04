@@ -1,0 +1,981 @@
+openapi: 3.1.0
+info:
+  title: rtc-agent
+  description: rtc-agent 协议定义
+  version: 1.0.0
+
+paths:
+  /oauth2/authorize:
+    get:
+      operationId: getOAuth2RedirectUrl
+      summary: 获取 OAuth2 重定向 URL
+      description: F-C 调用此接口获取 OAuth2 前端（F-O）的重定向地址
+      parameters:
+        - name: provider
+          in: query
+          required: true
+          schema:
+            type: string
+          description: OAuth2 Provider 名称（如 "github"）
+        - name: redirect_uri
+          in: query
+          required: true
+          schema:
+            type: string
+          description: 客户端回调地址（Provider 授权完成后重定向到此地址）
+      responses:
+        "200":
+          description: 成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OAuth2AuthorizeResponse'
+
+  /oauth2/token:
+    post:
+      operationId: oauth2TokenExchange
+      summary: OAuth2 令牌交换
+      description: Authorization Code → access_token + refresh_token
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/OAuth2TokenExchangeRequest'
+      responses:
+        "200":
+          description: 成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OAuth2TokenExchangeResponse'
+
+  /oauth2/refresh:
+    post:
+      operationId: oauth2TokenRefresh
+      summary: OAuth2 令牌刷新
+      description: 使用 refresh_token 换取新的 access_token
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/OAuth2TokenRefreshRequest'
+      responses:
+        "200":
+          description: 成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OAuth2TokenRefreshResponse'
+
+
+components:
+  schemas:
+    OAuth2AuthorizeResponse:
+      type: object
+      properties:
+        redirect_url:
+          type: string
+        state:
+          type: string
+      required: [ redirect_url, state ]
+
+    OAuth2Error:
+      type: object
+      description: OAuth2 通用错误响应
+      properties:
+        error:
+          type: string
+          description: invalid_request / invalid_client / invalid_grant / server_error
+        error_description:
+          type: string
+      required: [ error ]
+
+    OAuth2TokenExchangeRequest:
+      type: object
+      properties:
+        code:
+          type: string
+          description: OAuth2 授权码
+        redirect_uri:
+          type: string
+          description: 重定向 URI
+        state:
+          type: string
+          description: CSRF 防护 state
+        device_id:
+          type: string
+          description: 前端生成的设备 UUID
+        device_name:
+          type: string
+          description: 设备名称（如 "Chrome on Mac"）
+        user_agent:
+          type: string
+          description: User-Agent 字符串
+      required: [ code, redirect_uri, state, device_id ]
+
+    OAuth2TokenExchangeResponse:
+      type: object
+      properties:
+        access_token:
+          type: string
+          description: JWT access token
+        refresh_token:
+          type: string
+          description: refresh token
+        expires_in:
+          type: integer
+          format: int64
+          description: access token 过期时间（秒）
+        user_id:
+          type: string
+          description: 用户 ID
+      required: [ access_token, refresh_token, expires_in, user_id ]
+
+    OAuth2TokenRefreshRequest:
+      type: object
+      properties:
+        refresh_token:
+          type: string
+          description: refresh token
+      required: [ refresh_token ]
+
+    OAuth2TokenRefreshResponse:
+      type: object
+      properties:
+        access_token:
+          type: string
+          description: 新的 JWT access token
+        expires_in:
+          type: integer
+          format: int64
+          description: access token 过期时间（秒）
+      required: [ access_token, expires_in ]
+
+    # ============================================================
+    # Domain Models（来自 protocol/models.go，非 HTTP 接口）
+    # ============================================================
+
+    UUID:
+      type: string
+      description: protocol 内 UUID 类型，JSON 线上为字符串
+
+    # ---------- 枚举 ----------
+
+    SessionStatus:
+      type: string
+      enum: [ active, closed, idle ]
+      x-enum-varnames:
+        - SessionStatusActive
+        - SessionStatusClosed
+        - SessionStatusIdle
+
+    TurnStatus:
+      type: string
+      enum: [ pending, running, completed, failed, cancelled, interrupted, merged ]
+      x-enum-varnames:
+        - TurnStatusPending
+        - TurnStatusRunning
+        - TurnStatusCompleted
+        - TurnStatusFailed
+        - TurnStatusCancelled
+        - TurnStatusInterrupted
+        - TurnStatusMerged
+
+    MessageRole:
+      type: string
+      enum: [ user, assistant, tool, system ]
+      x-enum-varnames:
+        - MessageRoleUser
+        - MessageRoleAssistant
+        - MessageRoleTool
+        - MessageRoleSystem
+
+    MessageStreamingStatus:
+      type: string
+      enum: [ pending, streaming, completed, failed ]
+      x-enum-varnames:
+        - MessageStreamingPending
+        - MessageStreamingStreaming
+        - MessageStreamingCompleted
+        - MessageStreamingFailed
+
+    ContentType:
+      type: string
+      enum: [ markdown, summary, text, thinking, toolcall_input, toolcall_output ]
+      x-enum-varnames:
+        - ContentTypeMarkdown
+        - ContentTypeSummary
+        - ContentTypeText
+        - ContentTypeThinking
+        - ContentTypeToolCallInput
+        - ContentTypeToolCallOutput
+
+    RtcStatus:
+      type: string
+      enum: [ pending, sent, executing, completed, failed, timeout, rejected ]
+      x-enum-varnames:
+        - RtcStatusPending
+        - RtcStatusSent
+        - RtcStatusExecuting
+        - RtcStatusCompleted
+        - RtcStatusFailed
+        - RtcStatusTimeout
+        - RtcStatusRejected
+
+    # ---------- 模型 ----------
+
+    Session:
+      type: object
+      properties:
+        id:
+          $ref: '#/components/schemas/UUID'
+        client_id:
+          type: string
+          description: 客户端生成的幂等 ID
+        owner_kind:
+          type: string
+          description: 所有者类型（user / system）
+        owner_ref_id:
+          type: string
+          description: 所有者引用 ID（user → user UUID，system → "system"）
+        title:
+          type: string
+          description: 会话标题
+        status:
+          $ref: '#/components/schemas/SessionStatus'
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+        closed_at:
+          type: string
+          format: date-time
+          description: 关闭时间
+        deleted_at:
+          type: string
+          format: date-time
+          description: 软删除时间
+      required: [ id, owner_kind, owner_ref_id, status, created_at, updated_at ]
+
+    Turn:
+      type: object
+      properties:
+        id:
+          $ref: '#/components/schemas/UUID'
+        client_id:
+          type: string
+          description: 客户端生成的幂等 ID
+        session_id:
+          $ref: '#/components/schemas/UUID'
+        status:
+          $ref: '#/components/schemas/TurnStatus'
+        created_at:
+          type: string
+          format: date-time
+        started_at:
+          type: string
+          format: date-time
+          description: 开始执行时间
+        completed_at:
+          type: string
+          format: date-time
+          description: 完成时间
+        error_message:
+          type: string
+          description: 错误信息（失败时）
+        deleted_at:
+          type: string
+          format: date-time
+          description: 软删除时间
+      required: [ id, session_id, status, created_at ]
+
+    Message:
+      type: object
+      properties:
+        id:
+          $ref: '#/components/schemas/UUID'
+        client_id:
+          type: string
+          description: 客户端生成的幂等 ID
+        session_id:
+          $ref: '#/components/schemas/UUID'
+        turn_id:
+          $ref: '#/components/schemas/UUID'
+          description: 关联的 Turn ID
+        parent_message_id:
+          $ref: '#/components/schemas/UUID'
+          description: 关联的父消息 ID（toolcall_output 指向 toolcall_input）
+        global_offset:
+          type: integer
+          format: uint32
+          description: Session 内全局顺序
+        turn_offset:
+          type: integer
+          format: uint32
+          description: Turn 内顺序
+        role:
+          $ref: '#/components/schemas/MessageRole'
+        content:
+          type: string
+          description: 消息内容
+        streaming_status:
+          $ref: '#/components/schemas/MessageStreamingStatus'
+        creator_kind:
+          type: string
+          description: 创建者类型（user / system）
+        creator_ref_id:
+          type: string
+          description: 创建者引用 ID
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+        deleted_at:
+          type: string
+          format: date-time
+          description: 软删除时间
+      required: [ id, session_id, global_offset, role, streaming_status, creator_kind, creator_ref_id, created_at, updated_at ]
+
+    ContentData:
+      type: object
+      description: 消息内容数据，Type 标识 Data 的具体结构，前端根据 Type 决定如何渲染
+      properties:
+        type:
+          $ref: '#/components/schemas/ContentType'
+        data:
+          description: 具体内容（结构由 type 决定）
+      required: [ type, data ]
+
+    ToolCall:
+      type: object
+      properties:
+        id:
+          $ref: '#/components/schemas/UUID'
+        tool_name:
+          type: string
+        input:
+          type: string
+        output:
+          type: string
+        status:
+          type: string
+      required: [ id, tool_name, input ]
+
+    Rtc:
+      type: object
+      description: 远程 Tool 调用模型
+      properties:
+        id:
+          $ref: '#/components/schemas/UUID'
+        client_id:
+          type: string
+          description: 客户端生成的幂等 ID
+        session_id:
+          $ref: '#/components/schemas/UUID'
+        turn_id:
+          $ref: '#/components/schemas/UUID'
+        message_id:
+          $ref: '#/components/schemas/UUID'
+          description: 关联的 toolcall_input Message 记录 ID
+        output_message_id:
+          $ref: '#/components/schemas/UUID'
+          description: 关联的 toolcall_output Message 记录 ID
+        offset:
+          type: integer
+          format: uint32
+          description: Turn 内的顺序
+        tool_name:
+          type: string
+          description: Tool 名称
+        parameters:
+          description: Tool 参数（JSON Schema）
+        status:
+          $ref: '#/components/schemas/RtcStatus'
+        result:
+          description: 执行结果
+        error_message:
+          type: string
+          description: 错误信息（失败时）
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+        completed_at:
+          type: string
+          format: date-time
+          description: 完成时间
+        deleted_at:
+          type: string
+          format: date-time
+          description: 软删除时间
+      required: [ id, session_id, turn_id, offset, tool_name, status, created_at, updated_at ]
+
+    # ============================================================
+    # Update（来自 protocol/update.go）
+    # ============================================================
+
+    UpdateEntity:
+      type: string
+      enum: [ session, turn, message, rtc ]
+      x-enum-varnames:
+        - EntitySession
+        - EntityTurn
+        - EntityMessage
+        - EntityRtc
+
+    UpdateAction:
+      type: string
+      enum: [ created, updated, deleted ]
+      x-enum-varnames:
+        - ActionCreated
+        - ActionUpdated
+        - ActionDeleted
+
+    UpdateType:
+      type: string
+      enum: [ gap ]
+      x-enum-varnames:
+        - UpdateTypeGap
+
+    UpdateItem:
+      type: object
+      description: 单条实体变化记录
+      properties:
+        entity:
+          $ref: '#/components/schemas/UpdateEntity'
+        action:
+          $ref: '#/components/schemas/UpdateAction'
+        entity_id:
+          $ref: '#/components/schemas/UUID'
+      required: [ entity, action, entity_id ]
+
+    Update:
+      type: object
+      description: 实体变化事件，随操作类 RPC 响应下发，前端收到后更新本地状态保持实时同步
+      properties:
+        id:
+          $ref: '#/components/schemas/UUID'
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/UpdateItem'
+          description: 变化条目列表
+        data_list:
+          type: array
+          items: { }
+          description: 实体数据（可选，与 items 一一对应）
+        offset:
+          type: integer
+          format: uint32
+          description: 用户维度单调递增 offset
+      required: [ id, items, offset ]
+
+    UpdateDataGap:
+      type: object
+      description: gap 占位数据，客户端收到后只推进 offset，不做业务处理
+
+    # ============================================================
+    # RPC Action（来自 protocol/rpc_action.go）
+    # 操作类 RPC 统一响应 = result + updates
+    # OpenAPI 不支持泛型，每个 Response 内联 result 类型
+    # ============================================================
+
+    # ---------- CloseSession ----------
+
+    CloseSessionRequest:
+      type: object
+      properties:
+        session_id:
+          $ref: '#/components/schemas/UUID'
+        client_id:
+          type: string
+          description: 客户端生成的幂等 ID
+      required: [ session_id ]
+
+    CloseSessionResult:
+      type: object
+      properties:
+        success:
+          type: boolean
+      required: [ success ]
+
+    CloseSessionResponse:
+      type: object
+      description: 关闭会话响应
+      properties:
+        result:
+          $ref: '#/components/schemas/CloseSessionResult'
+        updates:
+          type: array
+          items:
+            $ref: '#/components/schemas/Update'
+      required: [ result ]
+
+    # ---------- UpdateSession ----------
+
+    UpdateSessionRequest:
+      type: object
+      description: 更新会话请求（目前仅支持标题）
+      properties:
+        session_id:
+          $ref: '#/components/schemas/UUID'
+        title:
+          type: string
+          description: 新标题（不传表示不修改）
+      required: [ session_id ]
+
+    UpdateSessionResult:
+      type: object
+      properties:
+        session_id:
+          $ref: '#/components/schemas/UUID'
+      required: [ session_id ]
+
+    UpdateSessionResponse:
+      type: object
+      description: 更新会话响应
+      properties:
+        result:
+          $ref: '#/components/schemas/UpdateSessionResult'
+        updates:
+          type: array
+          items:
+            $ref: '#/components/schemas/Update'
+      required: [ result ]
+
+    # ---------- SendMessage ----------
+
+    SendMessageRequest:
+      type: object
+      description: 发送消息请求，自动创建 session（如不存在）和 turn
+      properties:
+        server_session_id:
+          $ref: '#/components/schemas/UUID'
+          description: 可选，为空时自动创建 session
+        client_session_id:
+          type: string
+          description: 必填
+        content_data:
+          $ref: '#/components/schemas/ContentData'
+        client_id:
+          type: string
+          description: 客户端生成的幂等 ID
+      required: [ content_data, client_session_id, client_id ]
+
+    SendMessageResult:
+      type: object
+      properties:
+        session_id:
+          $ref: '#/components/schemas/UUID'
+        turn_id:
+          $ref: '#/components/schemas/UUID'
+        message_id:
+          $ref: '#/components/schemas/UUID'
+      required: [ session_id, turn_id, message_id ]
+
+    SendMessageResponse:
+      type: object
+      description: 发送消息响应
+      properties:
+        result:
+          $ref: '#/components/schemas/SendMessageResult'
+        updates:
+          type: array
+          items:
+            $ref: '#/components/schemas/Update'
+      required: [ result ]
+
+    # ---------- ForkSession ----------
+    # 假设旧"session-1"有消息：User-A, Assistant-B, Assistant-C, User-D，想要Fork(ABC)，并重写D
+    # 应该传递
+    # content_data:{D的新内容};
+    # new_client_message_id:新消息(替换了D)的ID(client_id)
+    # old_server_session_id:来源对话的ID(server_id)
+    # new_client_session_id:本地对话的ID(client_id)
+    # old_server_message_id: D的ID(server_id)
+    # 服务器应该，从Assistant-C开始往前查询，limitMax=1000，创建新session，创建最多1000+1消息;
+    # 走update同步；触发AI流程（和发消息流程一样）
+    ForkSessionRequest:
+      type: object
+      description: 分叉对话
+      properties:
+        content_data:
+          $ref: '#/components/schemas/ContentData'
+        new_client_message_id:
+          type: string
+          description: 客户端生成的幂等 ID
+        old_server_session_id:
+          $ref: '#/components/schemas/UUID'
+          description: 旧 session ID
+        new_client_session_id:
+          $ref: '#/components/schemas/UUID'
+          description: 新 session ID
+        limit:
+          type: integer
+          description: Fork 多少条消息？默认200；最多1000条；
+        old_server_message_id:
+          $ref: '#/components/schemas/UUID'
+          description: 旧 message ID
+      required: [ content_data, new_client_message_id, old_server_session_id, new_client_session_id,old_server_message_id ]
+
+    ForkSessionResult:
+      type: object
+      properties:
+        session_id:
+          $ref: '#/components/schemas/UUID'
+        turn_id:
+          $ref: '#/components/schemas/UUID'
+        message_ids:
+          type: array
+          items:
+            $ref: '#/components/schemas/UUID'
+      required: [ session_id, turn_id, message_ids ]
+
+    ForkSessionResponse:
+      type: object
+      description: Fork对话响应
+      properties:
+        result:
+          $ref: '#/components/schemas/ForkSessionResult'
+        updates:
+          type: array
+          items:
+            $ref: '#/components/schemas/Update'
+      required: [ result ]
+
+
+    # ---------- StopTurn ----------
+
+    StopTurnRequest:
+      type: object
+      properties:
+        session_id:
+          $ref: '#/components/schemas/UUID'
+        client_id:
+          type: string
+          description: 客户端生成的幂等 ID
+      required: [ session_id ]
+
+    StopTurnResult:
+      type: object
+      properties:
+        success:
+          type: boolean
+      required: [ success ]
+
+    StopTurnResponse:
+      type: object
+      description: 停止 Turn 响应
+      properties:
+        result:
+          $ref: '#/components/schemas/StopTurnResult'
+        updates:
+          type: array
+          items:
+            $ref: '#/components/schemas/Update'
+      required: [ result ]
+
+    # ---------- UpdateRtcStatus ----------
+
+    UpdateRtcStatusRequest:
+      type: object
+      properties:
+        rtc_id:
+          $ref: '#/components/schemas/UUID'
+        status:
+          $ref: '#/components/schemas/RtcStatus'
+        client_id:
+          type: string
+          description: 客户端生成的幂等 ID
+      required: [ rtc_id, status ]
+
+    UpdateRtcStatusResult:
+      type: object
+      properties:
+        success:
+          type: boolean
+      required: [ success ]
+
+    UpdateRtcStatusResponse:
+      type: object
+      description: 更新 RTC 状态响应
+      properties:
+        result:
+          $ref: '#/components/schemas/UpdateRtcStatusResult'
+        updates:
+          type: array
+          items:
+            $ref: '#/components/schemas/Update'
+      required: [ result ]
+
+    # ---------- SubmitRtcResult ----------
+
+    SubmitRtcResultRequest:
+      type: object
+      description: 提交 RTC 执行结果请求
+      properties:
+        rtc_id:
+          $ref: '#/components/schemas/UUID'
+        success:
+          type: boolean
+          description: 是否执行成功
+        result:
+          description: 执行结果（成功时）
+        error:
+          type: string
+          description: 错误信息（失败时）
+        client_id:
+          type: string
+          description: 客户端生成的幂等 ID
+      required: [ rtc_id, success ]
+
+    SubmitRtcResultResult:
+      type: object
+      properties:
+        success:
+          type: boolean
+      required: [ success ]
+
+    SubmitRtcResultResponse:
+      type: object
+      description: 提交 RTC 执行结果响应
+      properties:
+        result:
+          $ref: '#/components/schemas/SubmitRtcResultResult'
+        updates:
+          type: array
+          items:
+            $ref: '#/components/schemas/Update'
+      required: [ result ]
+
+    # ============================================================
+    # RPC 方法名（来自 protocol/rpc_methods.go）
+    # ============================================================
+
+    RpcMethod:
+      type: string
+      description: RPC 方法名，前后端统一从 protocol 导入，禁止硬编码字符串
+      enum:
+        # Session
+        - v1.session.list
+        - v1.session.get
+        - v1.session.close
+        - v1.session.update
+        - v1.session.fork
+        # Message
+        - v1.message.send
+        - v1.message.list
+        - v1.message.get
+        # Turn
+        - v1.turn.list
+        - v1.turn.get
+        - v1.turn.stop
+        # RTC
+        - v1.rtc.list
+        - v1.rtc.get
+        - v1.rtc.update_status
+        - v1.rtc.submit_result
+      x-enum-varnames:
+        - MethodSessionList
+        - MethodSessionGet
+        - MethodSessionClose
+        - MethodSessionUpdate
+        - MethodSessionFork
+        - MethodMessageSend
+        - MethodMessageList
+        - MethodMessageGet
+        - MethodTurnList
+        - MethodTurnGet
+        - MethodTurnStop
+        - MethodRtcList
+        - MethodRtcGet
+        - MethodRtcUpdateStatus
+        - MethodRtcSubmitResult
+
+    # ============================================================
+    # RPC Query（来自 protocol/rpc_query.go）
+    # 历史拉取类 RPC，响应不包含 updates
+    # ============================================================
+
+    # ---------- ListSessions ----------
+
+    ListSessionsRequest:
+      type: object
+      description: 获取会话列表请求
+      properties:
+        cursor:
+          type: string
+          description: 分页游标（上一页最后一条的 ID）
+        limit:
+          type: integer
+          description: 每页数量，默认 20
+
+    ListSessionsResponse:
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/Session'
+        next_cursor:
+          type: string
+          description: 下一页游标，为空表示没有更多数据
+      required: [ items ]
+
+    # ---------- GetSession ----------
+
+    GetSessionRequest:
+      type: object
+      properties:
+        session_id:
+          $ref: '#/components/schemas/UUID'
+      required: [ session_id ]
+
+    GetSessionResponse:
+      type: object
+      properties:
+        item:
+          $ref: '#/components/schemas/Session'
+      required: [ item ]
+
+    # ---------- MessageList ----------
+
+    MessageListRequest:
+      type: object
+      description: 获取消息列表请求
+      properties:
+        session_id:
+          $ref: '#/components/schemas/UUID'
+        cursor:
+          type: integer
+          format: uint32
+          description: 分页游标（上一页最后一条的 global_offset）
+        limit:
+          type: integer
+          description: 每页数量，默认 50
+      required: [ session_id ]
+
+    MessageListResponse:
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/Message'
+        next_cursor:
+          type: integer
+          format: uint32
+          description: 下一页游标
+      required: [ items ]
+
+    # ---------- MessageGet ----------
+
+    MessageGetRequest:
+      type: object
+      properties:
+        message_id:
+          $ref: '#/components/schemas/UUID'
+      required: [ message_id ]
+
+    MessageGetResponse:
+      type: object
+      properties:
+        item:
+          $ref: '#/components/schemas/Message'
+      required: [ item ]
+
+    # ---------- RtcList ----------
+
+    RtcListRequest:
+      type: object
+      description: 获取 RTC 列表请求
+      properties:
+        session_id:
+          $ref: '#/components/schemas/UUID'
+        cursor:
+          type: string
+          description: 分页游标（上一页最后一条的 ID）
+        limit:
+          type: integer
+          description: 每页数量，默认 50
+      required: [ session_id ]
+
+    RtcListResponse:
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/Rtc'
+        next_cursor:
+          type: string
+          description: 下一页游标
+      required: [ items ]
+
+    # ---------- RtcGet ----------
+
+    RtcGetRequest:
+      type: object
+      properties:
+        rtc_id:
+          $ref: '#/components/schemas/UUID'
+      required: [ rtc_id ]
+
+    RtcGetResponse:
+      type: object
+      properties:
+        item:
+          $ref: '#/components/schemas/Rtc'
+      required: [ item ]
+
+    # ---------- TurnList ----------
+
+    TurnListRequest:
+      type: object
+      description: 获取 Turn 列表请求
+      properties:
+        session_id:
+          $ref: '#/components/schemas/UUID'
+        cursor:
+          type: string
+          description: 分页游标（上一页最后一条的 ID）
+        limit:
+          type: integer
+          description: 每页数量，默认 50
+      required: [ session_id ]
+
+    TurnListResponse:
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/Turn'
+        next_cursor:
+          type: string
+          description: 下一页游标
+      required: [ items ]
+
+    # ---------- TurnGet ----------
+
+    TurnGetRequest:
+      type: object
+      properties:
+        turn_id:
+          $ref: '#/components/schemas/UUID'
+      required: [ turn_id ]
+
+    TurnGetResponse:
+      type: object
+      properties:
+        item:
+          $ref: '#/components/schemas/Turn'
+      required: [ item ]
