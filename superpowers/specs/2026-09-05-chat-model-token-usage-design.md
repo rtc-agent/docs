@@ -80,7 +80,86 @@ type TokenUsage struct {
 }
 ```
 
-### 2.3 Event 增强
+### 2.3 Message 增强（pkg 级）
+
+turn-agent pkg 级的 `Message` 类型也需要携带 token 信息，因为它在 `LoadMessages` → `toEinoMessage` 路径上影响 summarize middleware 的压缩决策。
+
+```go
+// pkg/turn-agent/message.go 修改
+
+type Message struct {
+    // ... 现有字段不变 ...
+
+    // TokenUsage 是此消息的 token 统计。
+    // 对 assistant 消息：来自 LLM 响应的 ResponseMeta.Usage。
+    // 对其他角色：通常为 nil。
+    //
+    // 用途：
+    //   - toEinoMessage 将 TokenUsage 写入 schema.Message.ResponseMeta.Usage，
+    //     使 summarize_middleware 的 defaultTokenCounter 能获取精确基线。
+    //   - Event.TokenUsage 是此字段的流式传递补充（Event 用于 final chunk）。
+    TokenUsage *TokenUsage
+}
+```
+
+**数据流**：
+
+```text
+DB 加载 → LoadMessages → []*turnagent.Message (TokenUsage 有值)
+                              ↓
+                        toEinoMessage
+                              ↓
+                     []*schema.Message (ResponseMeta.Usage 被填充)
+                              ↓
+                 summarize_middleware.shouldCompress
+                              ↓
+              defaultTokenCounter 读取精确 TotalTokens 基线
+```
+
+**conversion 函数更新**：
+
+```go
+// toEinoMessage — 将 TokenUsage 写回 schema.Message.ResponseMeta.Usage
+func toEinoMessage(m *Message) *schema.Message {
+    if m == nil { return nil }
+    em := &schema.Message{
+        // ... 现有映射 ...
+    }
+    if m.TokenUsage != nil {
+        em.ResponseMeta = &schema.ResponseMeta{
+            Usage: &schema.TokenUsage{
+                PromptTokens:     m.TokenUsage.InputTokens,
+                CompletionTokens: m.TokenUsage.OutputTokens,
+                TotalTokens:      m.TokenUsage.TotalTokens,
+            },
+        }
+        if m.TokenUsage.CachedTokens > 0 {
+            em.ResponseMeta.Usage.PromptTokenDetails.CachedTokens = m.TokenUsage.CachedTokens
+        }
+        if m.TokenUsage.ReasoningTokens > 0 {
+            em.ResponseMeta.Usage.CompletionTokensDetails.ReasoningTokens = m.TokenUsage.ReasoningTokens
+        }
+    }
+    return em
+}
+
+// fromEinoMessage — 从 ResponseMeta.Usage 提取 TokenUsage
+func fromEinoMessage(m *schema.Message) *Message {
+    if m == nil { return nil }
+    msg := &Message{
+        // ... 现有映射 ...
+    }
+    if m.ResponseMeta != nil {
+        msg.FinishReason = m.ResponseMeta.FinishReason
+        if m.ResponseMeta.Usage != nil {
+            msg.TokenUsage = extractTokenUsage(m.ResponseMeta.Usage)
+        }
+    }
+    // ...
+}
+```
+
+### 2.4 Event 增强
 
 ```go
 // pkg/turn-agent/event.go 修改
@@ -344,7 +423,7 @@ cfg.Callbacks = []callbacks.Handler{
 | `event.go` | `Event` 新增 `TokenUsage *TokenUsage` 字段 |
 | `agent.go` | `consumeStream` 提取 token usage 填充到 Event |
 | `agent.go` | `dispatchEvents` 提取 token usage（非流式路径） |
-| `message.go` | 无需修改（pkg 级 Message 不携带 token，通过 Event 传递） |
+| `message.go` | `Message` 新增 `TokenUsage *TokenUsage` 字段；`toEinoMessage` / `fromEinoMessage` 映射更新 |
 | `config.go` | 无需修改 |
 
 ### 3.2 internal/agent（应用层）
