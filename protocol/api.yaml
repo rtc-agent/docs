@@ -74,11 +74,14 @@ components:
   schemas:
     OAuth2AuthorizeResponse:
       type: object
+      description: OAuth2 授权重定向信息
       properties:
         redirect_url:
           type: string
+          description: OAuth2 Provider 授权页面的完整 URL
         state:
           type: string
+          description: CSRF 防护随机状态参数，回调时需原样传回
       required: [ redirect_url, state ]
 
     OAuth2Error:
@@ -87,62 +90,72 @@ components:
       properties:
         error:
           type: string
-          description: invalid_request / invalid_client / invalid_grant / server_error
+          description: |
+            错误码：
+            - `invalid_request`: 请求参数无效
+            - `invalid_client`: 客户端认证失败
+            - `invalid_grant`: 授权码无效或已过期
+            - `server_error`: 服务器内部错误
         error_description:
           type: string
+          description: 人类可读的错误描述，用于调试
       required: [ error ]
 
     OAuth2TokenExchangeRequest:
       type: object
+      description: OAuth2 授权码交换请求，使用 Authorization Code 换取 access_token
       properties:
         code:
           type: string
-          description: OAuth2 授权码
+          description: OAuth2 授权码，由授权回调 URL 的 query 参数携带
         redirect_uri:
           type: string
-          description: 重定向 URI
+          description: 必须与授权请求中的 redirect_uri 完全一致
         state:
           type: string
-          description: CSRF 防护 state
+          description: CSRF 防护 state，必须与授权请求中的 state 一致且仅使用一次
         device_id:
           type: string
-          description: 前端生成的设备 UUID
+          description: 前端生成的设备 UUID，用于标识客户端设备
         device_name:
           type: string
-          description: 设备名称（如 "Chrome on Mac"）
+          description: 设备显示名称，如 "Chrome on Mac"
         user_agent:
           type: string
-          description: User-Agent 字符串
+          description: 客户端 User-Agent 字符串，用于设备识别
       required: [ code, redirect_uri, state, device_id ]
 
     OAuth2TokenExchangeResponse:
       type: object
+      description: OAuth2 令牌交换成功响应
       properties:
         access_token:
           type: string
-          description: JWT access token
+          description: JWT access token，有效期由 expires_in 指定
         refresh_token:
           type: string
-          description: refresh token
+          description: refresh token，用于在 access_token 过期后换取新 token
         expires_in:
           type: integer
           format: int64
-          description: access token 过期时间（秒）
+          description: access token 过期时间（秒），通常为 900（15 分钟）
         user_id:
           type: string
-          description: 用户 ID
+          description: 已认证用户的唯一 ID
       required: [ access_token, refresh_token, expires_in, user_id ]
 
     OAuth2TokenRefreshRequest:
       type: object
+      description: OAuth2 令牌刷新请求，使用 refresh_token 换取新的 access_token
       properties:
         refresh_token:
           type: string
-          description: refresh token
+          description: refresh token，使用一次后即失效（rotation）
       required: [ refresh_token ]
 
     OAuth2TokenRefreshResponse:
       type: object
+      description: OAuth2 令牌刷新成功响应
       properties:
         access_token:
           type: string
@@ -150,7 +163,7 @@ components:
         expires_in:
           type: integer
           format: int64
-          description: access token 过期时间（秒）
+          description: 新 access token 过期时间（秒）
       required: [ access_token, expires_in ]
 
     # ============================================================
@@ -344,12 +357,19 @@ components:
 
     ContentData:
       type: object
-      description: 消息内容数据，Type 标识 Data 的具体结构，前端根据 Type 决定如何渲染
+      description: |
+        消息内容数据，Type 标识 Data 的具体结构，前端根据 Type 决定如何渲染。
+        - `markdown`: Data 为字符串
+        - `summary`: Data 为 SummaryItem[]
+        - `text`: Data 为字符串
+        - `thinking`: Data 为字符串
+        - `toolcall_input`: Data 为 ToolCall 对象
+        - `toolcall_output`: Data 为 ToolCall 对象
       properties:
         type:
           $ref: '#/components/schemas/ContentType'
         data:
-          description: 具体内容（结构由 type 决定）
+          description: 具体内容（结构由 type 决定），类型取决于 type 字段
       required: [ type, data ]
 
     ToolCall:
