@@ -49,12 +49,15 @@ if m.ResponseMeta != nil {
 
 ### 2.1 核心思路
 
-Token 数据需要沿着内容流**一起传递**（解决 message 关联），同时提供独立回调用于可观测性（解决 metrics 上报）。
+Token 数据通过两条独立通道传递，职责分离：
 
-**两条数据通道**：
+- **Event.TokenUsage** — 跟着内容流走，在 final chunk / message event 时到达 app，用于 **message 持久化**（关联到具体 message 记录）
+- **eino Callback Handler** — 注册到 `Config.Callbacks`，在 `OnEnd` 时从 `model.CallbackOutput` 获取完整信息（含 model name、token usage），用于 **metrics 上报和日志**（不需要 message 关联）
 
-- **Event.TokenUsage** — 跟着内容走，在 final chunk / message event 时到达 app，用于 message 持久化
-- **Config.OnLLMComplete** — 独立回调，用于 metrics、日志等不需要 message 关联的场景
+**为什么不用同一个机制？**
+
+- Event.TokenUsage 解决的是"token 数据属于哪条 message"的关联问题——eino callback 不知道 sessionID/turnID/messageID，无法做这件事
+- eino callback 解决的是"全局 LLM 可观测性"——它能拿到 `model.CallbackOutput.Config.Model`（model name）、覆盖所有 ChatModel 调用（包括 summarize），且不需要 turn-agent 引入新的 Config 字段
 
 ### 2.2 类型定义
 
@@ -71,6 +74,9 @@ type TokenUsage struct {
     TotalTokens int
     // CachedTokens 是 prompt cache 命中的 token 数。
     CachedTokens int
+    // ReasoningTokens 是 reasoning/thinking 消耗的 token 数
+    // （来自 CompletionTokensDetails.ReasoningTokens）。
+    ReasoningTokens int
 }
 ```
 
@@ -92,66 +98,101 @@ type Event struct {
 }
 ```
 
-### 2.4 Config.OnLLMComplete 回调
+### 2.4 Eino Callback Handler（全局 LLM 可观测性）
+
+不再在 turn-agent Config 中新增回调字段。改为在 app 层注册一个 eino `callbacks.Handler` 到 `Config.Callbacks`，利用 eino 已有的 callback 注入机制。
 
 ```go
-// pkg/turn-agent/config.go 新增
+// internal/agent/token_callback.go 新增
 
-// LLMCompleteInfo 携带一次 ChatModel 调用完成的元数据。
-type LLMCompleteInfo struct {
-    // SessionID 是此调用所属的 session。
-    SessionID string
-    // TurnID 是此调用所属的 turn。
-    TurnID string
-    // AgentName 是产生此调用的 agent 名称。
-    AgentName string
-    // TokenUsage 是此调用的 token 统计。
-    TokenUsage *TokenUsage
-    // FinishReason 是调用完成原因（"stop", "tool_calls", "length" 等）。
-    FinishReason string
-    // IsStreaming 表示此调用是否使用了流式模式。
-    IsStreaming bool
-    //
-    // 注意：model name 不在此 struct 中。app 层应从自身配置
-    // （如 h.deps.LLMConfig）获取 model identifier 用于 metrics label。
-    // 如果未来需要支持多 model 场景，再扩展此 struct。
-}
+// newTokenUsageCallbackHandler 创建一个 eino callbacks.Handler，
+// 在每次 ChatModel 调用完成时上报 metrics 和日志。
+//
+// 此 handler 覆盖所有 ChatModel 调用，包括：
+//   - agent 的主循环调用（流式/非流式）
+//   - summarizeMessages 的压缩调用
+//   - 未来可能新增的其他 ChatModel 调用
+//
+// 通过 ucb.HandlerHelper 过滤，仅在 ChatModel 组件上触发。
+func newTokenUsageCallbackHandler(metrics turnagent.Metrics, logger turnagent.Logger) callbacks.Handler {
+    return ucb.NewHandlerHelper().
+        ChatModel(&ucb.ModelCallbackHandler{
+            OnEnd: func(ctx context.Context, info *callbacks.RunInfo, output *model.CallbackOutput) context.Context {
+                // 提取 sessionID/turnID（由 turn-agent 在 GenInput 时注入到 context）
+                sessionID := getSessionIDFromContext(ctx)
+                turnID := getTurnIDFromContext(ctx)
 
-// Config 新增字段
-type Config struct {
-    // ... 现有字段 ...
+                var inputTokens, outputTokens, totalTokens int
+                if output.TokenUsage != nil {
+                    inputTokens = output.TokenUsage.PromptTokens
+                    outputTokens = output.TokenUsage.CompletionTokens
+                    totalTokens = output.TokenUsage.TotalTokens
+                }
 
-    // OnLLMComplete 在每次 ChatModel 调用完成后触发。
-    // 用于不需要 message 关联的可观测性场景：metrics 上报、结构化日志等。
-    // 可选 — 为 nil 时不触发。
-    //
-    // 注意：如果需要将 token 数据写入具体 message 记录，
-    // 应从 Event.TokenUsage 获取，而非此回调。
-    OnLLMComplete func(ctx context.Context, info *LLMCompleteInfo) error
+                // model name 从 eino callback 直接获取（比 OnLLMComplete 方案更准确）
+                modelName := ""
+                if output.Config != nil {
+                    modelName = output.Config.Model
+                }
+
+                // Metrics 上报
+                if metrics != nil {
+                    metrics.RecordLLMCall(ctx, turnagent.LLMCallMetricsAttrs{
+                        SessionID:    sessionID,
+                        TurnID:       turnID,
+                        Model:        modelName,
+                        InputTokens:  inputTokens,
+                        OutputTokens: outputTokens,
+                        TotalTokens:  totalTokens,
+                    })
+                }
+
+                // 结构化日志
+                if logger != nil {
+                    logger.Info(ctx, "llm.complete", map[string]any{
+                        "session_id":     sessionID,
+                        "turn_id":        turnID,
+                        "model":          modelName,
+                        "input_tokens":   inputTokens,
+                        "output_tokens":  outputTokens,
+                        "total_tokens":   totalTokens,
+                        "finish_reason":  output.Message.ResponseMeta.FinishReason,
+                    })
+                }
+
+                return ctx
+            },
+        }).
+        Handler()
 }
 ```
 
-### 2.5 turn-agent 内部提取
+**注册方式**（在 `internal/agent/agent.go` 构建 turnagent.Config 时）：
+
+```go
+cfg.Callbacks = []callbacks.Handler{
+    newTokenUsageCallbackHandler(h.metrics, h.logger),
+}
+```
+
+**优势**：
+
+- 不需要 turn-agent 新增 Config 字段，减少 API 表面积
+- 自动覆盖所有 ChatModel 调用（包括 summarize）
+- 从 `model.CallbackOutput.Config.Model` 获取准确的 model name
+- 与 eino 生态兼容（cozeloop、langfuse 等 handler 可以并存）
+
+### 2.5 turn-agent 内部提取（Event.TokenUsage）
+
+turn-agent pkg 层只负责从 `schema.Message.ResponseMeta.Usage` 提取 token 数据并填充到 `Event.TokenUsage`，不再触发任何回调。
 
 ```go
 // pkg/turn-agent/agent.go — consumeStream 修改
 
-// 在 final chunk 时提取 token usage:
-if res.msg.ResponseMeta != nil {
-    finishReason = res.msg.ResponseMeta.FinishReason
-}
-
+// 在每个 chunk 上提取 token usage（仅 final chunk 有值，中间 chunk 为 nil）：
 var tokenUsage *TokenUsage
 if res.msg.ResponseMeta != nil && res.msg.ResponseMeta.Usage != nil {
-    u := res.msg.ResponseMeta.Usage
-    tokenUsage = &TokenUsage{
-        InputTokens:  u.PromptTokens,
-        OutputTokens: u.CompletionTokens,
-        TotalTokens:  u.TotalTokens,
-    }
-    if u.PromptTokenDetails.CachedTokens > 0 {
-        tokenUsage.CachedTokens = u.PromptTokenDetails.CachedTokens
-    }
+    tokenUsage = extractTokenUsage(res.msg.ResponseMeta.Usage)
 }
 
 // PublishEvent 时携带 tokenUsage:
@@ -159,20 +200,8 @@ if err := a.cfg.PublishEvent(ctx, sessionID, turnID, &Event{
     Kind:             EventKindStreamChunk,
     // ... 现有字段 ...
     FinishReason:     finishReason,
-    TokenUsage:       tokenUsage,  // 仅 final chunk 有值
+    TokenUsage:       tokenUsage,  // 仅 final chunk 有值，其他 chunk 为 nil
 }); err != nil { ... }
-
-// OnLLMComplete 触发:
-if a.cfg.OnLLMComplete != nil && tokenUsage != nil {
-    _ = a.cfg.OnLLMComplete(ctx, &LLMCompleteInfo{
-        SessionID:    sessionID,
-        TurnID:       turnID,
-        AgentName:    agentName,
-        TokenUsage:   tokenUsage,
-        FinishReason: finishReason,
-        IsStreaming:  true,
-    })
-}
 ```
 
 ```go
@@ -180,15 +209,7 @@ if a.cfg.OnLLMComplete != nil && tokenUsage != nil {
 
 var tokenUsage *TokenUsage
 if mv.Message != nil && mv.Message.ResponseMeta != nil && mv.Message.ResponseMeta.Usage != nil {
-    u := mv.Message.ResponseMeta.Usage
-    tokenUsage = &TokenUsage{
-        InputTokens:  u.PromptTokens,
-        OutputTokens: u.CompletionTokens,
-        TotalTokens:  u.TotalTokens,
-    }
-    if u.PromptTokenDetails.CachedTokens > 0 {
-        tokenUsage.CachedTokens = u.PromptTokenDetails.CachedTokens
-    }
+    tokenUsage = extractTokenUsage(mv.Message.ResponseMeta.Usage)
 }
 
 return a.cfg.PublishEvent(ctx, sessionID, turnID, &Event{
@@ -197,6 +218,29 @@ return a.cfg.PublishEvent(ctx, sessionID, turnID, &Event{
     Message:    fromEinoMessage(mv.Message),
     TokenUsage: tokenUsage,
 })
+```
+
+```go
+// pkg/turn-agent/helper.go 或 types.go — 共享的提取函数
+
+// extractTokenUsage 从 eino 的 schema.TokenUsage 转换为 pkg 级的 TokenUsage。
+func extractTokenUsage(u *schema.TokenUsage) *TokenUsage {
+    if u == nil {
+        return nil
+    }
+    t := &TokenUsage{
+        InputTokens:  u.PromptTokens,
+        OutputTokens: u.CompletionTokens,
+        TotalTokens:  u.TotalTokens,
+    }
+    if u.PromptTokenDetails.CachedTokens > 0 {
+        t.CachedTokens = u.PromptTokenDetails.CachedTokens
+    }
+    if u.CompletionTokensDetails.ReasoningTokens > 0 {
+        t.ReasoningTokens = u.CompletionTokensDetails.ReasoningTokens
+    }
+    return t
+}
 ```
 
 ### 2.6 Message 持久化层变更
@@ -209,9 +253,11 @@ type Message struct {
     // ... 现有字段 ...
     
     // Token 用量（仅 assistant 消息有值）
-    InputTokens  *int `json:"input_tokens,omitempty"`
-    OutputTokens *int `json:"output_tokens,omitempty"`
-    TotalTokens  *int `json:"total_tokens,omitempty"`
+    InputTokens     *int `json:"input_tokens,omitempty"`
+    OutputTokens    *int `json:"output_tokens,omitempty"`
+    TotalTokens     *int `json:"total_tokens,omitempty"`
+    CachedTokens    *int `json:"cached_tokens,omitempty"`
+    ReasoningTokens *int `json:"reasoning_tokens,omitempty"`
 }
 ```
 
@@ -228,15 +274,17 @@ type MessageToCreate struct {
 
 // pkg 级 TokenUsage 类型（或直接使用 turnagent.TokenUsage）
 type TokenUsage struct {
-    InputTokens  int
-    OutputTokens int
-    TotalTokens  int
+    InputTokens     int
+    OutputTokens    int
+    TotalTokens     int
+    CachedTokens    int
+    ReasoningTokens int
 }
 ```
 
 #### protocol.Message（API 模型）
 
-需要同步更新 OpenAPI spec 并重新生成。新增 `input_tokens`, `output_tokens`, `total_tokens` 可选字段。
+需要同步更新 OpenAPI spec 并重新生成。新增 `input_tokens`, `output_tokens`, `total_tokens`, `cached_tokens`, `reasoning_tokens` 可选字段。
 
 ### 2.7 Application 层使用
 
@@ -269,40 +317,20 @@ messagesToCreate = append(messagesToCreate, primitives.MessageToCreate{
 })
 ```
 
-#### OnLLMComplete 注册（agent.go）
+#### Eino Callback 注册（agent.go）
 
 ```go
 // internal/agent/agent.go — 构建 turnagent.Config 时
-cfg.OnLLMComplete = func(ctx context.Context, info *turnagent.LLMCompleteInfo) error {
-    h.metrics.RecordLLMCall(ctx, turnagent.LLMCallMetricsAttrs{
-        SessionID:    info.SessionID,
-        TurnID:       info.TurnID,
-        Model:        info.AgentName,  // 或从 info 中获取实际 model name
-        InputTokens:  info.TokenUsage.InputTokens,
-        OutputTokens: info.TokenUsage.OutputTokens,
-        TotalTokens:  info.TokenUsage.TotalTokens,
-    })
-    h.logIfEnabled(ctx, "llm.complete", map[string]any{
-        "session_id":    info.SessionID,
-        "turn_id":       info.TurnID,
-        "input_tokens":  info.TokenUsage.InputTokens,
-        "output_tokens": info.TokenUsage.OutputTokens,
-        "total_tokens":  info.TokenUsage.TotalTokens,
-        "finish_reason": info.FinishReason,
-    })
-    return nil
+cfg.Callbacks = []callbacks.Handler{
+    newTokenUsageCallbackHandler(h.metrics, h.logger),
 }
 ```
 
-### 2.8 summarizeMessages 的 token 统计
+### 2.7 summarizeMessages 的 token 统计
 
-`summarizeMessages` 直接调用 `h.deps.ChatModel.Generate()`，不经过 turn-agent 的 event 流。它的 token 统计通过 **eino callback** 自动覆盖：
+`summarizeMessages` 直接调用 `h.deps.ChatModel.Generate()`，不经过 turn-agent 的 event 流。但由于 eino callback handler 已注册到 `Config.Callbacks`，而 turn-agent 在 `GenInput` 时已通过 `callbacks.InitCallbacks` 将其注入到 context 中，因此 summarize 调用会**自动触发** eino callback，token 也会被统计和上报。
 
-1. turn-agent 在 `GenInput` 时已通过 `callbacks.InitCallbacks` 注入 eino callbacks 到 context
-2. ChatModel.Generate() 会自动触发注册的 callback handler
-3. 如果注册了 token 统计的 callback handler，summarize 调用的 token 也会被统计
-
-**可选增强**：注册一个 eino `callbacks.Handler` 到 `Config.Callbacks`，在 `OnEnd` 时调用 `Metrics.RecordLLMCall()`，覆盖所有 ChatModel 调用（包括 summarize）。
+无需额外处理。
 
 ---
 
@@ -312,12 +340,12 @@ cfg.OnLLMComplete = func(ctx context.Context, info *turnagent.LLMCompleteInfo) e
 
 | 文件 | 变更 |
 | --- | --- |
-| `types.go` | 新增 `TokenUsage` struct |
+| `types.go` | 新增 `TokenUsage` struct + `extractTokenUsage` 函数 |
 | `event.go` | `Event` 新增 `TokenUsage *TokenUsage` 字段 |
-| `config.go` | 新增 `LLMCompleteInfo` struct + `Config.OnLLMComplete` 回调 |
-| `agent.go` | `consumeStream` 提取 token usage + 触发 OnLLMComplete |
+| `agent.go` | `consumeStream` 提取 token usage 填充到 Event |
 | `agent.go` | `dispatchEvents` 提取 token usage（非流式路径） |
 | `message.go` | 无需修改（pkg 级 Message 不携带 token，通过 Event 传递） |
+| `config.go` | 无需修改 |
 
 ### 3.2 internal/agent（应用层）
 
@@ -326,21 +354,22 @@ cfg.OnLLMComplete = func(ctx context.Context, info *turnagent.LLMCompleteInfo) e
 | `data_handler.go` | `handleStreamChunk` finalize 路径写入 token |
 | `data_handler.go` | `handleMessage` 创建时携带 token |
 | `data_message_helper.go` | `appendStreamChunk` finalize 路径支持 token |
-| `agent.go` | 注册 `OnLLMComplete` 回调 |
+| `agent.go` | 注册 eino callback handler 到 `Config.Callbacks` |
+| `token_callback.go` | **新增** — eino callback handler 实现（metrics + 日志） |
 | `summarize.go` | 无需修改（eino callback 自动覆盖） |
 
 ### 3.3 数据模型层
 
 | 文件 | 变更 |
 | --- | --- |
-| `internal/model/message.go` | 新增 `InputTokens`, `OutputTokens`, `TotalTokens` 字段 |
+| `internal/model/message.go` | 新增 `InputTokens`, `OutputTokens`, `TotalTokens`, `CachedTokens`, `ReasoningTokens` 字段 |
 | `internal/repo/message_repo.go` | `MessageRepo` 新增 `UpdateTokenUsage` 方法 |
 | `internal/usecase/primitives/message.go` | `MessageToCreate` 新增 `TokenUsage` 字段；`CreateMessage` / `BatchCreateMessages` 传递 |
 | `pkg/protocol/models.gen.go` | 重新生成（OpenAPI spec 更新） |
 
 ### 3.4 DB Migration
 
-新增 migration：在 `messages` 表添加 `input_tokens`, `output_tokens`, `total_tokens` 列（可选 int，默认 NULL）。
+新增 migration：在 `messages` 表添加 `input_tokens`, `output_tokens`, `total_tokens`, `cached_tokens`, `reasoning_tokens` 列（可选 int，默认 NULL）。
 
 ---
 
@@ -349,7 +378,9 @@ cfg.OnLLMComplete = func(ctx context.Context, info *turnagent.LLMCompleteInfo) e
 ### 4.1 Token 数据缺失
 
 - 部分 LLM provider 可能不返回 token usage（`ResponseMeta.Usage == nil`）
+- 流式场景下，部分 provider 需要显式设置 `stream_options.include_usage` 才会在 final chunk 中返回 usage
 - 处理：`Event.TokenUsage` 为 nil，app 层跳过写入，DB 字段保持 NULL
+- eino callback 同样处理 nil（`output.TokenUsage == nil` 时跳过 metrics 上报）
 
 ### 4.2 Streaming 中的中间 chunk
 
@@ -369,7 +400,7 @@ cfg.OnLLMComplete = func(ctx context.Context, info *turnagent.LLMCompleteInfo) e
 ### 4.5 错误场景
 
 - ChatModel 调用失败时不返回 token usage
-- 处理：`OnLLMComplete` 不触发（或触发时 `TokenUsage` 为 nil）
+- 处理：eino callback 的 `OnError` 触发（可记录错误），`OnEnd` 不触发或 `TokenUsage` 为 nil
 
 ---
 
@@ -377,7 +408,6 @@ cfg.OnLLMComplete = func(ctx context.Context, info *turnagent.LLMCompleteInfo) e
 
 - **Cost 计算**：本次不引入 model pricing 表和费用计算
 - **前端展示**：protocol.Message 会新增 token 字段，但前端是否展示不在本次范围
-- **Eino Callback Handler 实现**：Config.Callbacks 的 handler 注册是可选增强，不在核心范围内
 
 ---
 
