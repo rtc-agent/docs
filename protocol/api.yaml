@@ -353,6 +353,21 @@ components:
           type: string
           format: date-time
           description: 软删除时间
+        input_tokens:
+          type: integer
+          description: 输入 token 数（仅 assistant 消息）
+        output_tokens:
+          type: integer
+          description: 输出 token 数（仅 assistant 消息）
+        total_tokens:
+          type: integer
+          description: 总 token 数（仅 assistant 消息）
+        cached_tokens:
+          type: integer
+          description: 缓存命中 token 数
+        reasoning_tokens:
+          type: integer
+          description: 推理 token 数
       required: [ id, session_id, global_offset, role, streaming_status, creator_kind, creator_ref_id, created_at, updated_at ]
 
     ContentData:
