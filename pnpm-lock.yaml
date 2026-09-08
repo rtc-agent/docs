@@ -14,6 +14,9 @@ importers:
       '@astrojs/starlight':
         specifier: ^0.42.0
         version: 0.42.0(@astrojs/markdown-remark@7.3.0)(astro@7.3.1(@astrojs/markdown-remark@7.3.0)(@emnapi/core@1.11.1)(@emnapi/runtime@1.11.3)(@types/node@24.13.3))
+      '@pasqal-io/starlight-client-mermaid':
+        specifier: ^0.1.0
+        version: 0.1.0(@astrojs/markdown-remark@7.3.0)(@astrojs/starlight@0.42.0(@astrojs/markdown-remark@7.3.0)(astro@7.3.1(@astrojs/markdown-remark@7.3.0)(@emnapi/core@1.11.1)(@emnapi/runtime@1.11.3)(@types/node@24.13.3)))
       astro:
         specifier: ^7.2.10
         version: 7.3.1(@astrojs/markdown-remark@7.3.0)(@emnapi/core@1.11.1)(@emnapi/runtime@1.11.3)(@types/node@24.13.3)
@@ -629,6 +632,13 @@ packages:
     resolution: {integrity: sha512-Fa2Iyw7kaDRzGMfNYNUXNW2zbL5FQVDgSOcbDHdzBrDEdpqOqg8TcZ68F22ol6NJ9IGzvUdmeyZypLW5dyhqsg==}
     cpu: [x64]
     os: [win32]
+
+  '@pasqal-io/starlight-client-mermaid@0.1.0':
+    resolution: {integrity: sha512-ocVamqp4wvR0yATyi0G0s+UVuIn/4AIubBlAcRPhQwICngTq2y1SaK38u99NS+7ZCFqetz5FeX3hKeCwkh4yHw==}
+    engines: {node: ^18.17.1 || ^20.3.0 || >=21.0.0}
+    peerDependencies:
+      '@astrojs/markdown-remark': ^6.0.2
+      '@astrojs/starlight': '>=0.31'
 
   '@rolldown/binding-android-arm-eabi@1.2.7':
     resolution: {integrity: sha512-EypzgnYCwyVY4NDHKzGmNJT5b+XaQEBniHxsMdeIQLB/tcCzZnhqrzHpZFbX9iaxx+5RiB8caATBtfvZP7zVxQ==}
@@ -2887,6 +2897,13 @@ snapshots:
 
   '@pagefind/windows-x64@1.5.2':
     optional: true
+
+  '@pasqal-io/starlight-client-mermaid@0.1.0(@astrojs/markdown-remark@7.3.0)(@astrojs/starlight@0.42.0(@astrojs/markdown-remark@7.3.0)(astro@7.3.1(@astrojs/markdown-remark@7.3.0)(@emnapi/core@1.11.1)(@emnapi/runtime@1.11.3)(@types/node@24.13.3)))':
+    dependencies:
+      '@astrojs/markdown-remark': 7.3.0
+      '@astrojs/starlight': 0.42.0(@astrojs/markdown-remark@7.3.0)(astro@7.3.1(@astrojs/markdown-remark@7.3.0)(@emnapi/core@1.11.1)(@emnapi/runtime@1.11.3)(@types/node@24.13.3))
+      mermaid: 11.17.2
+      unist-util-visit: 5.1.0
 
   '@rolldown/binding-android-arm-eabi@1.2.7':
     optional: true
