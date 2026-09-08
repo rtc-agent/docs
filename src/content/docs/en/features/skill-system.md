@@ -61,30 +61,28 @@ Each function consists of the following fields:
 |:-----:|------|-------------|
 | `name` | string | Function name |
 | `description` | string | Function description, included in auto-generated documentation |
-| `parameters` | object | Parameter definition (**OpenAPI Schema** format) |
+| `parameters` | ParameterDef[] | Parameter definition array (**ParameterDef[]** format) |
 | `returns` | object | Return value definition |
 | `handler` | function | Execution function (supports async) |
 | `hooks` | object | UI hooks (see [Hook System](#hook-system)) |
 
-`parameters` uses OpenAPI Schema format to describe parameters, enabling the AI to generate correct call code:
+`parameters` uses **ParameterDef[]** array format to describe parameters, enabling the AI to generate correct call code:
 
 ```ts
 {
   name: 'createOrder',
   description: 'Create a new order',
-  parameters: {
-    type: 'object',
-    properties: {
-      productId: { type: 'string', description: 'Product ID' },
-      quantity:  { type: 'number', description: 'Quantity' }
-    },
-    required: ['productId']
-  },
+  parameters: [
+    { name: 'productId', schema: { type: 'string', description: 'Product ID' }, required: true },
+    { name: 'quantity', schema: { type: 'number', description: 'Quantity' }, required: false }
+  ],
   handler: async ({ productId, quantity }) => {
     return await api.createOrder(productId, quantity ?? 1);
   }
 }
 ```
+
+> 💡 Each parameter consists of `name` (parameter name), `schema` (parameter definition in OpenAPI Schema format), and `required` (whether it is required).
 
 ## Function Groups
 

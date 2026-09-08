@@ -26,7 +26,7 @@ flowchart LR
         CTX["🗜️ Context Manager"]
         MEM["🧠 Memory System"]
         AGENT["🤖 Agent Engine"]
-        WS2["📋 Workspace"]
+        REG["📋 Function Registry"]
     end
 
     LLM["🧠 LLM Provider"]
@@ -35,7 +35,7 @@ flowchart LR
     GW --> AUTH --> CTX
     CTX -.->|Inject memory| MEM
     CTX --> AGENT
-    AGENT -.->|Load Functions| WS2
+    AGENT -.->|Query Function definitions| REG
     AGENT -->|Inference request| LLM
     LLM -->|tool_calls| AGENT
     AGENT -->|script call| GW
@@ -56,27 +56,18 @@ flowchart LR
     style SCRIPT fill:#ffeb3b,stroke:#f9a825,stroke-width:2px,color:#000
 ```
 
+> **Function Registry**: Function metadata (name, parameter Schema, description) registered by developers via `agentConfig` or `defineRegistry`, stored as Markdown files in the `/functions/` directory of the virtual file system. The Agent engine discovers available business capabilities by reading these files. See [Skill System](/docs/en/features/skill-system).
+
 ## Core Design Principles
 
-```mermaid
-flowchart TD
-    subgraph PRINCIPLES["🏗️ Design Principles"]
-        direction TB
-        P1["🔐 Privacy First<br/>Data never leaves the browser"]
-        P2["🧩 File System as Interface<br/>LLMs naturally understand file operations"]
-        P3["⚡ Real-Time Sync<br/>Bidirectional WebSocket push"]
-        P4["♻️ Resilient Recovery<br/>Checkpoints ensure reliability"]
-    end
-
-    style PRINCIPLES fill:#e8f5e9,stroke:#388e3c,stroke-width:2px
-```
-
 | Principle | Implementation | User Value |
-|------|----------|----------|
+| --- | --- | --- |
 | 🔐 **Privacy First** | File operations execute on the frontend; data stored in IndexedDB | Sensitive data is never uploaded to the server |
 | 🧩 **File System as Interface** | AI operates business logic via `ls`/`read`/`write`/`grep` | Developers only need to maintain Function documentation |
 | ⚡ **Real-Time Sync** | Centrifuge dual-channel push | Users can see every step the AI takes |
 | ♻️ **Resilient Recovery** | Redis Checkpoint + 100% delivery guarantee | Network disconnections and restarts are seamless |
+
+> **Why "File System as Interface"?** LLMs naturally understand file operations (`ls`, `cat`, `grep`) — no need to learn custom APIs. Developers just write a Markdown document for each Function, and the Agent can automatically discover and compose calls — lower integration cost and higher observability compared to traditional RPC registration.
 
 ## Request Processing Flow
 
@@ -93,7 +84,7 @@ sequenceDiagram
     User->>FE: Send message
     FE->>GW: WebSocket RPC
     GW->>CTX: Build context
-    CTX->>MEM: Inject user memory
+    CTX->>MEM: Retrieve user memory
     MEM-->>CTX: Return memory fragments
     CTX->>AGENT: Assemble prompt
     AGENT->>LLM: Inference request
@@ -101,12 +92,13 @@ sequenceDiagram
 
     alt Tool call needed
         LLM-->>AGENT: tool_call
-        AGENT-->>GW: Push RTC
+        AGENT-->>GW: Push RTC event
         GW-->>FE: WebSocket event
-        FE->>FE: Execute tool on frontend
+        FE->>FE: Confirm → Execute tool
+        Note over FE: script calls Function<br/>or basic tools operate on VFS
         FE-->>GW: Submit result
-        GW-->>AGENT: Resume reasoning
-        AGENT->>LLM: Continue reasoning (with tool result)
+        GW-->>AGENT: Restore Checkpoint, resume reasoning
+        AGENT->>LLM: Continue reasoning with tool result
     end
 
     AGENT-->>GW: Streaming output
@@ -117,7 +109,7 @@ sequenceDiagram
 ## Tech Stack
 
 | Layer | Technology | Purpose |
-|:--:|:----:|------|
+| --- | --- | --- |
 | **Backend** | Go 1.27 | Main service language |
 | **Database** | PostgreSQL + GORM | Persistent storage |
 | **Cache** | Redis | Checkpoint, streaming buffer, Pub/Sub |
@@ -143,7 +135,7 @@ flowchart LR
 
 ## Next Steps
 
-- [Frontend Architecture](/docs/en/architecture/frontend/) — Web Components system, state management, window system
-- [Backend Architecture](/docs/en/architecture/backend/) — Go service layers, Agent engine, context management
-- [Remote Tool Calling](/docs/concepts/rtc/) — Learn how the core protocol works
-- [Protocol Overview](/docs/en/protocol/) — Full definition of the communication protocol
+- [Frontend Architecture](/docs/en/architecture/frontend) — Web Components system, state management, window system
+- [Backend Architecture](/docs/en/architecture/backend) — Go service layers, Agent engine, context management
+- [Remote Tool Calling](/docs/en/concepts/rtc) — Learn how the core protocol works
+- [Protocol Overview](/docs/en/protocol) — Full definition of the communication protocol

@@ -1,0 +1,133 @@
+---
+title: Mermaid Live Editor
+description: 给 Mermaid 官方在线编辑器接入 rtc-agent，让 AI 通过自然语言直接画图、校验、修错。
+---
+
+import { Badge } from '@astrojs/starlight/components';
+
+<Badge text="社区案例 #1" />
+
+[Mermaid Live Editor](https://mermaid.live) 是 Mermaid 官方的在线图表编辑器，支持流程图、时序图、类图等十余种图表语法。我们通过 **不到 30 行胶水代码** 接入了 rtc-agent，让 AI 能够：
+
+- 🗣️ 根据自然语言描述生成 Mermaid 代码
+- ✍️ 自动写入编辑器并触发实时预览
+- ✅ 主动调用语法校验，发现错误后自修复
+- 🎨 全程无需用户手写一行代码
+
+## 在线演示
+
+<video controls autoplay muted loop playsinline style="width:100%; border-radius:8px; box-shadow:0 2px 12px rgba(0,0,0,0.12)">
+  <source src="/docs/showcase/mermaid-live-editor-demo.mp4" type="video/mp4" />
+</video>
+
+> 上方视频展示了用户用自然语言描述需求 → AI 自动写代码 → 校验 → 渲染的完整过程。
+
+## 接入方式
+
+整个接入只改了 **2 个核心文件**，对上游源码 **零侵入**：
+
+| 文件 | 改动 | 行数 |
+| --- | --- | --- |
+| `src/routes/+layout.svelte` | 加载 rtc-agent、挂载组件、配置 agentConfig | +98 |
+| `src/lib/util/editorAPI.ts` | 暴露 `window.editorAPI` 程序化接口 | +105（新增） |
+
+### 第一步：暴露宿主状态 API
+
+rtc-agent 的核心设计是 **"Agent 不碰你的源码，只通过声明式 API 操作状态"**。因此接入的第一步是把应用的关键状态暴露到 `window` 上：
+
+```ts
+// src/lib/util/editorAPI.ts
+export interface EditorAPI {
+  getCode(): string;              // 获取当前编辑器代码
+  getDiagramType(): string;       // 获取图表类型（flowchart/sequence/...）
+  setCode(code: string): void;    // 替换编辑器内容并触发校验
+  validate(): ValidateResult;     // 返回校验结果（含错误位置）
+  waitForReady(): Promise<void>;  // 等待异步校验完成
+}
+
+// 挂到 window，让 rtc-agent 的工具能调用
+window.editorAPI = { getCode, setCode, validate, getDiagramType, waitForReady };
+```
+
+这个 API 的设计原则：
+- **读写对称**：有 `getCode` 就有 `setCode`，Agent 能读也能写
+- **校验闭环**：写完代码后 Agent 会主动调 `validate()`，发现错误自修复
+- **异步感知**：`waitForReady()` 让 Agent 知道校验何时完成，避免读到过期结果
+
+### 第二步：声明 Agent 身份与工具
+
+在 layout 里加载 rtc-agent 并配置 `agentConfig`：
+
+```svelte
+<!-- src/routes/+layout.svelte -->
+<script type="module" src="/rtc-agent/index.js"></script>
+
+<rtc-agent app-label="Mermaid AI" scenarios-url="/rtc-agent/scenarios/"></rtc-agent>
+
+<script>
+  onMount(() => {
+    const agent = document.querySelector('rtc-agent');
+
+    agent.addEventListener('rtc-agent-ready', () => {
+      agent.agentConfig = {
+        name: 'MermaidEditor',
+        persona: `你是一个 Mermaid 图表助手。帮用户通过自然语言创建和编辑图表。
+写完代码后务必调用 validate 检查语法，发现错误要主动修复。`,
+        groups: [{
+          name: 'editor',
+          functions: [
+            {
+              name: 'getCode',
+              description: '获取当前编辑器中的 Mermaid 代码',
+              handler: () => window.editorAPI.getCode(),
+            },
+            {
+              name: 'setCode',
+              description: '替换编辑器内容为新的 Mermaid 代码',
+              handler: (p) => { window.editorAPI.setCode(p.code); return { success: true }; },
+              parameters: [{ name: 'code', required: true, schema: { type: 'string' } }],
+            },
+            {
+              name: 'validate',
+              description: '校验当前代码，返回语法错误（如有）',
+              handler: () => window.editorAPI.validate(),
+            },
+            {
+              name: 'getDiagramType',
+              description: '获取当前图表类型',
+              handler: () => window.editorAPI.getDiagramType() ?? 'unknown',
+            },
+          ],
+        }],
+      };
+    }, { once: true });
+  });
+</script>
+```
+
+### 第三步：主题同步（可选）
+
+rtc-agent 支持亮色/暗色主题，可以通过属性实时同步：
+
+```ts
+// 监听宿主主题变化，同步到 rtc-agent
+$effect(() => {
+  document.querySelector('rtc-agent').theme = currentTheme; // 'light' | 'dark'
+});
+```
+
+## 接入清单
+
+除了上述两个核心文件，还新增了：
+
+| 文件 | 用途 |
+| --- | --- |
+| `src/rtc-agent.d.ts` | rtc-agent TypeScript 类型声明 |
+| `static/auth/callback.html` | OAuth 回调页 |
+| `static/rtc-agent/scenarios/` | 3 个预置场景模板 + manifest |
+
+整个接入 **不修改上游任何源码**，改动率 < 2%。rtc-agent 通过本地构建产物加载（生产环境可换为 CDN），3MB 的 bundle 不进仓库。
+
+## 源码仓库
+
+[rtc-agent/mermaid-live-editor](https://github.com/rtc-agent/mermaid-live-editor)（fork 自 [mermaid-js/mermaid-live-editor](https://github.com/mermaid-js/mermaid-live-editor)）

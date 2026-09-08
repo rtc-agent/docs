@@ -26,7 +26,7 @@ flowchart LR
         CTX["🗜️ 上下文管理"]
         MEM["🧠 记忆系统"]
         AGENT["🤖 Agent 引擎"]
-        WS2["📋 Workspace"]
+        REG["📋 Function 注册表"]
     end
 
     LLM["🧠 LLM Provider"]
@@ -35,7 +35,7 @@ flowchart LR
     GW --> AUTH --> CTX
     CTX -.->|注入记忆| MEM
     CTX --> AGENT
-    AGENT -.->|加载 Functions| WS2
+    AGENT -.->|查询 Function 定义| REG
     AGENT -->|推理请求| LLM
     LLM -->|tool_calls| AGENT
     AGENT -->|script 调用| GW
@@ -56,27 +56,18 @@ flowchart LR
     style SCRIPT fill:#ffeb3b,stroke:#f9a825,stroke-width:2px,color:#000
 ```
 
+> **Function 注册表**：开发者通过 `agentConfig` 或 `defineRegistry` 注册的 Function 元数据（名称、参数 Schema、描述），以 Markdown 文件形式存储在虚拟文件系统的 `/functions/` 目录中。Agent 引擎通过读取这些文件了解可用的业务能力。详见 [Skill 系统](/docs/features/skill-system)。
+
 ## 核心设计原则
 
-```mermaid
-flowchart TD
-    subgraph PRINCIPLES["🏗️ 设计原则"]
-        direction TB
-        P1["🔐 隐私优先<br/>数据不离开浏览器"]
-        P2["🧩 文件系统即接口<br/>LLM 天然理解文件操作"]
-        P3["⚡ 实时同步<br/>双向 WebSocket 推送"]
-        P4["♻️ 弹性恢复<br/>Checkpoint 保证可靠性"]
-    end
-
-    style PRINCIPLES fill:#e8f5e9,stroke:#388e3c,stroke-width:2px
-```
-
 | 原则 | 实现方式 | 用户价值 |
-|------|----------|----------|
+| --- | --- | --- |
 | 🔐 **隐私优先** | 文件操作在前端执行，数据存于 IndexedDB | 敏感数据不上传服务器 |
 | 🧩 **文件系统即接口** | AI 通过 `ls`/`read`/`write`/`grep` 操作业务 | 开发者只需维护 Function 文档 |
 | ⚡ **实时同步** | Centrifuge 双频道推送 | 用户全程可见 AI 的每一步 |
 | ♻️ **弹性恢复** | Redis Checkpoint + 100% 送达保证 | 断网、重启无感知 |
+
+> **为什么选择"文件系统即接口"？** LLM 天然理解文件操作（`ls`、`cat`、`grep`），无需学习自定义 API。开发者只需为每个 Function 写一份 Markdown 文档，Agent 就能自动发现并组合调用——相比传统 RPC 注册方式，集成成本更低，可观测性更高。
 
 ## 请求处理流程
 
@@ -93,7 +84,7 @@ sequenceDiagram
     User->>FE: 发送消息
     FE->>GW: WebSocket RPC
     GW->>CTX: 构建上下文
-    CTX->>MEM: 注入用户记忆
+    CTX->>MEM: 检索用户记忆
     MEM-->>CTX: 返回记忆片段
     CTX->>AGENT: 组装 Prompt
     AGENT->>LLM: 推理请求
@@ -101,12 +92,13 @@ sequenceDiagram
 
     alt 需要调用工具
         LLM-->>AGENT: tool_call
-        AGENT-->>GW: 推送 RTC
+        AGENT-->>GW: 推送 RTC 事件
         GW-->>FE: WebSocket 事件
-        FE->>FE: 前端执行工具
+        FE->>FE: 确认 → 执行工具
+        Note over FE: script 调用 Function<br/>或基础工具操作 VFS
         FE-->>GW: 提交结果
-        GW-->>AGENT: 恢复推理
-        AGENT->>LLM: 继续推理（带工具结果）
+        GW-->>AGENT: 恢复 Checkpoint，继续推理
+        AGENT->>LLM: 带工具结果继续推理
     end
 
     AGENT-->>GW: 流式输出
@@ -117,7 +109,7 @@ sequenceDiagram
 ## 技术栈
 
 | 层 | 技术 | 用途 |
-|:--:|:----:|------|
+| --- | --- | --- |
 | **后端** | Go 1.27 | 主服务语言 |
 | **数据库** | PostgreSQL + GORM | 持久化存储 |
 | **缓存** | Redis | Checkpoint、流式缓冲、Pub/Sub |
@@ -143,7 +135,7 @@ flowchart LR
 
 ## 下一步
 
-- [前端架构](/docs/architecture/frontend/) — Web Components 组件体系、状态管理、窗口系统
-- [后端架构](/docs/architecture/backend/) — Go 服务分层、Agent 引擎、上下文管理
-- [Remote Tool Calling](/docs/concepts/rtc/) — 了解核心协议的工作机制
-- [协议总览](/docs/protocol/) — 了解通信协议的完整定义
+- [前端架构](/docs/architecture/frontend) — Web Components 组件体系、状态管理、窗口系统
+- [后端架构](/docs/architecture/backend) — Go 服务分层、Agent 引擎、上下文管理
+- [Remote Tool Calling](/docs/concepts/rtc) — 了解核心协议的工作机制
+- [协议总览](/docs/protocol) — 了解通信协议的完整定义

@@ -35,7 +35,7 @@ flowchart LR
 |---|------|------|
 | **Goal** | Prevent LLM hallucinations from misusing platform APIs | Unleash LLM's logical creativity |
 | **Means** | AST static blocking + permission confirmation | Full language features + pure-computation standard library |
-| **Threat Model** | LLM over-extending | No need to defend against malicious attacks |
+| **Threat Model** | LLM hallucinations causing misuse (e.g., accidentally calling platform APIs) | Not a malicious code injection scenario |
 
 ## Three Execution Modes
 
@@ -137,8 +137,9 @@ The sandbox explicitly injects the following standard libraries, making the API 
 | Language constructors | Promise, Date, Math, JSON, Array, Object, String, Number, Boolean, Error |
 | Data structures | Map, Set, WeakMap, WeakSet, RegExp, Symbol, BigInt |
 | Error subclasses | TypeError, RangeError, ReferenceError, SyntaxError, URIError, AggregateError |
-| Parsing & encoding | parseInt, parseFloat, isNaN, isFinite, encodeURIComponent, decodeURIComponent, atob, btoa |
+| Parsing & encoding | parseInt, parseFloat, isNaN, isFinite, encodeURIComponent, decodeURIComponent, encodeURI, decodeURI, atob, btoa |
 | Utility functions | structuredClone |
+| Special values | NaN, Infinity, undefined |
 | URL parsing | URL, URLSearchParams |
 | console | log, warn, error (hijacked version — output is simultaneously collected for the AI) |
 
@@ -165,7 +166,7 @@ flowchart TD
     A["📜 Script source"] --> B["🔧 Babel AST transform"]
     B --> C{"🛡️ Sandbox security check"}
     C -->|"❌ Blocked"| D["ScriptCompileError<br/>Script not executed"]
-    C -->|"✅ Passed"| E["new Function execution<br/>use strict + this=undefined"]
+    C -->|"✅ Passed"| E["Controlled execution environment<br/>use strict + scope isolation"]
     E --> F{"🔐 Permission check"}
     F -->|"⚡ bypass mode"| G["Execute directly"]
     F -->|"📝 Other modes"| H["⚠️ Show confirmation dialog"]
@@ -206,8 +207,8 @@ The sandbox **statically blocks** the following categories of APIs during Babel 
 | 🔐 Permissions | Confirmation required in all modes except bypass |
 | ⏱️ Timeout | Default 30 seconds, configurable |
 | ⏭️ Timeout behavior | Stops waiting, does not terminate the script (script continues running in the background) |
-| 🔒 this binding | `"use strict"` + `fn.call(undefined)` prevents this from escaping to globalThis |
-| 🏗️ Isolation method | AST-level sandbox + `new Function` to limit parameter scope |
+| 🔒 Scope isolation | Compile-time injection of whitelisted bindings; script cannot access unauthorized globals |
+| 🔐 this binding | Executes in `"use strict"` mode, preventing this from escaping |
 
 ## Output Collection
 

@@ -84,7 +84,7 @@ flowchart TD
 |:--------:|------|
 | ⏱️ Token about to expire | Automatically refreshed 5 minutes before expiration to avoid request interruption |
 | 📱 Page returns to foreground | Token status is checked when switching back from background; refresh immediately if expired |
-| 🔌 Establishing WebSocket | Ensure token is valid before connecting |
+| 🔌 Establishing WebSocket | Refresh token on demand during connection to ensure validity |
 
 > 💡 Refresh failures don't leave users in a "half-dead" state — the system logs them out directly and guides them to re-authenticate.
 
@@ -95,7 +95,7 @@ flowchart LR
     subgraph DEVICE1["📱 Device A"]
         direction TB
         DA["Device ID: uuid-aaa"]
-        DB["Device name: Mac Chrome"]
+        DB["Device name: Mac"]
     end
 
     subgraph DEVICE2["💻 Device B"]
@@ -114,7 +114,7 @@ flowchart LR
 | Concept | Description |
 |------|------|
 | 🔖 Device ID | Unique browser identifier (UUID), automatically generated on first visit |
-| 📛 Device Name | Automatically inferred from browser type and OS (e.g., "Mac Chrome", "Windows PC") |
+| 📛 Device Name | Automatically inferred from OS (e.g., "Mac", "Windows PC", "Linux PC") |
 | 🔀 Multi-device | The same user can log in independently on multiple devices without interference |
 
 > 📌 Tokens are independent per device — logging out on Device A does not affect the session on Device B.
@@ -182,3 +182,153 @@ flowchart TD
 - [Web Component API](/docs/en/integration/component-api/) — Learn how to integrate RTC Agent via the `<rtc-agent>` component
 - [Function Registration Guide](/docs/en/integration/function-registration/) — Register custom functions to extend AI capabilities
 - [Core Protocol RTC](/docs/en/concepts/rtc/) — Learn about the full lifecycle of Remote Tool Calling
+
+---
+
+## Developer Integration Guide
+
+RTC Agent Server is an OAuth2 **consumer** — it needs to connect to an OAuth2 **provider** to authenticate users. The development environment includes a built-in `mock-oauth2` as a sample provider; for production deployments, you need to provide your own OAuth2 service.
+
+### Architecture
+
+```mermaid
+flowchart LR
+    subgraph Browser["Browser"]
+        User["👤 User"]
+        FE["🖥️ Frontend Component"]
+    end
+
+    subgraph RTCServer["RTC Agent Server"]
+        Consumer["OAuth2 Consumer<br/>/oauth2/authorize<br/>/oauth2/token<br/>/oauth2/refresh"]
+    end
+
+    subgraph Provider["Your OAuth2 Service"]
+        AuthPage["Authorization Page<br/>GET /oauth2/authorize"]
+        Exchange["Code Exchange<br/>POST /oauth2/token/exchange"]
+    end
+
+    User -->|"① Click login"| FE
+    FE -->|"② Get auth URL"| Consumer
+    Consumer -->|"③ Return Provider auth page URL"| FE
+    FE -->|"④ Load in iframe"| AuthPage
+    User -->|"⑤ Authorize"| AuthPage
+    AuthPage -->|"⑥ Redirect to frontend (with code)"| FE
+    FE -->|"⑦ Exchange code for token"| Consumer
+    Consumer -->|"⑧ Exchange user info with Provider"| Exchange
+    Exchange -->|"⑨ Return user identity"| Consumer
+    Consumer -->|"⑩ Issue JWT"| FE
+```
+
+> RTC Agent Server handles JWT issuance and device management; your OAuth2 service is only responsible for **verifying user identity** and returning user information.
+
+### Endpoints to Implement
+
+Your OAuth2 service only needs to implement **2 endpoints**:
+
+#### Endpoint 1: Authorization Page — `GET /oauth2/authorize`
+
+Accessed directly by the browser (loaded via iframe), used to display the login/authorization UI.
+
+**Request** (assembled by RTC Agent Server, accessed by the browser):
+
+```http
+GET /oauth2/authorize?state=<hex>&client_id=<id>&redirect_uri=<uri>
+```
+
+| Parameter | Description |
+| --- | --- |
+| `state` | Anti-CSRF random string, must be echoed back as-is |
+| `client_id` | Client identifier |
+| `redirect_uri` | Callback URL after successful authorization |
+
+**Behavior requirements**:
+
+1. Display a login/authorization page (can be your existing login system)
+2. After user authorizes, generate a **short-lived, single-use** authorization code
+3. HTTP 302 redirect to `redirect_uri` with `code` and `state` in the query string:
+
+```http
+Location: <redirect_uri>?code=<code>&state=<state>
+```
+
+**Page constraints**:
+
+- The page will be loaded in an iframe — you **must not** set `X-Frame-Options: DENY` or a restrictive `Content-Security-Policy: frame-ancestors`
+- Content-Type must be `text/html; charset=utf-8`
+
+#### Endpoint 2: Code Exchange — `POST /oauth2/token/exchange`
+
+Called server-to-server directly by RTC Agent Server, exchanging the authorization code for user identity.
+
+**Request**:
+
+```http
+POST /oauth2/token/exchange
+Content-Type: application/x-www-form-urlencoded
+Accept: application/json
+
+client_id=<id>&client_secret=<secret>&code=<code>&redirect_uri=<uri>
+```
+
+**Success response** (200):
+
+```json
+{
+  "provider_user_id": "user-12345",
+  "username": "John Doe",
+  "email": "john@example.com",
+  "avatar_url": "https://example.com/avatar.png"
+}
+```
+
+| Field | Required | Description |
+| --- | :---: | --- |
+| `provider_user_id` | ✅ | **Stable unique identifier** for the user in your system — must be the same value for the same user every time |
+| `username` | Optional | Display name |
+| `email` | Optional | Email address |
+| `avatar_url` | Optional | Avatar URL |
+
+**Error responses**:
+
+```json
+{
+  "error": "invalid_client",
+  "error_description": "Invalid client_id or client_secret"
+}
+```
+
+| HTTP Status | `error` value | Meaning |
+| :---: | --- | --- |
+| 400 | `invalid_request` | Missing or invalid parameters |
+| 400 | `invalid_grant` | Authorization code is invalid, already used, or expired |
+| 401 | `invalid_client` | Invalid client credentials |
+| 500 | `server_error` | Internal server error |
+
+### Authorization Code Semantics
+
+| Constraint | Description |
+| --- | --- |
+| Single-use | The same code can only be exchanged once |
+| Short-lived | Recommend expiry within 10 minutes |
+| User-bound | The code must be associated with the authenticated user's identity |
+
+### What You Don't Need to Implement
+
+- ❌ No need to issue access_token / refresh_token — RTC Agent Server issues JWTs itself
+- ❌ No need to implement a standard OAuth2 `/token` endpoint — `/oauth2/token/exchange` is essentially a user info endpoint
+- ❌ No need to support scope, PKCE, or other extensions
+
+### Configure RTC Agent Server
+
+After implementing your OAuth2 service, point the Server config to it:
+
+```yaml
+providers:
+  mock:
+    enabled: true
+    url: "https://your-oauth-server.com"   # Your OAuth2 service address
+    client_id: "your-client-id"            # client_id agreed with your service
+    client_secret: "your-client-secret"    # client_secret agreed with your service
+```
+
+> ⚠️ The `mock` in `providers.mock` is the provider name (it doesn't mean "test only"). The Server will concatenate `{url}/oauth2/authorize` and `{url}/oauth2/token/exchange` as the two endpoint addresses. If your service uses different paths, you'll need to extend `BuildProviderClients` or keep the paths consistent.

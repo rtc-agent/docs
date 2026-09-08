@@ -125,38 +125,9 @@ stateDiagram-v2
 
 ## 权限矩阵
 
-不同**工作模式**下，工具的确认策略不同：
+不同**工作模式**决定了工具执行前是否需要用户确认。完整的权限矩阵详见[工作模式](/docs/concepts/work-modes/#权限矩阵)。
 
-```mermaid
-flowchart TD
-    subgraph MANUAL["🔒 manual 模式"]
-        M1["只读工具<br/>ls / read / find / grep"] -->|✅ 自动允许| M1R[执行]
-        M2["write"] -->|⚠️ 需确认| M2R[弹窗]
-        M3["script"] -->|⚠️ 需确认| M3R[弹窗]
-    end
-
-    subgraph EDIT["📝 edit 模式（默认）"]
-        E1["只读工具"] -->|✅ 自动允许| E1R[执行]
-        E2["write"] -->|✅ 自动允许| E2R[执行]
-        E3["script"] -->|⚠️ 需确认| E3R[弹窗]
-    end
-
-    subgraph BYPASS["⚡ bypass 模式"]
-        B1["所有工具"] -->|✅ 自动允许| B1R[执行]
-    end
-
-    style MANUAL fill:#fce4ec,stroke:#c62828,stroke-width:2px
-    style EDIT fill:#e3f2fd,stroke:#1565c0,stroke-width:2px
-    style BYPASS fill:#e8f5e9,stroke:#2e7d32,stroke-width:2px
-```
-
-| 工具 | manual | edit | plan / auto | bypass |
-|------|:------:|:----:|:-----------:|:------:|
-| `ls` / `read` / `find` / `grep` | ✅ | ✅ | ✅ | ✅ |
-| `write` | ⚠️ 确认 | ✅ | ✅ | ✅ |
-| `script` | ⚠️ 确认 | ⚠️ 确认 | ⚠️ 确认 | ✅ |
-
-> 📌 **设计原则**：只读操作始终安全放行；`write` 仅在最高警戒模式下需要确认；`script` 因为可以执行任意代码，除 bypass 外都需要用户确认。
+> 📌 **核心原则**：只读操作始终安全放行；`write` 仅在最高警戒模式下需要确认；`script` 因为可以执行任意代码，除 bypass 外都需要用户确认。
 
 ## Checkpoint 机制
 
@@ -191,7 +162,7 @@ flowchart TD
     A["🔧 工具执行完成"] --> B["📤 提交结果到服务端"]
     B --> C{"成功？"}
     C -->|"✅ 是"| D["🎉 完成"]
-    C -->|"❌ 否"| E["标记 sync_status = failed"]
+    C -->|"❌ 否"| E["标记为提交失败"]
     E --> F["⏳ 等待重试"]
     F --> B
 

@@ -54,7 +54,7 @@ flowchart TD
 | `message.created` | ✅ | ❌ | Message created |
 | `message.updated` (stream complete) | ✅ | ❌ | Final complete version of a streamed message |
 | `message.updated` (stream intermediate chunk) | ❌ | ✅ | Real-time fragments for the typewriter effect |
-| `rtc.created` | ✅ | ❌ | RTC tool call created |
+| `rtc.created` | ❌ | ❌ | Reserved (not currently emitted) |
 | `rtc.updated` | ✅ | ❌ | RTC state changed |
 
 ```mermaid
@@ -92,8 +92,8 @@ Each event is an **Update** — describing changes to an entity (Session / Turn 
 |------|:----:|------|
 | `id` | UUID | Update unique identifier |
 | `items` | array | List of change entries |
-| `items[].entity` | string | Entity type: `session` / `turn` / `message` / `rtc` / `file` |
-| `items[].action` | string | Action type: `created` / `updated` / `deleted` |
+| `items[].entity` | string | Entity type: `session` / `turn` / `message` / `rtc` (`file` is reserved, currently unused) |
+| `items[].action` | string | Action type: `created` / `updated` (`deleted` is reserved, currently unused; deletion is expressed via `deleted_at` in `data_list`) |
 | `items[].entity_id` | UUID | Entity ID |
 | `data_list` | array | Complete entity data (optional, corresponds one-to-one with items) |
 | `offset` | integer | Monotonically increasing offset per user |
@@ -149,6 +149,7 @@ flowchart TD
 | **Continuity detection** | Client automatically backfills when an Offset gap is detected |
 | **Persisted** | Offset is stored in IndexedDB, restored after page refresh |
 | **Epoch mechanism** | When historical data is cleaned up, the Epoch changes and the client starts from the latest position |
+| **Gap placeholder** | During offline recovery, the server sends `{"type": "gap", "data": {}}` events to fill Offset gaps; the client only advances the Offset without any business processing |
 
 > 💡 **Analogy**: Offset is like the numbering on letters. If you receive letters #1, #2, and #4, you realize #3 is missing — then you go to the post office to claim it.
 
@@ -189,9 +190,9 @@ sequenceDiagram
 
 | Phase | Channel | Behavior |
 |------|:----:|------|
-| **First chunk** | Topic | Create message record, push `message.created` |
+| **First chunk** | Topic | Create message record, push `message.created`, also write to Redis buffer |
 | **Intermediate chunks** | Live | Append to Redis buffer, push to Live channel for real-time display |
-| **Stream ends** | Topic | Assemble complete content, update database, push `message.updated` |
+| **Stream ends** | Topic | Read all chunks from Redis, assemble complete content, update database, push `message.updated` |
 
 ---
 

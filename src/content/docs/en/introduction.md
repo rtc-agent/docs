@@ -7,6 +7,14 @@ description: An open-source website AI assistant backend. Integrate a transparen
 
 RTC Agent lets AI reason on the server while **tools execute on the frontend** — reading page content, operating a virtual file system, calling business APIs — all synchronized in real-time over WebSocket, fully visible to your users.
 
+![RTC Agent UI Overview](/docs/demo-screenshot/chat-demo.png)
+
+## Who Should Use RTC Agent?
+
+- **SaaS product teams**: Want to add an AI assistant to their product without restructuring the backend
+- **Frontend developers**: Want to quickly integrate AI capabilities, focusing on business logic rather than AI infrastructure
+- **Privacy-sensitive applications**: Healthcare, finance, enterprise internal tools — where data cannot leave the user's device
+
 ## Core Capabilities
 
 ### Frontend Virtual File System
@@ -56,7 +64,6 @@ flowchart LR
         CTX["🗜️ Context Manager"]
         MEM["🧠 Memory System"]
         AGENT["🤖 Agent Engine"]
-        WS2["📋 Workspace"]
     end
 
     LLM["🧠 LLM Provider"]
@@ -65,15 +72,14 @@ flowchart LR
     GW --> AUTH --> CTX
     CTX -.->|Inject memory| MEM
     CTX --> AGENT
-    AGENT -.->|Load Functions| WS2
     AGENT -->|Inference request| LLM
     LLM -->|tool_calls| AGENT
     AGENT -->|script call| GW
     GW <-->|WebSocket| WS
     WS --> SCRIPT
+    WS --> TOOLS
     SCRIPT -->|Compose calls| FX
     SCRIPT -->|Read/Write| VFS
-    WS --> TOOLS
     TOOLS -->|Read/Write| VFS
     SCRIPT -->|Results| WS
     AGENT -->|Response| GW
@@ -81,33 +87,44 @@ flowchart LR
 
     style BROWSER fill:#e1f5fe,stroke:#0288d1,stroke-width:3px
     style SERVER fill:#f3e5f5,stroke:#7b1fa2,stroke-width:3px
-    style LLM fill:#fff3e0,stroke:#f57c00,stroke-width:3px
+    style LLM fill:#fff3e0,stroke:#f57c00,stroke-width:2px
     style VFS fill:#c8e6c9,stroke:#388e3c,stroke-width:2px
     style SCRIPT fill:#ffeb3b,stroke:#f9a825,stroke-width:2px,color:#000
 ```
 
+Core data flow:
+
+1. All **Function and file data** live in the browser's IndexedDB — the server never touches business data
+2. The Agent Engine sends tool calls to the browser via the RTC protocol; the browser executes and returns results
+3. Memory and context management run on the server, optimizing conversation quality
+
 ## How It Works
 
-```
-┌─────────────────────────────────────────────────────────────────┐
-│  1️⃣  User sends a message in the frontend, reaching the        │
-│      RTC Agent Server via WebSocket                             │
-│  2️⃣  Server injects memory, compresses context, loads          │
-│      the Function manifest                                      │
-│  3️⃣  LLM decides which Functions to call based on the task     │
-│  4️⃣  The frontend script tool executes the developer-          │
-│      adapted Functions                                          │
-│  5️⃣  Agent freely composes multiple Functions to accomplish    │
-│      complex tasks                                              │
-│  6️⃣  Execution results are sent back to the Server, which      │
-│      continues reasoning until the final response is generated  │
-└─────────────────────────────────────────────────────────────────┘
+```mermaid
+sequenceDiagram
+    participant U as User
+    participant FE as Frontend
+    participant S as Server
+    participant LLM as LLM Provider
+
+    U->>FE: Send message
+    FE->>S: WebSocket push
+    S->>S: Inject memory, compress context, load Function manifest
+    S->>LLM: Inference request
+    LLM-->>S: tool_calls (request to call Functions)
+    S->>FE: RTC event (tool call request)
+    FE->>FE: script tool executes Function
+    FE->>S: Submit execution result
+    S->>LLM: Continue reasoning with result
+    LLM-->>S: Final response
+    S->>FE: Streaming output
+    FE->>U: Display result
 ```
 
 ### Key Differences
 
 | | Traditional Approach | RTC | RTC + Function |
-|---|---------|-----|----------------|
+| --- | --------- | ----- | ---------------- |
 | **Tool execution location** | Server-side ❌ | Frontend ✅ | Frontend ✅ |
 | **Data flow** | Uploaded to cloud 🔒 | Stays on user device 🔐 | Stays on user device 🔐 |
 | **Extension method** | Modify server code | Define frontend tools | **Just define Functions; the Agent learns to compose them** |
@@ -115,35 +132,16 @@ flowchart LR
 ## Comparison with Other AI Assistant Solutions
 
 | Solution | Integration Cost | Observability | Token Cost | Error Rate | Privacy & Security |
-|:----:|:-------:|:-------:|:---------:|:-----:|:-------:|
-| 🥇 **RTC Agent** | ⭐⭐⭐⭐⭐ A few lines of code | ⭐⭐⭐⭐⭐ Fully transparent | ⭐⭐⭐⭐⭐ Low | ⭐⭐⭐⭐⭐ Low | ⭐⭐⭐⭐⭐ Data stays on frontend |
-| 🥈 Visual Parsing (Screenshot + OCR) | ⭐⭐⭐ Medium | ⭐⭐ Black box | ⭐ Very high | ⭐⭐ Relatively high | ⭐⭐ Requires uploading screenshots |
-| 🥉 DOM Crawling (Server-side parsing) | ⭐⭐ Complex | ⭐⭐⭐ Partially visible | ⭐⭐⭐ Medium | ⭐⭐⭐ Medium | ⭐⭐⭐ Data uploaded to cloud |
-| Browser Extension | ⭐⭐ Requires installation | ⭐⭐⭐⭐ Good | ⭐⭐⭐ Medium | ⭐⭐⭐ Medium | ⭐⭐⭐⭐ Runs locally |
+| :----: | :-------: | :-------: | :---------: | :-----: | :-------: |
+| **RTC Agent** | Low — a few lines of code | Fully transparent | Low | Low | Data stays on frontend |
+| Visual Parsing (Screenshot + OCR) | Medium | Black box | Very high | Relatively high | Requires uploading screenshots |
+| DOM Crawling (Server-side parsing) | Complex | Partially visible | Medium | Medium | Data uploaded to cloud |
+| Browser Extension | Requires installation | Good | Medium | Medium | Runs locally |
 
-## Tech Stack
+> Every solution has its place: visual parsing works well for legacy systems with zero modification, and browser extensions suit offline scenarios. RTC Agent's advantage is — **no installation, no screenshots, no server-side changes** — just a few lines of code to let AI understand and operate your website in a structured way.
 
-### Backend
+## Next Steps
 
-- Go 1.27
-- Cobra CLI
-- GORM + PostgreSQL
-- Redis
-
-### AI
-
-- Anthropic SDK
-- OpenAI-compatible API
-- Eino Framework
-
-### Communication
-
-- Centrifuge WebSocket
-- Streaming output
-- Bidirectional message pushing
-
-### Observability
-
-- OpenTelemetry
-- Jaeger tracing
-- Prometheus metrics
+- [Getting Started](/docs/en/getting-started/) — Integrate RTC Agent in 5 minutes
+- [Core Concepts](/docs/en/concepts/) — Deep dive into the RTC protocol and virtual file system
+- [Integration Guide](/docs/en/integration/) — Learn how to register Functions and write Scenarios

@@ -61,30 +61,28 @@ agent.agentConfig = {
 |:----:|------|------|
 | `name` | string | 函数名称 |
 | `description` | string | 函数描述，会写入自动生成的文档 |
-| `parameters` | object | 参数定义（**OpenAPI Schema** 格式） |
+| `parameters` | ParameterDef[] | 参数定义数组（**ParameterDef[]** 格式） |
 | `returns` | object | 返回值定义 |
 | `handler` | function | 执行函数（支持异步） |
 | `hooks` | object | UI 钩子（详见 [Hook 系统](#hook-系统)） |
 
-`parameters` 使用 OpenAPI Schema 格式描述参数，AI 据此生成正确的调用代码：
+`parameters` 使用 **ParameterDef[]** 数组格式描述参数，AI 据此生成正确的调用代码：
 
 ```ts
 {
   name: 'createOrder',
   description: '创建新订单',
-  parameters: {
-    type: 'object',
-    properties: {
-      productId: { type: 'string', description: '商品 ID' },
-      quantity:  { type: 'number', description: '数量' }
-    },
-    required: ['productId']
-  },
+  parameters: [
+    { name: 'productId', schema: { type: 'string', description: '商品 ID' }, required: true },
+    { name: 'quantity', schema: { type: 'number', description: '数量' }, required: false }
+  ],
   handler: async ({ productId, quantity }) => {
     return await api.createOrder(productId, quantity ?? 1);
   }
 }
 ```
+
+> 💡 每个参数由 `name`（参数名）、`schema`（OpenAPI Schema 格式的参数定义）和 `required`（是否必填）组成。
 
 ## 函数分组
 

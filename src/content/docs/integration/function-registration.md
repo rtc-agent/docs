@@ -46,15 +46,11 @@ agent.agentConfig = {
         {
           name: 'create',
           description: '创建一个新订单',
-          parameters: {
-            type: 'object',
-            properties: {
-              productId: { type: 'string', description: '商品 ID' },
-              quantity: { type: 'number', description: '购买数量' }
-            },
-            required: ['productId']
-          },
-          returns: { type: 'object', description: '订单信息，包含 orderId' },
+          parameters: [
+            { name: 'productId', schema: { type: 'string' }, required: true, description: '商品 ID' },
+            { name: 'quantity', schema: { type: 'number' }, description: '购买数量' }
+          ],
+          returns: { schema: { type: 'object' }, description: '订单信息，包含 orderId' },
           handler: async (params) => {
             const res = await api.createOrder(params.productId, params.quantity);
             return { orderId: res.id, status: res.status };
@@ -73,19 +69,20 @@ agent.agentConfig = {
 需要精细控制时，可以使用 `defineRegistry` 手动注册：
 
 ```ts
-import { defineRegistry } from '@rtc-agent/web-components';
+import { defineRegistry } from '@rtc-agent/component';
 
 const registry = defineRegistry({
   name: 'OrderApp',
+  description: '订单管理应用',
   persona: '你是一个订单管理助手。'
 });
 
-registry.addGroup({
+const orderGroup = registry.createGroup({
   name: 'order',
   description: '订单管理操作'
 });
 
-registry.addFunction('order', {
+orderGroup.register({
   name: 'create',
   description: '创建一个新订单',
   handler: async (params) => {
@@ -102,8 +99,8 @@ registry.addFunction('order', {
 |:----:|:----:|:----:|:----:|
 | 📛 `name` | `string` | ✅ | 函数名称，与分组名组合成完整路径（如 `order.create`） |
 | 📝 `description` | `string` | ✅ | 函数描述，**写入自动生成的文档**，AI 据此决定何时调用 |
-| 📐 `parameters` | `object` | — | 参数定义，OpenAPI Schema 格式 |
-| 🔙 `returns` | `object` | — | 返回值定义，帮助 AI 理解输出 |
+| 📐 `parameters` | `ParameterDef[]` | — | 参数定义数组，每项含 `{name, schema, required?, description?}`，`schema` 为 OpenAPI Schema |
+| 🔙 `returns` | `ReturnDef` | — | 返回值定义 `{schema, description?}`，帮助 AI 理解输出 |
 | ⚡ `handler` | `function` | ✅ | 执行函数，支持 `async`，接收 `params` 参数 |
 | 🪝 `hooks` | `object` | — | UI 钩子（`onStart` / `onSuccess` / `onError` / `onProgress`） |
 
@@ -113,20 +110,16 @@ registry.addFunction('order', {
 {
   name: 'refund',
   description: '对指定订单发起退款，支持全额和部分退款',
-  parameters: {
-    type: 'object',
-    properties: {
-      orderId: { type: 'string', description: '订单 ID' },
-      amount: { type: 'number', description: '退款金额（留空则全额退款）' },
-      reason: { type: 'string', description: '退款原因' }
-    },
-    required: ['orderId', 'reason']
-  },
-  returns: { type: 'object', description: '退款结果，包含 refundId 和状态' },
-  handler: async (params, { onProgress }) => {
-    onProgress('正在验证订单...');
+  parameters: [
+    { name: 'orderId', schema: { type: 'string' }, required: true, description: '订单 ID' },
+    { name: 'amount', schema: { type: 'number' }, description: '退款金额（留空则全额退款）' },
+    { name: 'reason', schema: { type: 'string' }, required: true, description: '退款原因' }
+  ],
+  returns: { schema: { type: 'object' }, description: '退款结果，包含 refundId 和状态' },
+  handler: async (params, onProgress) => {
+    onProgress?.(30);
     await validateOrder(params.orderId);
-    onProgress('正在处理退款...');
+    onProgress?.(70);
     const result = await processRefund(params.orderId, params.amount);
     return { refundId: result.id, status: result.status };
   },
@@ -192,8 +185,8 @@ AI 有两种等价的调用语法：
 // 方式一：Proxy 链式调用（自然语法）
 await rtcAgent.order.create({ productId: '123', quantity: 2 });
 
-// 方式二：execute 方法
-await rtcAgent.execute('order.create', { productId: '123', quantity: 2 });
+// 方式二：callFunction 方法
+await rtcAgent.callFunction('order.create', { productId: '123', quantity: 2 });
 ```
 
 > 💡 Proxy 链式调用让 AI 能像调用普通 API 一样使用注册的函数，语法直观、不易出错。

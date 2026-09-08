@@ -3,7 +3,7 @@ title: Web Component API
 description: 一个 <rtc-agent> 组件，搞定 AI 对话、工具调用、主题切换——用属性配置，用事件监听，用 CSS 变量定制。
 ---
 
-**`<rtc-agent>`** 是 RTC Agent 对外暴露的**唯一组件**。它基于 Lit 构建，内部包含 16 个子组件和 9 个 Controller，但对外只呈现一个简洁的 Web Component 接口——属性配置、事件监听、CSS 变量定制。
+**`<rtc-agent>`** 是 RTC Agent 对外暴露的**唯一组件**。它基于 Lit 构建，内部包含 38 个子组件和 20 个 Controller，但对外只呈现一个简洁的 Web Component 接口——属性配置、事件监听、CSS 变量定制。
 
 ```mermaid
 flowchart TD
@@ -15,7 +15,8 @@ flowchart TD
     B --> B2["app-label: 标题文字"]
     B --> B3["bubble-icon: 气泡图标"]
     B --> B4["scenarios-url: 场景文档"]
-    B --> B5["agentConfig: 声明式配置"]
+    B --> B5["server-url: 服务端地址"]
+    B --> B6["agentConfig: 声明式配置 (JS)"]
 
     C --> C1["rtc-agent-ready"]
 
@@ -37,7 +38,14 @@ flowchart TD
 | 📛 `app-label` | `string` | `"RTC Agent"` | 标题栏文字 + 最小化气泡的 tooltip |
 | 🖼️ `bubble-icon` | `string` | 默认图标 | 最小化气泡内显示的 SVG / HTML 内容 |
 | 📄 `scenarios-url` | `string` | — | 场景文档的 URL，指向 `manifest.json` |
-| ⚙️ `agentConfig` | `object` | — | 声明式函数注册（推荐方式） |
+| 🔗 `server-url` | `string` | `""` | 服务端地址。为空时使用当前页面域名 |
+
+**JS 属性**（仅通过 JavaScript 设置，非 HTML attribute）：
+
+| 属性 | 类型 | 默认值 | 说明 |
+|:----:|:----:|:------:|:----:|
+| ⚙️ `agentConfig` | `object` | `null` | 声明式函数注册（推荐方式） |
+| 📦 `registry` | `FunctionRegistry` | `null` | 命令式函数注册（通过 `defineRegistry` 创建） |
 
 ### 快速接入
 
@@ -118,19 +126,30 @@ stateDiagram-v2
 
 ## 状态管理
 
-组件内部使用 9 个 **Controller** 管理状态，Controller 之间不直接引用，由根组件 `<rtc-agent>` 作为中枢编排跨 Controller 通信：
+组件内部使用 20 个 **Controller** 管理状态。其中 9 个核心状态 Controller 负责业务逻辑，11 个 UI 辅助 Controller 负责界面交互。Controller 之间不直接引用，由根组件 `<rtc-agent>` 作为中枢编排跨 Controller 通信：
 
 ```mermaid
 flowchart TD
-    ROOT["🧩 &lt;rtc-agent&gt;<br/>中枢编排"] --> C1["🪟 WindowState<br/>窗口位置/尺寸"]
-    ROOT --> C2["🔐 Auth<br/>登录状态"]
-    ROOT --> C3["💬 Session<br/>会话列表"]
-    ROOT --> C4["📨 Message<br/>消息列表"]
-    ROOT --> C5["🔧 Mode<br/>工作模式"]
-    ROOT --> C6["⚡ ToolCall<br/>工具确认"]
-    ROOT --> C7["💾 Persistence<br/>数据层"]
-    ROOT --> C8["📚 Skill<br/>函数注册"]
-    ROOT --> C9["🖱️ WindowInteraction<br/>拖拽交互"]
+    ROOT["🧩 &lt;rtc-agent&gt;<br/>中枢编排"] --> CORE["📦 9 个核心 Controller"]
+    ROOT --> UI["🎨 11 个 UI Controller"]
+
+    CORE --> C1["🪟 WindowState"]
+    CORE --> C2["🔐 Auth"]
+    CORE --> C3["💬 Session"]
+    CORE --> C4["📨 Message"]
+    CORE --> C5["🔧 Mode"]
+    CORE --> C6["⚡ ToolCall"]
+    CORE --> C7["💾 Persistence"]
+    CORE --> C8["📚 Skill"]
+    CORE --> C9["🖱️ WindowInteraction"]
+
+    UI --> U1["Activity"]
+    UI --> U2["EditorArea / Editor"]
+    UI --> U3["FileExplorer"]
+    UI --> U4["Fork"]
+    UI --> U5["Notification / Toast"]
+    UI --> U6["SessionTab / SessionTree"]
+    UI --> U7["Settings / StatusBar"]
 
     style ROOT fill:#e3f2fd,stroke:#1565c0,stroke-width:3px
     style C1 fill:#e8f5e9,stroke:#388e3c

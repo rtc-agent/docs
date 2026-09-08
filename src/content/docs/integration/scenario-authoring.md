@@ -32,7 +32,7 @@ flowchart TD
 | 📄 场景文档 | 业务工作流说明，Markdown 格式 |
 | 📡 加载方式 | 通过 `<rtc-agent scenarios-url="...">` 属性指定 URL |
 | 💾 存储位置 | 虚拟文件系统的 `/scenarios/` 目录 |
-| 📑 索引文件 | `/scenarios/INDEX.md` 自动更新 |
+| 📑 索引文件 | `/scenarios/INDEX.md`（通过 `writeScenario()` API 写入时自动生成） |
 | 🧠 AI 使用 | AI 阅读场景文档，了解业务流程后按规范执行 |
 
 > 💡 **一句话理解**：Function 告诉 AI"能做什么"，Scenario 告诉 AI"怎么做"。
@@ -45,13 +45,10 @@ flowchart TD
     B --> C["📋 解析场景列表"]
     C --> D["📥 逐个下载 .md 场景文件"]
     D --> E["💾 写入 /scenarios/ 目录"]
-    E --> F["📑 更新 INDEX.md"]
-    F --> G["🧠 更新 AGENT.md"]
 
     style A fill:#e3f2fd,stroke:#1565c0,stroke-width:2px
     style B fill:#fff9c4,stroke:#f9a825,stroke-width:2px
     style E fill:#e8f5e9,stroke:#388e3c,stroke-width:2px
-    style G fill:#f3e5f5,stroke:#7b1fa2,stroke-width:2px
 ```
 
 | 步骤 | 说明 |
@@ -59,7 +56,9 @@ flowchart TD
 | 1 | 宿主应用在 `<rtc-agent>` 组件上设置 `scenarios-url` 属性 |
 | 2 | 组件从指定 URL 获取 `manifest.json`，了解有哪些场景 |
 | 3 | 逐个下载 `.md` 场景文件，写入虚拟文件系统 |
-| 4 | 自动生成索引和 Agent 指南，AI 即可阅读 |
+| 4 | 场景文件写入后，AI 可通过 `ls`/`read` 工具直接访问 |
+
+> ⚠️ **注意**：通过 `scenarios-url` 加载场景时，系统不会自动生成 `INDEX.md` 索引和更新 `AGENT.md`。如需自动生成索引，请使用 `FunctionRegistry.writeScenario()` API 逐个写入场景。
 
 ## manifest.json
 
@@ -67,36 +66,35 @@ flowchart TD
 
 ```json
 {
-  "version": 1,
   "scenarios": [
     {
-      "slug": "create-order",
-      "title": "创建订单",
-      "file": "create-order.md"
+      "file": "create-order.md",
+      "name": "创建订单",
+      "description": "新订单创建流程"
     },
     {
-      "slug": "handle-refund",
-      "title": "处理退款",
-      "file": "handle-refund.md"
+      "file": "handle-refund.md",
+      "name": "处理退款",
+      "description": "退款申请处理流程"
     },
     {
-      "slug": "user-onboarding",
-      "title": "新用户引导",
-      "file": "user-onboarding.md"
+      "file": "user-onboarding.md",
+      "name": "新用户引导",
+      "description": "引导新用户完成初始设置"
     }
   ]
 }
 ```
 
-| 字段 | 类型 | 说明 |
-|:----:|:----:|:----:|
-| `version` | `number` | 清单版本号，当前为 `1` |
-| `scenarios` | `array` | 场景列表 |
-| `scenarios[].slug` | `string` | 场景标识，用于 URL 路由和文件命名 |
-| `scenarios[].title` | `string` | 场景标题，显示在索引中 |
-| `scenarios[].file` | `string` | 场景 Markdown 文件名 |
+| 字段 | 类型 | 必填 | 说明 |
+|:----:|:----:|:----:|:----:|
+| `scenarios` | `array` | ✅ | 场景列表 |
+| `scenarios[].file` | `string` | ✅ | 场景 Markdown 文件名（如 `create-order.md`） |
+| `scenarios[].name` | `string` | — | 场景名称，用于索引展示 |
+| `scenarios[].description` | `string` | — | 场景描述，用于索引展示 |
+| `scenarios[].id` | `string` | — | 场景唯一标识（可选） |
 
-> 📌 `slug` 建议使用小写字母加连字符的格式（如 `create-order`），避免空格和特殊字符。
+> 📌 场景的标题和描述也可以通过 `.md` 文件内的 YAML frontmatter 定义。manifest.json 中的 `name` / `description` 和 frontmatter 二选一即可。
 
 ## 目录结构
 
@@ -117,7 +115,7 @@ flowchart TD
     style IDX fill:#fff9c4,stroke:#f9a825,stroke-width:2px
 ```
 
-场景文件统一存储在 `/scenarios/` 目录下。系统自动生成 `INDEX.md` 索引文件，列出所有可用场景的标题和摘要，方便 AI 快速定位。
+场景文件统一存储在 `/scenarios/` 目录下。如果通过 `FunctionRegistry.writeScenario()` API 写入场景，系统会自动生成 `INDEX.md` 索引文件；如果通过 `scenarios-url` 批量加载，则不会自动生成索引。
 
 ## 场景文档格式
 

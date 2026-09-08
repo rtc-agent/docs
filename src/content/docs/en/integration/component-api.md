@@ -3,7 +3,7 @@ title: Web Component API
 description: A single <rtc-agent> component handles AI conversation, tool calls, and theme switching — configure with attributes, listen with events, and customize with CSS variables.
 ---
 
-**`<rtc-agent>`** is the **sole component** exposed by RTC Agent. Built on Lit, it contains 16 sub-components and 9 Controllers internally, but presents only a clean Web Component interface externally — attribute configuration, event listening, and CSS variable customization.
+**`<rtc-agent>`** is the **sole component** exposed by RTC Agent. Built on Lit, it contains 38 sub-components and 20 Controllers internally, but presents only a clean Web Component interface externally — attribute configuration, event listening, and CSS variable customization.
 
 ```mermaid
 flowchart TD
@@ -15,7 +15,8 @@ flowchart TD
     B --> B2["app-label: title text"]
     B --> B3["bubble-icon: bubble icon"]
     B --> B4["scenarios-url: scenario docs"]
-    B --> B5["agentConfig: declarative config"]
+    B --> B5["server-url: server address"]
+    B --> B6["agentConfig: declarative config (JS)"]
 
     C --> C1["rtc-agent-ready"]
 
@@ -37,7 +38,14 @@ flowchart TD
 | 📛 `app-label` | `string` | `"RTC Agent"` | Title bar text + minimized bubble tooltip |
 | 🖼️ `bubble-icon` | `string` | Default icon | SVG / HTML content displayed inside the minimized bubble |
 | 📄 `scenarios-url` | `string` | — | URL of the scenario manifest, pointing to `manifest.json` |
-| ⚙️ `agentConfig` | `object` | — | Declarative function registration (recommended approach) |
+| 🔗 `server-url` | `string` | `""` | Server address. Falls back to the current page's domain when empty |
+
+**JS Properties** (set via JavaScript only, not HTML attributes):
+
+| Property | Type | Default | Description |
+|:----:|:----:|:------:|:----:|
+| ⚙️ `agentConfig` | `object` | `null` | Declarative function registration (recommended approach) |
+| 📦 `registry` | `FunctionRegistry` | `null` | Imperative function registration (created via `defineRegistry`) |
 
 ### Quick Integration
 
@@ -118,19 +126,30 @@ stateDiagram-v2
 
 ## State Management
 
-The component uses 9 **Controllers** internally to manage state. Controllers do not reference each other directly; instead, the root component `<rtc-agent>` acts as the central hub orchestrating cross-Controller communication:
+The component uses 20 **Controllers** internally to manage state. 9 core state Controllers handle business logic, and 11 UI Controllers handle interface interactions. Controllers do not reference each other directly; instead, the root component `<rtc-agent>` acts as the central hub orchestrating cross-Controller communication:
 
 ```mermaid
 flowchart TD
-    ROOT["🧩 &lt;rtc-agent&gt;<br/>Central Orchestration"] --> C1["🪟 WindowState<br/>Window position/size"]
-    ROOT --> C2["🔐 Auth<br/>Login state"]
-    ROOT --> C3["💬 Session<br/>Session list"]
-    ROOT --> C4["📨 Message<br/>Message list"]
-    ROOT --> C5["🔧 Mode<br/>Working mode"]
-    ROOT --> C6["⚡ ToolCall<br/>Tool confirmation"]
-    ROOT --> C7["💾 Persistence<br/>Data layer"]
-    ROOT --> C8["📚 Skill<br/>Function registration"]
-    ROOT --> C9["🖱️ WindowInteraction<br/>Drag interaction"]
+    ROOT["🧩 &lt;rtc-agent&gt;<br/>Central Orchestration"] --> CORE["📦 9 Core Controllers"]
+    ROOT --> UI["🎨 11 UI Controllers"]
+
+    CORE --> C1["🪟 WindowState"]
+    CORE --> C2["🔐 Auth"]
+    CORE --> C3["💬 Session"]
+    CORE --> C4["📨 Message"]
+    CORE --> C5["🔧 Mode"]
+    CORE --> C6["⚡ ToolCall"]
+    CORE --> C7["💾 Persistence"]
+    CORE --> C8["📚 Skill"]
+    CORE --> C9["🖱️ WindowInteraction"]
+
+    UI --> U1["Activity"]
+    UI --> U2["EditorArea / Editor"]
+    UI --> U3["FileExplorer"]
+    UI --> U4["Fork"]
+    UI --> U5["Notification / Toast"]
+    UI --> U6["SessionTab / SessionTree"]
+    UI --> U7["Settings / StatusBar"]
 
     style ROOT fill:#e3f2fd,stroke:#1565c0,stroke-width:3px
     style C1 fill:#e8f5e9,stroke:#388e3c

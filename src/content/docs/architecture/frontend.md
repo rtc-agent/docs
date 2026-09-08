@@ -14,7 +14,7 @@ flowchart TD
     ROOT --> HEADER["📌 header-bar<br/>标题栏 · 窗口控制"]
     ROOT --> MSG["💬 message-list<br/>消息列表"]
     ROOT --> INPUT["⌨️ input-area<br/>输入区域"]
-    ROOT --> WIN["🪟 window-system<br/>窗口管理"]
+    ROOT --> WIN["🪟 窗口管理<br/>normal/maximized/minimized"]
 
     MSG --> MSGITEM["📝 message-item<br/>单条消息"]
     MSGITEM --> MD["📄 markdown-render<br/>Markdown 渲染"]
@@ -34,6 +34,16 @@ flowchart TD
     style WIN fill:#f3e5f5,stroke:#7b1fa2,stroke-width:2px
     style CONFIRM fill:#fce4ec,stroke:#c62828,stroke-width:2px
 ```
+
+![文件浏览器](/docs/demo-screenshot/file-explorer.png)
+
+> **文件浏览器**：左侧为虚拟文件系统目录树（functions/、scenarios/、scripts/），右侧为编辑器 + 实时预览。所有文件数据存储在浏览器 IndexedDB 中。
+
+![设置界面](/docs/demo-screenshot/settings.png)
+
+> **设置界面**：支持主题切换、语言选择、字体大小调整等个性化配置。
+>
+> **窗口管理不是独立组件**：`窗口管理` 是根组件的一个功能模块（由 WindowState Controller 和 WindowInteraction Controller 协同实现），不是一个独立的 UI 组件。它控制窗口的三种状态：normal（浮动）、maximized（全屏）、minimized（气泡）。
 
 ## 公开组件
 
@@ -64,14 +74,14 @@ flowchart TD
 ```
 
 | 属性 | 说明 | 示例 |
-|------|------|------|
+| --- | --- | --- |
 | `theme` | 主题切换 | `light` / `dark` / `system` |
 | `app-label` | 标题栏文字 + 气泡 tooltip | `"RTC 助手"` |
 | `bubble-icon` | 最小化气泡内的 SVG/HTML | 自定义图标 |
 | `scenarios-url` | 场景文档 URL | `"https://..."` |
 | `agentConfig` | 声明式函数注册（推荐） | JSON 配置对象 |
 
----
+详细 API 说明见 [Component API](/docs/integration/component-api)。
 
 ## 状态管理
 
@@ -110,15 +120,13 @@ flowchart TD
 ### 设计原则
 
 | 原则 | 说明 |
-|------|------|
+| --- | --- |
 | **Controller 不互相引用** | 每个 Controller 独立管理自己的状态切片 |
 | **根组件编排** | `<rtc-agent>` 作为中枢，协调跨 Controller 通信 |
 | **Context 分发** | 通过 `@lit/context` 向子组件分发状态，避免 prop drilling |
 | **数据层隔离** | Persistence Controller 统一管理 IndexedDB 读写 |
 
-> 💡 **为什么不用全局状态？** Web Components 运行在宿主应用的页面中，可能有多个实例。Controller + Context 保证每个 `<rtc-agent>` 实例的状态完全隔离。
-
----
+> 💡 **为什么不用全局状态？** Web Components 运行在宿主应用的页面中，可能有多个实例。例如一个页面同时嵌入"客服助手"和"数据分析助手"两个 `<rtc-agent>`，它们需要各自独立的会话、消息、认证状态。Controller + Context 保证每个实例的状态完全隔离，互不干扰。
 
 ## 窗口系统
 
@@ -142,9 +150,9 @@ flowchart LR
 ```
 
 | 交互 | 实现 |
-|------|------|
+| --- | --- |
 | **拖拽** | title-bar 作为拖拽手柄 |
-| **缩放** | 8 方向 resize |
+| **缩放** | 四角 + 四边共 8 个缩放手柄 |
 | **键盘** | 方向键移动，Shift 加速 |
 | **视口约束** | 始终保持在可视区域内 |
 
@@ -161,8 +169,6 @@ flowchart TD
     style B fill:#f3e5f5,stroke:#7b1fa2,stroke-width:2px
     style E fill:#c8e6c9,stroke:#388e3c,stroke-width:2px
 ```
-
----
 
 ## 样式系统
 
@@ -184,12 +190,10 @@ flowchart TD
 ```
 
 | 层级 | 内容 | 自定义方式 |
-|------|------|------------|
+| --- | --- | --- |
 | **Design Tokens** | 间距、字体、圆角、阴影、过渡、z-index | 覆盖 CSS 变量 |
 | **颜色主题** | light / dark 两套配色 | `theme` 属性切换 |
 | **CSS 变量** | 窗口尺寸、气泡大小 | `--rtc-*` 前缀变量 |
-
----
 
 ## 关键交互
 
@@ -217,7 +221,7 @@ flowchart TD
 ### 消息列表
 
 | 特性 | 行为 |
-|------|------|
+| --- | --- |
 | **自动滚动** | 新消息到达时自动滚动到底部 |
 | **智能暂停** | 用户手动上滑时暂停自动滚动 |
 | **新消息提示** | 用户离开底部时显示"新消息"按钮 |
@@ -236,13 +240,64 @@ flowchart TD
     F --> H["📤 提交拒绝状态"]
 
     style B fill:#fff9c4,stroke:#f9a825,stroke-width:2px
-    style E fill:#c8e6c9,stroke:#388e3c,stroke-width:2px
+    style E fill:#c8f5e9,stroke:#388e3c,stroke-width:2px
     style F fill:#ffcdd2,stroke:#c62828,stroke-width:2px
 ```
 
+### 命令系统
+
+用户输入 `/` 开头的文本时，触发命令输入模式：
+
+```mermaid
+flowchart TD
+    A["用户输入 /"] --> B["显示命令列表<br/>compact · loop · goal"]
+    B --> C["继续输入过滤"]
+    C --> D["Tab 补全命令"]
+    D --> E["输入参数"]
+    E --> F["Enter 执行"]
+    F --> G{"命令类型？"}
+    G -->|本地命令| H["前端直接执行"]
+    G -->|RPC 命令| I["发送到后端"]
+    G -->|Prompt 命令| J["注入到 AI 上下文"]
+
+    style B fill:#fff9c4,stroke:#f9a825,stroke-width:2px
+    style H fill:#e3f2fd,stroke:#1565c0,stroke-width:2px
+    style I fill:#e8f5e9,stroke:#388e3c,stroke-width:2px
+    style J fill:#f3e5f5,stroke:#7b1fa2,stroke-width:2px
+```
+
+| 命令 | 类型 | 功能 |
+| --- | --- | --- |
+| `/compact` | RPC | 手动触发上下文压缩 |
+| `/loop` | 本地 + RPC | 循环执行任务（定时 / 动态） |
+| `/goal` | Prompt | 目标驱动，AI 设置完成条件，Judge 模型检查 |
+
+详见 [命令系统](/docs/features/commands)。
+
+## 性能与无障碍
+
+### 性能考虑
+
+| 场景 | 策略 |
+| --- | --- |
+| **大消息列表** | 消息分页加载（cursor pagination），首次加载最近 50 条 |
+| **长对话滚动** | 虚拟滚动优化（未来版本） |
+| **Markdown 渲染** | 按需渲染，代码高亮延迟加载 |
+| **IndexedDB 读写** | Persistence Controller 统一管理，批量操作减少 IO |
+
+### 无障碍访问
+
+| 特性 | 实现 |
+| --- | --- |
+| **键盘导航** | Tab 键切换焦点，Enter 激活，Esc 关闭弹窗 |
+| **ARIA 标签** | 所有交互元素添加 `aria-label` |
+| **屏幕阅读器** | 消息列表使用 `role="log"`，新消息自动播报 |
+| **高对比度** | 支持系统高对比度模式 |
+
 ## 下一步
 
-- [后端架构](/docs/architecture/backend/) — 了解 Go 服务端的分层设计
-- [架构总览](/docs/architecture/) — 返回架构全景
-- [Remote Tool Calling](/docs/concepts/rtc/) — 了解前端工具调用的核心协议
-- [虚拟文件系统](/docs/concepts/virtual-fs/) — 了解前端 IndexedDB 文件系统
+- [后端架构](/docs/architecture/backend) — 了解 Go 服务端的分层设计
+- [架构总览](/docs/architecture) — 返回架构全景
+- [Remote Tool Calling](/docs/concepts/rtc) — 了解前端工具调用的核心协议
+- [虚拟文件系统](/docs/concepts/virtual-fs) — 了解前端 IndexedDB 文件系统
+- [命令系统](/docs/features/commands) — 了解完整的命令系统

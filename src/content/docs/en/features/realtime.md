@@ -59,7 +59,7 @@ flowchart LR
         E3["message.created"]
         E4["message.updated (stream complete)"]
         E5["message.updated (stream intermediate chunk)"]
-        E6["rtc.created/updated"]
+        E6["rtc.updated"]
     end
 
     subgraph T["📬 Topic"]
@@ -67,7 +67,7 @@ flowchart LR
         T2["✅ turn.created/updated"]
         T3["✅ message.created"]
         T4["✅ message.updated (complete)"]
-        T5["✅ rtc.created/updated"]
+        T5["✅ rtc.updated"]
     end
 
     subgraph L["⚡ Live"]
@@ -93,7 +93,7 @@ flowchart LR
 | `message.created` | ✅ | ❌ | New message created |
 | `message.updated` (stream complete) | ✅ | ❌ | Final state after stream completion |
 | `message.updated` (stream intermediate chunk) | ❌ | ✅ | Intermediate fragments of streaming output |
-| `rtc.created/updated` | ✅ | ❌ | RTC tool call state changes |
+| `rtc.updated` | ✅ | ❌ | RTC tool call state changes |
 
 ## Offset Mechanism
 

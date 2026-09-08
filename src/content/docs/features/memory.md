@@ -108,9 +108,9 @@ flowchart LR
 
 | 限制项 | 值 | 说明 |
 |--------|:--:|------|
-| 最大条目数 | 20 条 | 单个会话 |
-| 单条 token 上限 | ~2,000 | 超出会被裁剪 |
-| 总 token 上限 | ~12,000 | 约等于 9 页文档 |
+| 最大条目数 | 20 条 | 存储上限，单个会话 |
+| 总 token 上限 | ~12,000 | 存储上限，约等于 9 页文档 |
+| 注入数量 | 每轮 5 条，最多 5,000 tokens | 每轮对话注入到上下文中 |
 | 超出策略 | 删除最旧 | 保留最新信息 |
 
 ## User Memory
@@ -159,7 +159,7 @@ How to apply: 这条指导何时/何地适用
 |--------|:--:|------|
 | 最大条目数 | 1,000 条 | 单个用户 |
 | 单条 token 上限 | ~1,000 | - |
-| 超出策略 | 分级淘汰 | 优先删除 `low` → 最久未访问 → 最旧 |
+| 超出策略 | 无自动淘汰 | 仅支持手动删除（`delete_user_memory` 工具） |
 
 ## Embedding 检索
 
@@ -170,8 +170,8 @@ flowchart TD
     Q["🔍 查询"] --> VE["生成查询 Embedding"]
     Q --> KW["提取关键词"]
 
-    VE --> VS["📐 向量相似度检索<br/>余弦相似度 Top 20"]
-    KW --> KS["🔤 关键词检索<br/>tags + title + content<br/>Top 20"]
+    VE --> VS["📐 向量相似度检索<br/>余弦相似度 Top 10"]
+    KW --> KS["🔤 关键词检索<br/>tags + title + content<br/>Top 10"]
 
     VS --> FUSION["🔀 RRF 融合排序<br/>Reciprocal Rank Fusion"]
     KS --> FUSION
@@ -189,13 +189,11 @@ flowchart TD
 
 | 阶段 | 策略 | 说明 |
 |------|------|------|
-| 向量检索 | 余弦相似度 | 语义层面的匹配，Top 20 |
-| 关键词检索 | 全文检索 + 标签匹配 | 精确关键词匹配，Top 20 |
+| 向量检索 | 余弦相似度 | 语义层面的匹配，Top 10 |
+| 关键词检索 | 全文检索 + 标签匹配 | 精确关键词匹配，Top 10 |
 | 融合排序 | RRF 算法 | `score = Σ 1/(60 + rank)`，合并两路结果 |
 | 加权过滤 | 重要性 + 访问频率 + 时效性 | 重要且常用的记忆优先 |
 | 最终输出 | Top 5 | 精选最相关的 5 条记忆 |
-
-> 💡 超过 1 天的记忆会标注时效性提醒："注意：这条记忆是 N 天前创建的，可能已过时。"
 
 ## 注入策略
 
@@ -210,7 +208,7 @@ flowchart LR
 
     subgraph UM_INJECT["User Memory 注入"]
         direction TB
-        UM1["会话开始时"] --> UM2["Embedding 检索<br/>注入 Top 5"]
+        UM1["每轮对话"] --> UM2["Embedding 检索<br/>按重要性动态过滤"]
     end
 
     SM2 --> CTX["📝 AI 上下文"]
@@ -223,9 +221,11 @@ flowchart LR
 
 | 记忆类型 | 注入时机 | 注入数量 | 触发条件 |
 |----------|----------|:--------:|----------|
-| Session Memory | 每轮对话前 | 5 条 | 自动 |
-| User Memory | 会话开始时 | 5 条 | 基于 Embedding 检索 |
+| Session Memory | 每轮对话前 | 5 条，最多 5,000 tokens | 自动 |
+| User Memory | 每轮对话 | 按重要性动态过滤 | 基于 Embedding 检索 |
 | Session Memory（压缩时） | Auto Compact 触发 | 全部 | 作为压缩摘要 |
+
+> 💡 User Memory 按重要性动态过滤：`critical` / `high` 全部注入，`medium` 每类最多 10 条，`low` 不注入。
 
 ## Session Memory Compact
 

@@ -40,6 +40,8 @@ export default defineConfig({
 					items: [
 						{ label: 'What is RTC Agent', link: '/introduction/', translations: { 'zh-CN': '什么是 RTC Agent' } },
 						{ label: 'Quick Start', link: '/getting-started/', translations: { 'zh-CN': '快速开始' } },
+						{ label: 'Build from Source', link: '/deployment/source-build/', translations: { 'zh-CN': '源码构建' } },
+						{ label: 'Distributed Cluster', link: '/deployment/distributed-deploy/', translations: { 'zh-CN': '分布式集群' } },
 					],
 				},
 				{
@@ -92,6 +94,13 @@ export default defineConfig({
 						{ label: 'Overview', link: '/architecture/', translations: { 'zh-CN': '架构总览' } },
 						{ label: 'Frontend', link: '/architecture/frontend/', translations: { 'zh-CN': '前端架构' } },
 						{ label: 'Backend', link: '/architecture/backend/', translations: { 'zh-CN': '后端架构' } },
+					],
+				},
+				{
+					label: 'Community Showcase',
+					translations: { 'zh-CN': '社区案例' },
+					items: [
+						{ label: 'Mermaid Live Editor', link: '/showcase/mermaid-live-editor/', translations: { 'zh-CN': 'Mermaid Live Editor' } },
 					],
 				},
 			],

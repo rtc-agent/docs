@@ -47,7 +47,7 @@ sequenceDiagram
 | 参数 | 位置 | 必填 | 类型 | 说明 |
 |------|:----:|:----:|:----:|------|
 | `provider` | query | ✅ | string | OAuth2 Provider 名称（如 `"github"`） |
-| `redirect_uri` | query | ✅ | string | 授权完成后的回调地址 |
+| `redirect_uri` | query | ❌ | string | 授权完成后的回调地址（可选，部分 Provider 需要） |
 
 ### 响应
 
@@ -85,9 +85,9 @@ sequenceDiagram
 | 字段 | 必填 | 类型 | 说明 |
 |------|:----:|:----:|------|
 | `code` | ✅ | string | 授权码，由授权回调 URL 的 query 参数携带 |
-| `redirect_uri` | ✅ | string | 必须与授权请求中的 `redirect_uri` **完全一致** |
+| `redirect_uri` | ❌ | string | 回调地址，建议与授权请求中的一致 |
 | `state` | ✅ | string | CSRF 防护 state，必须与授权请求中的 state 一致且仅使用一次 |
-| `device_id` | ✅ | string | 前端生成的设备 UUID，用于标识客户端设备 |
+| `device_id` | ❌ | string | 前端生成的设备 UUID，用于标识客户端设备 |
 | `device_name` | ❌ | string | 设备显示名称，如 `"Chrome on Mac"` |
 | `user_agent` | ❌ | string | 客户端 User-Agent，用于设备识别 |
 
@@ -97,7 +97,7 @@ sequenceDiagram
 {
   "access_token": "eyJhbGciOi...",
   "refresh_token": "dGhpcyBpcyBh...",
-  "expires_in": 900,
+  "expires_in": 3600,
   "user_id": "user-uuid"
 }
 ```
@@ -106,7 +106,7 @@ sequenceDiagram
 |------|:----:|------|
 | `access_token` | string | JWT access token，有效期由 `expires_in` 指定 |
 | `refresh_token` | string | refresh token，用于在 access_token 过期后换取新 token |
-| `expires_in` | integer | access token 过期时间（秒），通常为 **900**（15 分钟） |
+| `expires_in` | integer | access token 过期时间（秒），通常为 **3600**（1 小时） |
 | `user_id` | string | 已认证用户的唯一 ID |
 
 ### 令牌刷新
@@ -119,16 +119,16 @@ sequenceDiagram
     Note over FE: access_token 即将过期
     FE->>Server: POST /oauth2/refresh<br/>{ refresh_token }
     Server-->>FE: { access_token, expires_in }
-    Note over FE: 旧 refresh_token 失效<br/>使用新的 refresh_token
+    Note over FE: 使用新 access_token<br/>refresh_token 不变，可继续使用
 ```
 
-> ⚠️ **Refresh Token Rotation**：每次使用 refresh_token 换取新 access_token 时，旧的 refresh_token **立即失效**，服务端会返回一个新的 refresh_token。这确保即使令牌泄露，也只能使用一次。
+> 💡 **Refresh Token 复用**：refresh_token 在有效期内可**多次使用**，每次返回新的 access_token。refresh_token 本身不会被替换或撤销，直到自然过期（默认 30 天）。
 
 ---
 
 ## POST /oauth2/refresh
 
-使用 refresh_token 换取新的 access_token。旧的 refresh_token 使用一次后即失效（rotation 机制）。
+使用 refresh_token 换取新的 access_token。refresh_token 在有效期内可重复使用。
 
 ### 请求体
 
@@ -140,14 +140,14 @@ sequenceDiagram
 
 | 字段 | 必填 | 类型 | 说明 |
 |------|:----:|:----:|------|
-| `refresh_token` | ✅ | string | refresh token，使用一次后即失效 |
+| `refresh_token` | ✅ | string | refresh token，有效期内可重复使用 |
 
 ### 响应
 
 ```json
 {
   "access_token": "eyJhbGciOi...(new)",
-  "expires_in": 900
+  "expires_in": 3600
 }
 ```
 
@@ -169,12 +169,14 @@ sequenceDiagram
 }
 ```
 
-| 错误码 | 说明 | 常见原因 |
-|--------|------|----------|
-| `invalid_request` | 请求参数无效 | 缺少必填字段、格式错误 |
-| `invalid_client` | 客户端认证失败 | Provider 配置错误 |
-| `invalid_grant` | 授权码无效或已过期 | 授权码已使用或超过有效期 |
-| `server_error` | 服务器内部错误 | 服务端异常 |
+| 错误码 | HTTP 状态码 | 说明 | 常见原因 |
+|--------|:----------:|------|----------|
+| `invalid_request` | 400 | 请求参数无效 | 缺少必填字段、格式错误 |
+| `invalid_client` | 400 | 客户端认证失败 | Provider 配置错误 |
+| `invalid_grant` | 401 | 授权码无效或已过期 | 授权码已使用或超过有效期 |
+| `server_error` | 500 | 服务器内部错误 | 服务端异常 |
+
+> 💡 **Content-Type 支持**：POST 端点（`/oauth2/token` 和 `/oauth2/refresh`）同时支持 `application/json` 和 `application/x-www-form-urlencoded` 两种请求格式。
 
 ```mermaid
 flowchart TD

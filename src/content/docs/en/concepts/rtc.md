@@ -125,38 +125,9 @@ stateDiagram-v2
 
 ## Permission Matrix
 
-Different **work modes** apply different confirmation policies for tools:
+Different **work modes** determine whether tool execution requires user confirmation. See [Work Modes](/docs/en/concepts/work-modes/#permission-matrix) for the full permission matrix.
 
-```mermaid
-flowchart TD
-    subgraph MANUAL["🔒 manual mode"]
-        M1["Read-only tools<br/>ls / read / find / grep"] -->|✅ Auto-allowed| M1R[Execute]
-        M2["write"] -->|⚠️ Confirmation required| M2R[Dialog]
-        M3["script"] -->|⚠️ Confirmation required| M3R[Dialog]
-    end
-
-    subgraph EDIT["📝 edit mode (default)"]
-        E1["Read-only tools"] -->|✅ Auto-allowed| E1R[Execute]
-        E2["write"] -->|✅ Auto-allowed| E2R[Execute]
-        E3["script"] -->|⚠️ Confirmation required| E3R[Dialog]
-    end
-
-    subgraph BYPASS["⚡ bypass mode"]
-        B1["All tools"] -->|✅ Auto-allowed| B1R[Execute]
-    end
-
-    style MANUAL fill:#fce4ec,stroke:#c62828,stroke-width:2px
-    style EDIT fill:#e3f2fd,stroke:#1565c0,stroke-width:2px
-    style BYPASS fill:#e8f5e9,stroke:#2e7d32,stroke-width:2px
-```
-
-| Tool | manual | edit | plan / auto | bypass |
-|------|:------:|:----:|:-----------:|:------:|
-| `ls` / `read` / `find` / `grep` | ✅ | ✅ | ✅ | ✅ |
-| `write` | ⚠️ Confirm | ✅ | ✅ | ✅ |
-| `script` | ⚠️ Confirm | ⚠️ Confirm | ⚠️ Confirm | ✅ |
-
-> 📌 **Design Principle**: Read-only operations are always safely allowed; `write` only requires confirmation in the highest-alertness mode; `script` can execute arbitrary code, so it requires user confirmation in all modes except bypass.
+> 📌 **Core Principle**: Read-only operations are always safely allowed; `write` only requires confirmation in the highest-alertness mode; `script` can execute arbitrary code, so it requires user confirmation in all modes except bypass.
 
 ## Checkpoint Mechanism
 
@@ -191,7 +162,7 @@ flowchart TD
     A["🔧 Tool execution complete"] --> B["📤 Submit result to server"]
     B --> C{"Success?"}
     C -->|"✅ Yes"| D["🎉 Done"]
-    C -->|"❌ No"| E["Mark sync_status = failed"]
+    C -->|"❌ No"| E["Mark as submission failed"]
     E --> F["⏳ Wait for retry"]
     F --> B
 

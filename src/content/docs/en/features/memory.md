@@ -108,9 +108,9 @@ flowchart LR
 
 | Limit | Value | Description |
 |--------|:--:|------|
-| Maximum entries | 20 | Per single session |
-| Per-entry token limit | ~2,000 | Entries exceeding this are truncated |
-| Total token limit | ~12,000 | Approximately 9 pages of documentation |
+| Maximum entries | 20 | Storage limit, per single session |
+| Total token limit | ~12,000 | Storage limit, approximately 9 pages of documentation |
+| Injection count | 5 entries per turn, up to 5,000 tokens | Injected into context each turn |
 | Overflow strategy | Delete oldest | Retain the most recent information |
 
 ## User Memory
@@ -159,7 +159,7 @@ How to apply: When/where this guidance applies
 |--------|:--:|------|
 | Maximum entries | 1,000 | Per single user |
 | Per-entry token limit | ~1,000 | - |
-| Overflow strategy | Tiered eviction | Priority: delete `low` → least recently accessed → oldest |
+| Overflow strategy | No automatic eviction | Only manual deletion supported (`delete_user_memory` tool) |
 
 ## Embedding Retrieval
 
@@ -170,8 +170,8 @@ flowchart TD
     Q["🔍 Query"] --> VE["Generate Query Embedding"]
     Q --> KW["Extract Keywords"]
 
-    VE --> VS["📐 Vector Similarity Search<br/>Cosine similarity Top 20"]
-    KW --> KS["🔤 Keyword Search<br/>tags + title + content<br/>Top 20"]
+    VE --> VS["📐 Vector Similarity Search<br/>Cosine similarity Top 10"]
+    KW --> KS["🔤 Keyword Search<br/>tags + title + content<br/>Top 10"]
 
     VS --> FUSION["🔀 RRF Fusion Ranking<br/>Reciprocal Rank Fusion"]
     KS --> FUSION
@@ -189,13 +189,11 @@ flowchart TD
 
 | Stage | Strategy | Description |
 |------|------|------|
-| Vector search | Cosine similarity | Semantic-level matching, Top 20 |
-| Keyword search | Full-text search + tag matching | Exact keyword matching, Top 20 |
+| Vector search | Cosine similarity | Semantic-level matching, Top 10 |
+| Keyword search | Full-text search + tag matching | Exact keyword matching, Top 10 |
 | Fusion ranking | RRF algorithm | `score = Σ 1/(60 + rank)`, merges both result sets |
 | Weighted filtering | Importance + access frequency + recency | Important and frequently used memories are prioritized |
 | Final output | Top 5 | The 5 most relevant memories |
-
-> 💡 Memories older than 1 day are annotated with a recency reminder: "Note: This memory was created N days ago and may be outdated."
 
 ## Injection Strategy
 
@@ -210,7 +208,7 @@ flowchart LR
 
     subgraph UM_INJECT["User Memory Injection"]
         direction TB
-        UM1["At session start"] --> UM2["Embedding retrieval<br/>Inject Top 5"]
+        UM1["Every turn"] --> UM2["Embedding retrieval<br/>Dynamic importance filtering"]
     end
 
     SM2 --> CTX["📝 AI Context"]
@@ -223,9 +221,11 @@ flowchart LR
 
 | Memory Type | Injection Timing | Injection Count | Trigger |
 |----------|----------|:--------:|----------|
-| Session Memory | Before each turn | 5 entries | Automatic |
-| User Memory | At session start | 5 entries | Based on embedding retrieval |
+| Session Memory | Before each turn | 5 entries, up to 5,000 tokens | Automatic |
+| User Memory | Every turn | Dynamic importance filtering | Based on embedding retrieval |
 | Session Memory (during compression) | Auto Compact triggered | All entries | Used as compression summary |
+
+> 💡 User Memory is dynamically filtered by importance: `critical` / `high` are all injected, `medium` injects up to 10 entries per category, `low` is not injected.
 
 ## Session Memory Compact
 

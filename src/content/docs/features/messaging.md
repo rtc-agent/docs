@@ -39,7 +39,13 @@ flowchart TD
 | 📝 AI 回复 | AI 生成的文本 | Markdown + 代码高亮 |
 | 🧠 思考过程 | AI 的推理过程 | 可折叠，Markdown 渲染 |
 | ⚙️ 工具调用 | AI 请求执行的工具 | 输入/输出卡片 |
+| 📄 压缩摘要 | 上下文压缩后的摘要（`summary`） | Markdown 渲染 |
+| 📃 纯文本 | 未格式化的文本内容（`text`） | 纯文本 |
+| 🔧 工具消息 | 独立的工具角色消息（`tool` role） | 输入/输出卡片 |
 | ℹ️ 系统消息 | 系统通知 | 纯文本 |
+
+> **MessageRole** 共 4 种：`user`、`assistant`、`system`、`tool`
+> **ContentType** 共 6 种：`text`、`markdown`、`summary`、`thinking`、`toolcall_input`、`toolcall_output`
 
 ## 消息发送流程
 
@@ -104,12 +110,14 @@ stateDiagram-v2
     Running --> Failed: 执行失败 ❌
     Running --> Interrupted: 等待 RTC 工具执行 ⏸️
     Running --> Cancelled: 用户取消 🚫
+    Running --> Merged: 合并到其他轮次 🔀
 
     Interrupted --> Running: 工具结果返回，恢复执行
 
     Completed --> [*]
     Failed --> [*]
     Cancelled --> [*]
+    Merged --> [*]
 
     state Running {
         [*] --> LLM推理
@@ -129,6 +137,7 @@ stateDiagram-v2
 | `Completed` | 正常完成 | AI 回复完整显示 |
 | `Failed` | 执行失败 | 错误提示 |
 | `Cancelled` | 用户取消 | 已停止标记 |
+| `Merged` | 合并到其他轮次 | 不单独展示 |
 
 ## 流式消息
 
@@ -249,7 +258,8 @@ flowchart TD
 | JSON 格式化 | 参数和结果自动美化 |
 | 状态指示 | 运行中（🟠 橙色脉冲）/ 完成（🟢 绿色） |
 | 复制按钮 | 一键复制输入/输出内容 |
-| 耗时显示 | 展示工具执行耗时 |
+
+![工具调用卡片界面](/docs/demo-screenshot/chat-no-filetree.png)
 
 ## 消息列表
 

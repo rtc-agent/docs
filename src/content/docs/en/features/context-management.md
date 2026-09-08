@@ -40,7 +40,7 @@ flowchart TD
 
 | Layer | Name | Trigger | Compression Granularity | Cost |
 |:----:|------|----------|----------|:----:|
-| 1 | Microcompact | Time interval / Cached edits / API native | Single tool result | Zero |
+| 1 | Microcompact | Time interval | Single tool result | Zero |
 | 2 | Auto Compact | Token count reaches threshold | A batch of messages → summary | One LLM call |
 | 3 | Session Memory Compact | When Auto Compact is triggered | Session memory → summary | Zero |
 
@@ -54,44 +54,33 @@ Only tools that produce large outputs are cleaned:
 
 | Tool | Typical Output |
 |:----:|----------|
-| 📖 `Read` | File contents |
-| ⚡ `Bash` / `PowerShell` | Command output |
-| 🔍 `Grep` | Search results |
-| 📁 `Glob` | File listings |
-| 🌐 `WebSearch` / `WebFetch` | Web page content |
-| ✏️ `Edit` / 📝 `Write` | Operation results |
+| 📖 `read` | File contents |
+| ✏️ `write` | Write results |
+| 🔍 `grep` | Search results |
+| 🔎 `find` | File listings |
+| ⚡ `script` | Script execution results |
 
-### Three Cleanup Strategies
+### Cleanup Strategy
 
 ```mermaid
 flowchart TD
     REQ["📤 Before Request"] --> A{"Time-based<br/>Interval > 60 minutes?"}
     A -->|"✅ Yes"| A1["Clean old tool results<br/>Keep most recent 5"]
-    A -->|"❌ No"| B{"Cached MC<br/>enabled?"}
-    B -->|"✅ Yes"| B1["Clean via cache_edits<br/>(without breaking cache)"]
-    B -->|"❌ No"| C{"API-level<br/>enabled?"}
-    C -->|"✅ Yes"| C1["Use context_management<br/>native API cleanup"]
-    C -->|"❌ No"| SKIP["⏭️ Skip microcompact"]
+    A -->|"❌ No"| SKIP["⏭️ Skip microcompact"]
 
     A1 --> SEND["📤 Send Request"]
-    B1 --> SEND
-    C1 --> SEND
     SKIP --> SEND
 
     style A fill:#e3f2fd,stroke:#1565c0,stroke-width:2px
-    style B fill:#fff9c4,stroke:#f9a825,stroke-width:2px
-    style C fill:#e8f5e9,stroke:#388e3c,stroke-width:2px
     style SKIP fill:#f5f5f5,stroke:#9e9e9e,stroke-width:2px
     style SEND fill:#e8eaf6,stroke:#3f51b5,stroke-width:2px
 ```
 
-| Strategy | Trigger | Mechanism | Use Case |
-|------|----------|------|----------|
-| 🕐 Time-based | Last assistant message > 60 minutes ago | Directly replace old tool results with placeholders | User returns after stepping away |
-| 💾 Cached | Cache is still valid | Use `cache_edits` to tell the API to remove specific results | When cache hasn't expired |
-| 🔌 API-level | Tokens >= 180,000 | Use Anthropic's native `context_management` | Approaching context limit |
+| Strategy | Trigger | Mechanism |
+|------|----------|------|
+| 🕐 Time-based | Last assistant message > 60 minutes ago | Directly replace old tool results with placeholders, keep most recent 5 |
 
-> 💡 The time-based strategy retains at least 1 recent tool result to prevent the model from completely losing its working context.
+> 💡 The time-based strategy retains at least 5 recent tool results to prevent the model from completely losing its working context.
 
 ## Auto Compact — Automatic Summary Compression
 
@@ -99,13 +88,10 @@ When microcompact isn't enough, Auto Compact kicks in — compressing a batch of
 
 ### Trigger Conditions
 
-Using a 200K context window model as an example:
-
 ```mermaid
 flowchart LR
-    W["📏 Context Window<br/>200,000 tokens"] --> E["Subtract reserved output<br/>- 20,000"]
-    E --> T["Subtract buffer<br/>- 13,000"]
-    T --> TH["Threshold = 167,000 tokens"]
+    W["📏 contextTokensLimit<br/>25,000 tokens"] --> T["Subtract buffer<br/>- 13,000"]
+    T --> TH["Threshold = 12,000 tokens"]
 
     TH --> CHECK{"Current tokens >= threshold?"}
     CHECK -->|"✅ Yes"| COMPACT["🗜️ Trigger compression"]
@@ -117,27 +103,11 @@ flowchart LR
     style CONT fill:#e8f5e9,stroke:#388e3c,stroke-width:2px
 ```
 
-| Configuration | Value | Description |
-|--------|:--:|------|
-| `MAX_OUTPUT_TOKENS_FOR_SUMMARY` | 20,000 | Reserved space for model output |
-| `AUTOCOMPACT_BUFFER_TOKENS` | 13,000 | Safety buffer |
-| **Trigger threshold** (200K model) | **167,000** | Compression is triggered when this value is reached |
-
-### Circuit Breaker
-
-After 3 consecutive failures, automatic compression attempts are stopped to avoid wasting resources in unrecoverable scenarios:
-
-```mermaid
-flowchart LR
-    F1["❌ Failure 1"] --> F2["❌ Failure 2"]
-    F2 --> F3["❌ Failure 3"]
-    F3 --> STOP["⛔ Stop auto-compression"]
-
-    style F1 fill:#fff9c4,stroke:#f9a825,stroke-width:2px
-    style F2 fill:#ffe0b2,stroke:#e65100,stroke-width:2px
-    style F3 fill:#ffcdd2,stroke:#c62828,stroke-width:2px
-    style STOP fill:#f44336,stroke:#b71c1c,stroke-width:2px,color:#fff
-```
+| Configuration | Default | Description |
+|--------|:------:|------|
+| `contextTokensLimit` | 25,000 | Context token limit |
+| `autoCompactBufferTokens` | 13,000 | Safety buffer |
+| **Trigger threshold** | **12,000** | `contextTokensLimit - autoCompactBufferTokens` |
 
 ### Compression Prompt
 
@@ -210,51 +180,12 @@ After compression, the system automatically re-injects recently read files to he
 | Configuration | Value | Description |
 |--------|:--:|------|
 | Max files to recover | 5 | The 5 most recently read files |
-| Total token budget | 50,000 | Total limit for all recovered files |
-| Per-file token limit | 5,000 | Maximum tokens per file |
+| Total token budget | 10,000 | Total limit for all recovered files |
+| Per-file token limit | 2,000 | Maximum tokens per file |
 
 ## System Prompt Assembly
 
-The system prompt is divided into **static** and **dynamic** parts. The static part can be globally cached to reduce costs:
-
-```mermaid
-flowchart TD
-    subgraph STATIC["🔒 Static Part (Cacheable)"]
-        direction TB
-        S1["Base system prompt<br/>Identity, security, tool guidelines"]
-        S2["Tool Schema definitions<br/>Cached once per session"]
-        S3["Agent definitions<br/>Default prompts"]
-    end
-
-    subgraph DYNAMIC["🔄 Dynamic Part (Per request)"]
-        direction TB
-        D1["📅 Current date"]
-        D2["🔀 Git status snapshot"]
-        D3["📝 Custom prompts"]
-        D4["📋 Memory injection"]
-        D5["📎 Attachment content"]
-    end
-
-    STATIC --> CACHE["💾 Prompt Cache"]
-    DYNAMIC --> REQ["📤 API Request"]
-    CACHE --> REQ
-
-    style STATIC fill:#e3f2fd,stroke:#1565c0,stroke-width:2px
-    style DYNAMIC fill:#fff9c4,stroke:#f9a825,stroke-width:2px
-    style CACHE fill:#e8f5e9,stroke:#388e3c,stroke-width:2px
-    style REQ fill:#e8eaf6,stroke:#3f51b5,stroke-width:2px
-```
-
-**Prompt priority** (highest to lowest):
-
-| Priority | Source | Description |
-|:------:|------|------|
-| 1 | `overrideSystemPrompt` | Replaces all other prompts |
-| 2 | Coordinator system prompt | Coordinator mode |
-| 3 | Agent system prompt | Replaces default when agent definition exists |
-| 4 | Custom system prompt | `--system-prompt` parameter |
-| 5 | Default system prompt | Standard system prompt |
-| 6 | `appendSystemPrompt` | Always appended to the end |
+The system prompt is provided via the `SystemPrompt` configuration item and passed as the Agent's Instruction. When an agent definition exists, the agent's system prompt is used; otherwise, the default system prompt is used.
 
 ## Message Assembly Pipeline
 
@@ -266,17 +197,14 @@ flowchart TD
     B --> C["Trim<br/>Enforce tool result size limits"]
     C --> D["Remove<br/>Old messages"]
     D --> E["🔹 Microcompact<br/>Compress tool results"]
-    E --> F["Fold<br/>Context folding"]
-    F --> G["🔸 Auto Compact<br/>Full compression"]
-    G --> H["Inject<br/>CLAUDE.md + Date"]
+    E --> G["🔸 Auto Compact<br/>Full compression"]
+    G --> H["Inject attachments"]
     H --> I["📤 API Call"]
-    I --> J["📎 Add attachment messages"]
 
     style A fill:#e3f2fd,stroke:#1565c0,stroke-width:2px
     style E fill:#e8f5e9,stroke:#388e3c,stroke-width:2px
     style G fill:#fff9c4,stroke:#f9a825,stroke-width:2px
     style I fill:#e8eaf6,stroke:#3f51b5,stroke-width:2px
-    style J fill:#fce4ec,stroke:#c62828,stroke-width:2px
 ```
 
 ## Attachment System
@@ -285,15 +213,10 @@ The attachment system dynamically injects contextual information during conversa
 
 | Attachment Type | Injection Timing | Description |
 |----------|----------|------|
-| 📅 Current date | Initial + on date change | Updated via `date_change` attachment |
-| 🔀 Git Status | At conversation start | Current branch, status (truncated to 2000 chars), recent commits |
-| 📋 Todo List | Every 10 turns | Reminder of pending task progress |
-| 🧠 CLAUDE.md | Initial injection | Project instructions and configuration |
-| 📂 Nested memories | During subdirectory operations | Search for CLAUDE.md in directory hierarchy |
-| 🔍 Relevant memories | Async pre-fetch | Retrieve relevant memories from auto-memory |
-| 🛠️ Skills | On discovery / invocation | Available skill list and invocation content |
-| 💻 IDE Context | Real-time | Selected lines, open files |
-| 📊 Token Usage | Real-time | Current token usage and budget |
+| 📋 AgentPrompt | Every turn | AGENT.md snapshot, containing agent capability description |
+| 📝 TodoList | Every turn | Pending task list |
+| 🧠 SessionMemory | Every turn | Latest 5 session memories (up to 5,000 tokens) |
+| 🗂️ UserMemory | Every turn | User memories filtered by importance |
 
 ## Next Steps
 

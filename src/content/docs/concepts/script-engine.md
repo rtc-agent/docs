@@ -35,7 +35,7 @@ flowchart LR
 |---|------|------|
 | **目标** | 防止 LLM 幻觉误用平台 API | 释放 LLM 的逻辑创造力 |
 | **手段** | AST 静态阻断 + 权限确认 | 完整语言特性 + 纯计算标准库 |
-| **威胁模型** | LLM 过度发挥 | 不需要防御恶意攻击 |
+| **威胁模型** | LLM 幻觉导致的误操作（如误调平台 API） | 非恶意代码注入场景 |
 
 ## 三种执行方式
 
@@ -137,8 +137,9 @@ flowchart TD
 | 语言构造器 | Promise, Date, Math, JSON, Array, Object, String, Number, Boolean, Error |
 | 数据结构 | Map, Set, WeakMap, WeakSet, RegExp, Symbol, BigInt |
 | Error 子类 | TypeError, RangeError, ReferenceError, SyntaxError, URIError, AggregateError |
-| 解析与编码 | parseInt, parseFloat, isNaN, isFinite, encodeURIComponent, decodeURIComponent, atob, btoa |
+| 解析与编码 | parseInt, parseFloat, isNaN, isFinite, encodeURIComponent, decodeURIComponent, encodeURI, decodeURI, atob, btoa |
 | 工具函数 | structuredClone |
+| 特殊值 | NaN, Infinity, undefined |
 | URL 解析 | URL, URLSearchParams |
 | console | log, warn, error（劫持版，输出同时收集给 AI） |
 
@@ -165,7 +166,7 @@ flowchart TD
     A["📜 脚本源码"] --> B["🔧 Babel AST 转换"]
     B --> C{"🛡️ 沙箱安全检查"}
     C -->|"❌ 阻断"| D["ScriptCompileError<br/>脚本不执行"]
-    C -->|"✅ 通过"| E["new Function 执行<br/>use strict + this=undefined"]
+    C -->|"✅ 通过"| E["受控执行环境<br/>use strict + 作用域隔离"]
     E --> F{"🔐 权限检查"}
     F -->|"⚡ bypass 模式"| G["直接执行"]
     F -->|"📝 其他模式"| H["⚠️ 显示确认弹窗"]
@@ -206,8 +207,8 @@ flowchart TD
 | 🔐 权限 | 除 bypass 外都需要用户确认 |
 | ⏱️ 超时 | 默认 30 秒，可自定义 |
 | ⏭️ 超时行为 | 放弃等待，不终止脚本（脚本仍在后台运行） |
-| 🔒 this 绑定 | `"use strict"` + `fn.call(undefined)` 防止 this 逃逸到 globalThis |
-| 🏗️ 隔离方式 | AST 级沙箱 + `new Function` 限制形参作用域 |
+| 🔒 作用域隔离 | 编译期注入白名单绑定，脚本无法访问未授权的全局变量 |
+| 🔐 this 绑定 | `"use strict"` 模式下执行，防止 this 逃逸 |
 
 ## 输出收集
 

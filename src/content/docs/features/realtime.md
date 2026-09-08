@@ -59,7 +59,7 @@ flowchart LR
         E3["message.created"]
         E4["message.updated（流完成）"]
         E5["message.updated（流中间 chunk）"]
-        E6["rtc.created/updated"]
+        E6["rtc.updated"]
     end
 
     subgraph T["📬 Topic"]
@@ -67,7 +67,7 @@ flowchart LR
         T2["✅ turn.created/updated"]
         T3["✅ message.created"]
         T4["✅ message.updated（完成）"]
-        T5["✅ rtc.created/updated"]
+        T5["✅ rtc.updated"]
     end
 
     subgraph L["⚡ Live"]
@@ -93,7 +93,7 @@ flowchart LR
 | `message.created` | ✅ | ❌ | 新消息创建 |
 | `message.updated`（流完成） | ✅ | ❌ | 流式输出完成后的最终状态 |
 | `message.updated`（流中间 chunk） | ❌ | ✅ | 流式输出的中间片段 |
-| `rtc.created/updated` | ✅ | ❌ | RTC 工具调用状态变更 |
+| `rtc.updated` | ✅ | ❌ | RTC 工具调用状态变更 |
 
 ## Offset 机制
 

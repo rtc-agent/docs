@@ -91,6 +91,8 @@ flowchart LR
 | `grep` | 按文件内容搜索 | `pattern`（正则），`path`，`caseSensitive` |
 | `remove` | 删除文件 | `path` |
 
+> ⚠️ `remove` 是虚拟文件系统的内部接口，当前未作为 RTC 工具暴露给 AI。AI 无法直接删除文件。
+
 ### 分页读取
 
 大文件支持分页，避免一次性加载过多内容：
@@ -170,7 +172,7 @@ flowchart LR
 | 存储引擎 | IndexedDB（Dexie.js 封装） |
 | 主键 | 文件路径 |
 | 大文件 | 整存整取，支持分页读取 |
-| 缓存 | 无缓存层，每次直接查询 IndexedDB |
+| 读取方式 | 每次读取均查询最新数据，无缓存层 |
 | 容量 | 受浏览器 IndexedDB 配额约束（通常数百 MB） |
 
 ## 初始化

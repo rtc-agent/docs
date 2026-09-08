@@ -1,15 +1,15 @@
 ---
 title: WebSocket RPC
-description: RTC Agent WebSocket RPC interface — 18 methods covering session management, messaging, Turn control, and RTC tool calling.
+description: RTC Agent WebSocket RPC interface — 16 methods covering session management, messaging, Turn control, and RTC tool calling.
 ---
 
-After authentication, the frontend performs all business operations over a **persistent WebSocket connection**. The RPC defines **18 methods** in total, divided into two types: **Action** and **Query**.
+After authentication, the frontend performs all business operations over a **persistent WebSocket connection**. The RPC defines **16 methods** in total, divided into two types: **Action** and **Query**.
 
 ## RPC Classification
 
 ```mermaid
 flowchart TD
-    subgraph ACTION["⚡ Action RPC (10)"]
+    subgraph ACTION["⚡ Action RPC (8)"]
         direction TB
         A1["Create / Modify / Delete operations"]
         A2["Response includes updates events"]
@@ -40,7 +40,7 @@ flowchart TD
 
 ## Method Summary
 
-The 18 methods are organized across **4 business domains**:
+The 16 methods are organized across **4 business domains**:
 
 | Domain | Action | Query |
 |:--:|:------:|:-----:|
@@ -82,10 +82,10 @@ flowchart LR
 |------|:----:|------|----------|
 | `v1.session.list` | 🔍 Query | Get session list | `cursor` (pagination), `limit` (default 20) |
 | `v1.session.get` | 🔍 Query | Get a single session | `session_id` |
-| `v1.session.close` | ⚡ Action | Close a session | `session_id`, `client_id` |
+| `v1.session.close` | ⚡ Action | Close a session | `session_id` |
 | `v1.session.update` | ⚡ Action | Update session title / soft delete | `session_id`, `title`, `deleted_at` |
-| `v1.session.fork` | ⚡ Action | Fork a conversation (create a new session based on history) | `old_server_session_id`, `new_client_session_id`, `old_server_message_id`, `content_data`, `limit` (default 200, max 1000) |
-| `v1.session.compact` | ⚡ Action | Manually trigger context compression | `session_id`, `custom_instruction` |
+| `v1.session.fork` | ⚡ Action | Fork a conversation (create a new session based on history) | `old_server_session_id`, `new_client_session_id`, `new_client_message_id`, `old_server_message_id`, `content_data`, `limit` (default 200, max 1000) |
+| `v1.session.compact` | ⚡ Action | Manually trigger context compression (no updates returned) | `session_id`, `custom_instruction` |
 
 ### Fork a Conversation
 
@@ -113,6 +113,8 @@ flowchart LR
 
 > 💡 **Typical Fork scenario**: The user wants to start a new direction from a branching point in the historical conversation. Specify the old message position, and the system copies the preceding context, replaces content after the specified position with new messages, and triggers new AI reasoning.
 
+**Fork response**: Returns `{session_id, turn_id, message_ids[]}`. Note that `turn_id` is an empty string — the Turn is created asynchronously by the background turn-agent.
+
 ---
 
 ## Message Domain
@@ -121,8 +123,8 @@ Messages are the basic communication units within a session, supporting multiple
 
 | Method | Type | Function | Key Parameters |
 |------|:----:|------|----------|
-| `v1.message.send` | ⚡ Action | Send a message (automatically creates session and turn) | `content_data`, `client_session_id`, `client_id`, `server_session_id` (optional) |
-| `v1.message.list` | 🔍 Query | Get message list | `session_id`, `cursor` (global_offset), `limit` (default 50) |
+| `v1.message.send` | ⚡ Action | Send a message (automatically creates session and turn) | `content_data`, `client_session_id`, `client_id` (required), `server_session_id` (optional), `agent_prompt` (optional) |
+| `v1.message.list` | 🔍 Query | Get message list | `session_id`, `cursor` (global_offset, uint32), `limit` (default 50) |
 | `v1.message.get` | 🔍 Query | Get a single message | `message_id` |
 
 ### Message Sending Flow
@@ -144,6 +146,8 @@ sequenceDiagram
 ```
 
 > 💡 **Auto-creation**: When calling `v1.message.send`, if `server_session_id` is empty, the server will automatically create a new session. This means "create new conversation" and "send message" can be combined into a single call.
+>
+> 💡 **Async Turn**: The `turn_id` in responses from `v1.message.send` and `v1.session.fork` is an empty string — the Turn is created asynchronously by the background turn-agent and is not returned synchronously with the request.
 
 ### Content Types
 
@@ -183,7 +187,7 @@ stateDiagram-v2
 
 | Method | Type | Function | Key Parameters |
 |------|:----:|------|----------|
-| `v1.turn.stop` | ⚡ Action | Stop the current Turn | `session_id`, `client_id` |
+| `v1.turn.stop` | ⚡ Action | Stop the current Turn (no updates returned) | `session_id` |
 | `v1.turn.list` | 🔍 Query | Get Turn list | `session_id`, `cursor`, `limit` (default 50) |
 | `v1.turn.get` | 🔍 Query | Get a single Turn | `turn_id` |
 
@@ -240,32 +244,26 @@ sequenceDiagram
 
 ## Idempotency Mechanism
 
-All Action RPCs support **`client_id` idempotency** — a client-generated unique ID that ensures duplicate requests do not produce side effects.
+Some Action RPCs accept `client_id` for deduplication or ownership validation, but **behavior varies by method**:
 
-```mermaid
-flowchart TD
-    A["📤 Send request<br/>client_id = 'abc123'"] --> B{"Server checks"}
-    B -->|"First request"| C["✅ Process normally"]
-    B -->|"Duplicate request<br/>same client_id"| D["↩️ Return previous result"]
+| Method | client_id | Actual Behavior |
+|------|:---------:|---------|
+| `message.send` | ✅ Required | Duplicate client_id returns `client_id_conflict` error |
+| `rtc.submit_result` | ✅ Optional | Terminal state + same client_id → returns cached result (idempotent); terminal state + different client_id → returns existing data |
+| `rtc.update_status` | ✅ Optional | Used for ownership validation + state machine transition checks, not simple dedup |
+| `session.close` | ✅ Optional | Field accepted but no dedup performed |
+| `turn.stop` | ✅ Optional | Field accepted but no dedup performed |
+| `session.update` | ❌ No such field | — |
+| `session.compact` | ❌ No such field | Uses internal queue dedup (no duplicate compaction for same session) |
+| `session.fork` | ❌ Uses `new_client_message_id` | Stored as the new message's ClientID, no fork-level dedup |
 
-    style C fill:#c8e6c9,stroke:#388e3c,stroke-width:2px
-    style D fill:#e3f2fd,stroke:#1565c0,stroke-width:2px
-```
-
-> 💡 **Why idempotency?** WebSocket messages may be retransmitted due to network issues. `client_id` guarantees that "sending once" and "sending twice" have exactly the same effect — the frontend can retry with confidence, without worrying about duplicate message creation or duplicate tool execution.
-
-| Feature | Description |
-|------|------|
-| **Generated by** | Client (frontend) |
-| **Format** | String, UUID recommended |
-| **Scope** | Unique within the same method |
-| **Duplicate behavior** | Returns the result of the first processing; no new record is created |
+> 💡 **Design note**: `client_id` serves different roles in different methods — sometimes an idempotency key, sometimes an ownership identifier, sometimes just recorded. Integrators should refer to each method's specific behavior rather than assuming uniform idempotency semantics.
 
 ---
 
 ## Update Model
 
-Action RPC responses uniformly include both **`result`** and **`updates`**:
+Most Action RPC responses include both **`result`** and **`updates`** (except `session.compact` and `turn.stop`, whose `updates` are always empty):
 
 ```json
 {
@@ -301,6 +299,37 @@ flowchart LR
 ```
 
 > 💡 **After receiving updates**: The frontend directly updates local state (IndexedDB / memory), keeping it consistent with the server. No need to send another query request — this is the "operation equals synchronization" design philosophy.
+
+---
+
+## RPC Error Format
+
+RPC errors use a structured format different from HTTP errors:
+
+```json
+{
+  "code": "session.not_found",
+  "message": "session xxx not found",
+  "details": "optional additional info"
+}
+```
+
+| Field | Type | Description |
+|------|:----:|------|
+| `code` | string | Machine-readable error code, e.g., `session.not_found`, `client_id_conflict`, `method_not_found` |
+| `message` | string | Human-readable description |
+| `details` | any | Optional additional information (only included in some errors) |
+
+---
+
+## Message Ordering
+
+The Message model contains two ordering fields:
+
+| Field | Type | Description |
+|------|:----:|------|
+| `global_offset` | uint32 | Global message order within a session, monotonically increasing; used as the pagination cursor for `v1.message.list` |
+| `turn_offset` | uint32 | Message order within a Turn |
 
 ## Next Steps
 

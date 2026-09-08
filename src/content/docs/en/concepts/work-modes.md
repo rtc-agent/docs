@@ -30,8 +30,8 @@ flowchart LR
 |:----:|------|------|:----:|
 | 🔒 manual | Manual | Ask user before each edit | ✅ Enabled |
 | 📝 edit | Edit automatically | Auto-edit files (⭐ Default) | ✅ Enabled |
-| 📋 plan | Plan | Explore code before editing | 🔜 Not enabled |
-| 🤖 auto | Auto | Auto-execute after safety checks | 🔜 Not enabled |
+| 📋 plan | Plan | Explore code before editing (expected behavior) | 🔜 Not enabled |
+| 🤖 auto | Auto | Auto-execute after safety checks; pauses for risky operations (expected behavior) | 🔜 Not enabled |
 | ⚡ bypass | Bypass permissions | Execute without asking | ✅ Enabled |
 
 > 📌 The current default mode is **edit** — auto-handles file read/write, but still requires confirmation before script execution. This is the optimal balance for most scenarios.
@@ -66,11 +66,13 @@ flowchart TD
     style BYPASS fill:#e8f5e9,stroke:#2e7d32,stroke-width:2px
 ```
 
-| Tool | 🔒 manual | 📝 edit | ⚡ bypass |
-|------|:---------:|:-------:|:---------:|
-| ls / read / find / grep | ✅ Auto | ✅ Auto | ✅ Auto |
-| write | ⚠️ Confirm | ✅ Auto | ✅ Auto |
-| script | ⚠️ Confirm | ⚠️ Confirm | ✅ Auto |
+| Tool | 🔒 manual | 📝 edit | 📋 plan | 🤖 auto | ⚡ bypass |
+|------|:---------:|:-------:|:-------:|:-------:|:---------:|
+| ls / read / find / grep | ✅ Auto | ✅ Auto | ✅ Auto | ✅ Auto | ✅ Auto |
+| write | ⚠️ Confirm | ✅ Auto | ✅ Auto | ✅ Auto | ✅ Auto |
+| script | ⚠️ Confirm | ⚠️ Confirm | ⚠️ Confirm | ⚠️ Confirm | ✅ Auto |
+
+> 📌 **plan** and **auto** modes are not yet enabled and currently use the same permission rules as **edit**.
 
 > 💡 **Design Principle**: Read-only operations are always safely allowed; `write` only requires confirmation in the highest-alertness mode (manual); `script` can execute arbitrary code, so it requires user confirmation in all modes except bypass.
 
@@ -106,7 +108,7 @@ flowchart TD
     B --> C["👆 Select new mode"]
     C --> D["🔄 Update state"]
     D --> E["💾 Write to localStorage"]
-    D --> F["🔗 Sync to RtcProcessor"]
+    D --> F["🔗 Takes effect immediately"]
 
     style A fill:#e3f2fd,stroke:#1565c0,stroke-width:2px
     style D fill:#fff9c4,stroke:#f9a825,stroke-width:2px

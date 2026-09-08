@@ -54,7 +54,7 @@ flowchart TD
 | `message.created` | ✅ | ❌ | 消息创建 |
 | `message.updated`（流完成） | ✅ | ❌ | 流式消息的最终完整版本 |
 | `message.updated`（流中间 chunk） | ❌ | ✅ | 打字机效果的实时片段 |
-| `rtc.created` | ✅ | ❌ | RTC 工具调用创建 |
+| `rtc.created` | ❌ | ❌ | 预留（当前未发出） |
 | `rtc.updated` | ✅ | ❌ | RTC 状态变更 |
 
 ```mermaid
@@ -92,8 +92,8 @@ flowchart LR
 |------|:----:|------|
 | `id` | UUID | Update 唯一标识 |
 | `items` | array | 变化条目列表 |
-| `items[].entity` | string | 实体类型：`session` / `turn` / `message` / `rtc` / `file` |
-| `items[].action` | string | 操作类型：`created` / `updated` / `deleted` |
+| `items[].entity` | string | 实体类型：`session` / `turn` / `message` / `rtc`（`file` 为预留，当前未使用） |
+| `items[].action` | string | 操作类型：`created` / `updated`（`deleted` 为预留，当前未使用；删除通过 `data_list` 中的 `deleted_at` 表达） |
 | `items[].entity_id` | UUID | 实体 ID |
 | `data_list` | array | 实体完整数据（可选，与 items 一一对应） |
 | `offset` | integer | 用户维度单调递增偏移量 |
@@ -149,6 +149,7 @@ flowchart TD
 | **连续性检测** | 客户端发现 Offset 跳跃时自动补全 |
 | **持久化** | Offset 存储在 IndexedDB，页面刷新后恢复 |
 | **Epoch 机制** | 历史数据被清理时 Epoch 变更，客户端从最新位置开始 |
+| **Gap 占位** | 离线恢复时，服务端发送 `{"type": "gap", "data": {}}` 事件填充 Offset 空洞，客户端收到后只推进 Offset，不做业务处理 |
 
 > 💡 **类比**：Offset 就像邮件的编号。如果你收到了第 1、2、4 封信，你会意识到第 3 封丢了——然后去邮局补领。
 
@@ -189,9 +190,9 @@ sequenceDiagram
 
 | 阶段 | 频道 | 行为 |
 |------|:----:|------|
-| **首 chunk** | Topic | 创建消息记录，推送 `message.created` |
+| **首 chunk** | Topic | 创建消息记录，推送 `message.created`，同时写入 Redis 缓冲 |
 | **中间 chunks** | Live | 追加到 Redis 缓冲，推送到 Live 频道实时显示 |
-| **流结束** | Topic | 拼接完整内容，更新数据库，推送 `message.updated` |
+| **流结束** | Topic | 从 Redis 读取所有 chunks 拼接完整内容，更新数据库，推送 `message.updated` |
 
 ---
 

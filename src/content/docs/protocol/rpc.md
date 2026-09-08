@@ -1,15 +1,15 @@
 ---
 title: WebSocket RPC
-description: RTC Agent 的 WebSocket RPC 接口——18 个方法覆盖会话管理、消息收发、Turn 控制和 RTC 工具调用。
+description: RTC Agent 的 WebSocket RPC 接口——16 个方法覆盖会话管理、消息收发、Turn 控制和 RTC 工具调用。
 ---
 
-认证完成后，前端通过一条 **WebSocket 持久连接** 完成所有业务操作。RPC 共定义 **18 个方法**，分为 **Action（操作类）** 和 **Query（查询类）** 两种类型。
+认证完成后，前端通过一条 **WebSocket 持久连接** 完成所有业务操作。RPC 共定义 **16 个方法**，分为 **Action（操作类）** 和 **Query（查询类）** 两种类型。
 
 ## RPC 分类
 
 ```mermaid
 flowchart TD
-    subgraph ACTION["⚡ Action RPC（10 个）"]
+    subgraph ACTION["⚡ Action RPC（8 个）"]
         direction TB
         A1["创建 / 修改 / 删除操作"]
         A2["响应附带 updates 事件"]
@@ -40,7 +40,7 @@ flowchart TD
 
 ## 方法一览
 
-18 个方法按 **4 个业务域** 组织：
+16 个方法按 **4 个业务域** 组织：
 
 | 域 | Action | Query |
 |:--:|:------:|:-----:|
@@ -82,10 +82,10 @@ flowchart LR
 |------|:----:|------|----------|
 | `v1.session.list` | 🔍 Query | 获取会话列表 | `cursor`（分页），`limit`（默认 20） |
 | `v1.session.get` | 🔍 Query | 获取单个会话 | `session_id` |
-| `v1.session.close` | ⚡ Action | 关闭会话 | `session_id`，`client_id` |
+| `v1.session.close` | ⚡ Action | 关闭会话 | `session_id` |
 | `v1.session.update` | ⚡ Action | 更新会话标题 / 软删除 | `session_id`，`title`，`deleted_at` |
-| `v1.session.fork` | ⚡ Action | 分叉对话（基于历史消息创建新会话） | `old_server_session_id`，`new_client_session_id`，`old_server_message_id`，`content_data`，`limit`（默认 200，最多 1000） |
-| `v1.session.compact` | ⚡ Action | 手动触发上下文压缩 | `session_id`，`custom_instruction` |
+| `v1.session.fork` | ⚡ Action | 分叉对话（基于历史消息创建新会话） | `old_server_session_id`，`new_client_session_id`，`new_client_message_id`，`old_server_message_id`，`content_data`，`limit`（默认 200，最多 1000） |
+| `v1.session.compact` | ⚡ Action | 手动触发上下文压缩（不返回 updates） | `session_id`，`custom_instruction` |
 
 ### Fork 分叉对话
 
@@ -113,6 +113,8 @@ flowchart LR
 
 > 💡 **Fork 的典型场景**：用户想从历史对话的某个分叉点开始新的方向。指定旧消息位置，系统复制之前的上下文，用新消息替换指定位置之后的内容，并触发新的 AI 推理。
 
+**Fork 响应**：返回 `{session_id, turn_id, message_ids[]}`。注意 `turn_id` 为空字符串——Turn 由后台 turn-agent 异步创建。
+
 ---
 
 ## Message 域
@@ -121,8 +123,8 @@ flowchart LR
 
 | 方法 | 类型 | 功能 | 关键参数 |
 |------|:----:|------|----------|
-| `v1.message.send` | ⚡ Action | 发送消息（自动创建 session 和 turn） | `content_data`，`client_session_id`，`client_id`，`server_session_id`（可选） |
-| `v1.message.list` | 🔍 Query | 获取消息列表 | `session_id`，`cursor`（global_offset），`limit`（默认 50） |
+| `v1.message.send` | ⚡ Action | 发送消息（自动创建 session 和 turn） | `content_data`，`client_session_id`，`client_id`（必填），`server_session_id`（可选），`agent_prompt`（可选） |
+| `v1.message.list` | 🔍 Query | 获取消息列表 | `session_id`，`cursor`（global_offset，uint32），`limit`（默认 50） |
 | `v1.message.get` | 🔍 Query | 获取单条消息 | `message_id` |
 
 ### 消息发送流程
@@ -144,6 +146,8 @@ sequenceDiagram
 ```
 
 > 💡 **自动创建**：调用 `v1.message.send` 时，如果 `server_session_id` 为空，服务端会自动创建新会话。这意味着"新建对话"和"发送消息"可以合并为一次调用。
+
+> 💡 **异步 Turn**：`v1.message.send` 和 `v1.session.fork` 响应中的 `turn_id` 为空字符串——Turn 由后台 turn-agent 异步创建，不随请求同步返回。
 
 ### 内容类型
 
@@ -183,7 +187,7 @@ stateDiagram-v2
 
 | 方法 | 类型 | 功能 | 关键参数 |
 |------|:----:|------|----------|
-| `v1.turn.stop` | ⚡ Action | 停止当前 Turn | `session_id`，`client_id` |
+| `v1.turn.stop` | ⚡ Action | 停止当前 Turn（不返回 updates） | `session_id` |
 | `v1.turn.list` | 🔍 Query | 获取 Turn 列表 | `session_id`，`cursor`，`limit`（默认 50） |
 | `v1.turn.get` | 🔍 Query | 获取单个 Turn | `turn_id` |
 
@@ -240,32 +244,26 @@ sequenceDiagram
 
 ## 幂等机制
 
-所有 Action RPC 支持 **`client_id` 幂等**——客户端生成的唯一 ID，确保重复请求不会产生副作用。
+部分 Action RPC 支持 `client_id` 用于去重或所有权验证，但**各方法行为不同**：
 
-```mermaid
-flowchart TD
-    A["📤 发送请求<br/>client_id = 'abc123'"] --> B{"服务端检测"}
-    B -->|"首次请求"| C["✅ 正常处理"]
-    B -->|"重复请求<br/>相同 client_id"| D["↩️ 返回上次结果"]
+| 方法 | client_id | 实际行为 |
+|------|:---------:|---------|
+| `message.send` | ✅ 必填 | 重复 client_id 返回 `client_id_conflict` 错误 |
+| `rtc.submit_result` | ✅ 可选 | 终态 + 相同 client_id → 返回缓存结果（幂等）；终态 + 不同 client_id → 返回已有数据 |
+| `rtc.update_status` | ✅ 可选 | 用于所有权验证 + 状态机转换检查，非简单去重 |
+| `session.close` | ✅ 可选 | 字段接受但不做去重 |
+| `turn.stop` | ✅ 可选 | 字段接受但不做去重 |
+| `session.update` | ❌ 无此字段 | — |
+| `session.compact` | ❌ 无此字段 | 使用内部队列去重（同一 session 不重复压缩） |
+| `session.fork` | ❌ 用 `new_client_message_id` | 作为新消息的 ClientID 存储，不做 fork 级去重 |
 
-    style C fill:#c8e6c9,stroke:#388e3c,stroke-width:2px
-    style D fill:#e3f2fd,stroke:#1565c0,stroke-width:2px
-```
-
-> 💡 **为什么需要幂等？** WebSocket 消息可能因网络问题重发。`client_id` 保证"发一次"和"发两次"的效果完全相同——前端可以放心重试，无需担心重复创建消息或重复执行工具。
-
-| 特性 | 说明 |
-|------|------|
-| **生成方** | 客户端（前端） |
-| **格式** | 字符串，建议使用 UUID |
-| **作用域** | 同一方法内唯一 |
-| **重复行为** | 返回首次处理的结果，不创建新记录 |
+> 💡 **设计说明**：`client_id` 在不同方法中承担不同职责——有时是幂等键，有时是所有权标识，有时仅做记录。集成时应参考各方法的具体行为，不要假设统一的幂等语义。
 
 ---
 
 ## Update 模型
 
-Action RPC 的响应统一包含 **`result`** 和 **`updates`** 两部分：
+大部分 Action RPC 的响应包含 **`result`** 和 **`updates`** 两部分（`session.compact` 和 `turn.stop` 除外，它们的 `updates` 为空）：
 
 ```json
 {
@@ -301,6 +299,37 @@ flowchart LR
 ```
 
 > 💡 **前端收到 updates 后**：直接更新本地状态（IndexedDB / 内存），保持与服务端一致。无需再发一次查询请求——这就是"操作即同步"的设计理念。
+
+---
+
+## RPC 错误格式
+
+RPC 错误使用与 HTTP 不同的结构化格式：
+
+```json
+{
+  "code": "session.not_found",
+  "message": "session xxx not found",
+  "details": "optional additional info"
+}
+```
+
+| 字段 | 类型 | 说明 |
+|------|:----:|------|
+| `code` | string | 机器可读错误码，如 `session.not_found`、`client_id_conflict`、`method_not_found` |
+| `message` | string | 人类可读描述 |
+| `details` | any | 可选附加信息（仅部分错误包含） |
+
+---
+
+## Message 排序
+
+消息模型包含两个排序字段：
+
+| 字段 | 类型 | 说明 |
+|------|:----:|------|
+| `global_offset` | uint32 | Session 内全局消息顺序，单调递增，用作 `v1.message.list` 的分页 cursor |
+| `turn_offset` | uint32 | Turn 内消息顺序 |
 
 ## 下一步
 

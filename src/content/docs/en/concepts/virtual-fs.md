@@ -91,6 +91,8 @@ flowchart LR
 | `grep` | Search by file content | `pattern` (regex), `path`, `caseSensitive` |
 | `remove` | Delete file | `path` |
 
+> ⚠️ `remove` is an internal API of the virtual file system and is not currently exposed to AI as an RTC tool. AI cannot directly delete files.
+
 ### Paginated Reading
 
 Large files support paginated reading to avoid loading too much content at once:
@@ -170,7 +172,7 @@ flowchart LR
 | Storage Engine | IndexedDB (wrapped by Dexie.js) |
 | Primary Key | File path |
 | Large Files | Stored and retrieved as whole, supports paginated reading |
-| Caching | No cache layer, queries IndexedDB directly each time |
+| Read Behavior | Each read queries the latest data directly, no cache layer |
 | Capacity | Subject to browser IndexedDB quota (typically hundreds of MB) |
 
 ## Initialization

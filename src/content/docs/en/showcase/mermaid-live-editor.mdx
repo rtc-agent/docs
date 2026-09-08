@@ -1,0 +1,134 @@
+---
+title: Mermaid Live Editor
+description: Integrating rtc-agent into the official Mermaid online editor — let AI draw, validate, and fix diagrams via natural language.
+---
+
+import { Badge } from '@astrojs/starlight/components';
+
+<Badge text="Showcase #1" />
+
+[Mermaid Live Editor](https://mermaid.live) is the official online diagram editor for Mermaid, supporting flowcharts, sequence diagrams, class diagrams, and more. We integrated rtc-agent with **less than 30 lines of glue code**, enabling the AI to:
+
+- 🗣️ Generate Mermaid code from natural language descriptions
+- ✍️ Automatically write to the editor and trigger live preview
+- ✅ Proactively invoke syntax validation and self-heal on errors
+- 🎨 Require zero manual code from the user throughout
+
+## Live Demo
+
+<video controls autoplay muted loop playsinline style="width:100%; border-radius:8px; box-shadow:0 2px 12px rgba(0,0,0,0.12)">
+  <source src="/docs/showcase/mermaid-live-editor-demo.mp4" type="video/mp4" />
+</video>
+
+> The video above shows the full workflow: user describes what they want → AI writes code → validates → renders.
+
+## Integration
+
+The entire integration only modifies **2 core files** with **zero changes to upstream source code**:
+
+| File | Change | Lines |
+| --- | --- | --- |
+| `src/routes/+layout.svelte` | Load rtc-agent, mount component, configure agentConfig | +98 |
+| `src/lib/util/editorAPI.ts` | Expose `window.editorAPI` programmatic interface | +105 (new) |
+
+### Step 1: Expose Host State API
+
+rtc-agent's core design principle is **"the Agent never touches your source code — it only operates state through declarative APIs"**. So the first step is exposing your app's key state on `window`:
+
+```ts
+// src/lib/util/editorAPI.ts
+export interface EditorAPI {
+  getCode(): string;              // Get current editor code
+  getDiagramType(): string;       // Get diagram type (flowchart/sequence/...)
+  setCode(code: string): void;    // Replace editor content and trigger validation
+  validate(): ValidateResult;     // Return validation result (with error locations)
+  waitForReady(): Promise<void>;  // Wait for async validation to complete
+}
+
+// Mount on window so rtc-agent tools can call them
+window.editorAPI = { getCode, setCode, validate, getDiagramType, waitForReady };
+```
+
+Design principles behind this API:
+- **Symmetric read/write**: `getCode` pairs with `setCode` — the Agent can both read and write
+- **Validation loop**: After writing code, the Agent proactively calls `validate()` and self-heals on errors
+- **Async-aware**: `waitForReady()` lets the Agent know when validation completes, avoiding stale reads
+
+### Step 2: Declare Agent Identity & Tools
+
+Load rtc-agent in your layout and configure `agentConfig`:
+
+```svelte
+<!-- src/routes/+layout.svelte -->
+<script type="module" src="/rtc-agent/index.js"></script>
+
+<rtc-agent app-label="Mermaid AI" scenarios-url="/rtc-agent/scenarios/"></rtc-agent>
+
+<script>
+  onMount(() => {
+    const agent = document.querySelector('rtc-agent');
+
+    agent.addEventListener('rtc-agent-ready', () => {
+      agent.agentConfig = {
+        name: 'MermaidEditor',
+        persona: `You are a helpful Mermaid diagram assistant. Help users create and edit
+diagrams through natural language. Always call validate after writing code,
+and proactively fix any syntax errors you find.`,
+        groups: [{
+          name: 'editor',
+          functions: [
+            {
+              name: 'getCode',
+              description: 'Get the current Mermaid code from the editor',
+              handler: () => window.editorAPI.getCode(),
+            },
+            {
+              name: 'setCode',
+              description: 'Replace the editor content with new Mermaid code',
+              handler: (p) => { window.editorAPI.setCode(p.code); return { success: true }; },
+              parameters: [{ name: 'code', required: true, schema: { type: 'string' } }],
+            },
+            {
+              name: 'validate',
+              description: 'Validate the current code and return any syntax errors',
+              handler: () => window.editorAPI.validate(),
+            },
+            {
+              name: 'getDiagramType',
+              description: 'Get the current diagram type',
+              handler: () => window.editorAPI.getDiagramType() ?? 'unknown',
+            },
+          ],
+        }],
+      };
+    }, { once: true });
+  });
+</script>
+```
+
+### Step 3: Theme Sync (Optional)
+
+rtc-agent supports light/dark themes and can be kept in sync via a property:
+
+```ts
+// Watch host theme changes and sync to rtc-agent
+$effect(() => {
+  document.querySelector('rtc-agent').theme = currentTheme; // 'light' | 'dark'
+});
+```
+
+## Change Summary
+
+Beyond the two core files above, the following were also added:
+
+| File | Purpose |
+| --- | --- |
+| `src/rtc-agent.d.ts` | rtc-agent TypeScript type declarations |
+| `static/auth/callback.html` | OAuth callback page |
+| `static/rtc-agent/scenarios/` | 3 preset scenario templates + manifest |
+
+The integration **modifies zero upstream source code**, with a change rate of < 2%. rtc-agent is loaded from a local build artifact (switchable to CDN in production) — the 3MB bundle never enters the repository.
+
+## Source Repository
+
+[rtc-agent/mermaid-live-editor](https://github.com/rtc-agent/mermaid-live-editor) (forked from [mermaid-js/mermaid-live-editor](https://github.com/mermaid-js/mermaid-live-editor))

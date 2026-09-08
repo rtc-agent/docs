@@ -30,8 +30,8 @@ flowchart LR
 |:----:|------|------|:----:|
 | 🔒 manual | Manual | 每次编辑前询问用户 | ✅ 启用 |
 | 📝 edit | Edit automatically | 自动编辑文件（⭐ 默认） | ✅ 启用 |
-| 📋 plan | Plan | 先探索代码再编辑 | 🔜 未启用 |
-| 🤖 auto | Auto | 安全检查后自动执行 | 🔜 未启用 |
+| 📋 plan | Plan | 先探索代码再编辑（预期行为） | 🔜 未启用 |
+| 🤖 auto | Auto | 安全检查后自动执行，有风险操作会暂停（预期行为） | 🔜 未启用 |
 | ⚡ bypass | Bypass permissions | 不询问直接执行 | ✅ 启用 |
 
 > 📌 当前默认模式为 **edit**——自动处理文件读写，但脚本执行前仍需确认。这是大多数场景下的最佳平衡。
@@ -66,11 +66,13 @@ flowchart TD
     style BYPASS fill:#e8f5e9,stroke:#2e7d32,stroke-width:2px
 ```
 
-| 工具 | 🔒 manual | 📝 edit | ⚡ bypass |
-|------|:---------:|:-------:|:---------:|
-| ls / read / find / grep | ✅ 自动 | ✅ 自动 | ✅ 自动 |
-| write | ⚠️ 确认 | ✅ 自动 | ✅ 自动 |
-| script | ⚠️ 确认 | ⚠️ 确认 | ✅ 自动 |
+| 工具 | 🔒 manual | 📝 edit | 📋 plan | 🤖 auto | ⚡ bypass |
+|------|:---------:|:-------:|:-------:|:-------:|:---------:|
+| ls / read / find / grep | ✅ 自动 | ✅ 自动 | ✅ 自动 | ✅ 自动 | ✅ 自动 |
+| write | ⚠️ 确认 | ✅ 自动 | ✅ 自动 | ✅ 自动 | ✅ 自动 |
+| script | ⚠️ 确认 | ⚠️ 确认 | ⚠️ 确认 | ⚠️ 确认 | ✅ 自动 |
+
+> 📌 **plan** 和 **auto** 模式当前未启用，暂时使用与 **edit** 相同的权限规则。
 
 > 💡 **设计原则**：只读操作始终安全放行；`write` 仅在最高警戒模式（manual）下需要确认；`script` 因为可以执行任意代码，除 bypass 外都需要用户确认。
 
@@ -106,7 +108,7 @@ flowchart TD
     B --> C["👆 选择新模式"]
     C --> D["🔄 更新状态"]
     D --> E["💾 写入 localStorage"]
-    D --> F["🔗 同步到 RtcProcessor"]
+    D --> F["🔗 立即生效"]
 
     style A fill:#e3f2fd,stroke:#1565c0,stroke-width:2px
     style D fill:#fff9c4,stroke:#f9a825,stroke-width:2px

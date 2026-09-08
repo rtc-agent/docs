@@ -46,15 +46,11 @@ agent.agentConfig = {
         {
           name: 'create',
           description: 'Create a new order',
-          parameters: {
-            type: 'object',
-            properties: {
-              productId: { type: 'string', description: 'Product ID' },
-              quantity: { type: 'number', description: 'Purchase quantity' }
-            },
-            required: ['productId']
-          },
-          returns: { type: 'object', description: 'Order info, including orderId' },
+          parameters: [
+            { name: 'productId', schema: { type: 'string' }, required: true, description: 'Product ID' },
+            { name: 'quantity', schema: { type: 'number' }, description: 'Purchase quantity' }
+          ],
+          returns: { schema: { type: 'object' }, description: 'Order info, including orderId' },
           handler: async (params) => {
             const res = await api.createOrder(params.productId, params.quantity);
             return { orderId: res.id, status: res.status };
@@ -73,19 +69,20 @@ agent.agentConfig = {
 For fine-grained control, use `defineRegistry` to register manually:
 
 ```ts
-import { defineRegistry } from '@rtc-agent/web-components';
+import { defineRegistry } from '@rtc-agent/component';
 
 const registry = defineRegistry({
   name: 'OrderApp',
+  description: 'Order management application',
   persona: 'You are an order management assistant.'
 });
 
-registry.addGroup({
+const orderGroup = registry.createGroup({
   name: 'order',
   description: 'Order management operations'
 });
 
-registry.addFunction('order', {
+orderGroup.register({
   name: 'create',
   description: 'Create a new order',
   handler: async (params) => {
@@ -102,8 +99,8 @@ Each function consists of the following fields:
 |:----:|:----:|:----:|:----:|
 | 📛 `name` | `string` | ✅ | Function name; combined with group name to form the full path (e.g., `order.create`) |
 | 📝 `description` | `string` | ✅ | Function description, **written into auto-generated documentation**; AI uses this to decide when to call |
-| 📐 `parameters` | `object` | — | Parameter definition in OpenAPI Schema format |
-| 🔙 `returns` | `object` | — | Return value definition, helping AI understand the output |
+| 📐 `parameters` | `ParameterDef[]` | — | Array of parameter definitions, each with `{name, schema, required?, description?}`; `schema` is OpenAPI Schema |
+| 🔙 `returns` | `ReturnDef` | — | Return value definition `{schema, description?}`, helping AI understand the output |
 | ⚡ `handler` | `function` | ✅ | Execution function; supports `async`, receives `params` argument |
 | 🪝 `hooks` | `object` | — | UI hooks (`onStart` / `onSuccess` / `onError` / `onProgress`) |
 
@@ -113,20 +110,16 @@ Each function consists of the following fields:
 {
   name: 'refund',
   description: 'Initiate a refund for a specified order, supporting full and partial refunds',
-  parameters: {
-    type: 'object',
-    properties: {
-      orderId: { type: 'string', description: 'Order ID' },
-      amount: { type: 'number', description: 'Refund amount (omit for full refund)' },
-      reason: { type: 'string', description: 'Refund reason' }
-    },
-    required: ['orderId', 'reason']
-  },
-  returns: { type: 'object', description: 'Refund result, including refundId and status' },
-  handler: async (params, { onProgress }) => {
-    onProgress('Verifying order...');
+  parameters: [
+    { name: 'orderId', schema: { type: 'string' }, required: true, description: 'Order ID' },
+    { name: 'amount', schema: { type: 'number' }, description: 'Refund amount (omit for full refund)' },
+    { name: 'reason', schema: { type: 'string' }, required: true, description: 'Refund reason' }
+  ],
+  returns: { schema: { type: 'object' }, description: 'Refund result, including refundId and status' },
+  handler: async (params, onProgress) => {
+    onProgress?.(30);
     await validateOrder(params.orderId);
-    onProgress('Processing refund...');
+    onProgress?.(70);
     const result = await processRefund(params.orderId, params.amount);
     return { refundId: result.id, status: result.status };
   },
@@ -192,8 +185,8 @@ AI has two equivalent invocation syntaxes:
 // Approach 1: Proxy chain call (natural syntax)
 await rtcAgent.order.create({ productId: '123', quantity: 2 });
 
-// Approach 2: execute method
-await rtcAgent.execute('order.create', { productId: '123', quantity: 2 });
+// Approach 2: callFunction method
+await rtcAgent.callFunction('order.create', { productId: '123', quantity: 2 });
 ```
 
 > 💡 Proxy chain calls let AI use registered functions just like calling a regular API — intuitive syntax, hard to get wrong.

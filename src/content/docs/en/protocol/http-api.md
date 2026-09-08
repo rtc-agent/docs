@@ -47,7 +47,7 @@ Get the redirect URL for the OAuth2 authorization page. The frontend uses this U
 | Parameter | Location | Required | Type | Description |
 |------|:----:|:----:|:----:|------|
 | `provider` | query | ✅ | string | OAuth2 Provider name (e.g., `"github"`) |
-| `redirect_uri` | query | ✅ | string | Callback URL after authorization is complete |
+| `redirect_uri` | query | ❌ | string | Callback URL after authorization (optional, required by some Providers) |
 
 ### Response
 
@@ -85,9 +85,9 @@ Exchange an authorization code for an access_token and refresh_token. This is th
 | Field | Required | Type | Description |
 |------|:----:|:----:|------|
 | `code` | ✅ | string | Authorization code, carried in the query parameters of the authorization callback URL |
-| `redirect_uri` | ✅ | string | Must be **exactly the same** as the `redirect_uri` in the authorization request |
+| `redirect_uri` | ❌ | string | Callback URL, recommended to match the one from the authorization request |
 | `state` | ✅ | string | CSRF protection state; must match the state from the authorization request and be used only once |
-| `device_id` | ✅ | string | Client-generated device UUID, used to identify the client device |
+| `device_id` | ❌ | string | Client-generated device UUID, used to identify the client device |
 | `device_name` | ❌ | string | Device display name, e.g., `"Chrome on Mac"` |
 | `user_agent` | ❌ | string | Client User-Agent, used for device identification |
 
@@ -97,7 +97,7 @@ Exchange an authorization code for an access_token and refresh_token. This is th
 {
   "access_token": "eyJhbGciOi...",
   "refresh_token": "dGhpcyBpcyBh...",
-  "expires_in": 900,
+  "expires_in": 3600,
   "user_id": "user-uuid"
 }
 ```
@@ -106,7 +106,7 @@ Exchange an authorization code for an access_token and refresh_token. This is th
 |------|:----:|------|
 | `access_token` | string | JWT access token, validity period specified by `expires_in` |
 | `refresh_token` | string | Refresh token, used to obtain a new token after the access_token expires |
-| `expires_in` | integer | Access token expiration time (seconds), typically **900** (15 minutes) |
+| `expires_in` | integer | Access token expiration time (seconds), typically **3600** (1 hour) |
 | `user_id` | string | Unique ID of the authenticated user |
 
 ### Token Refresh
@@ -119,16 +119,16 @@ sequenceDiagram
     Note over FE: access_token about to expire
     FE->>Server: POST /oauth2/refresh<br/>{ refresh_token }
     Server-->>FE: { access_token, expires_in }
-    Note over FE: Old refresh_token invalidated<br/>Use new refresh_token
+    Note over FE: Use new access_token<br/>refresh_token unchanged, still valid
 ```
 
-> ⚠️ **Refresh Token Rotation**: Each time a refresh_token is used to exchange for a new access_token, the old refresh_token is **immediately invalidated**, and the server returns a new refresh_token. This ensures that even if a token is leaked, it can only be used once.
+> 💡 **Refresh Token Reuse**: The refresh_token can be **reused multiple times** within its validity period, returning a new access_token each time. The refresh_token itself is not replaced or revoked until it naturally expires (default 30 days).
 
 ---
 
 ## POST /oauth2/refresh
 
-Exchange a refresh_token for a new access_token. The old refresh_token is invalidated after a single use (rotation mechanism).
+Exchange a refresh_token for a new access_token. The refresh_token can be reused within its validity period.
 
 ### Request Body
 
@@ -140,14 +140,14 @@ Exchange a refresh_token for a new access_token. The old refresh_token is invali
 
 | Field | Required | Type | Description |
 |------|:----:|:----:|------|
-| `refresh_token` | ✅ | string | Refresh token, invalidated after a single use |
+| `refresh_token` | ✅ | string | Refresh token, reusable within its validity period |
 
 ### Response
 
 ```json
 {
   "access_token": "eyJhbGciOi...(new)",
-  "expires_in": 900
+  "expires_in": 3600
 }
 ```
 
@@ -169,12 +169,14 @@ All endpoints return a unified error format when an error occurs:
 }
 ```
 
-| Error Code | Description | Common Causes |
-|--------|------|----------|
-| `invalid_request` | Invalid request parameters | Missing required fields, format errors |
-| `invalid_client` | Client authentication failed | Provider misconfiguration |
-| `invalid_grant` | Authorization code invalid or expired | Authorization code already used or past its validity period |
-| `server_error` | Internal server error | Server-side exception |
+| Error Code | HTTP Status | Description | Common Causes |
+|--------|:----------:|------|----------|
+| `invalid_request` | 400 | Invalid request parameters | Missing required fields, format errors |
+| `invalid_client` | 400 | Client authentication failed | Provider misconfiguration |
+| `invalid_grant` | 401 | Authorization code invalid or expired | Authorization code already used or past its validity period |
+| `server_error` | 500 | Internal server error | Server-side exception |
+
+> 💡 **Content-Type Support**: POST endpoints (`/oauth2/token` and `/oauth2/refresh`) support both `application/json` and `application/x-www-form-urlencoded` request formats.
 
 ```mermaid
 flowchart TD

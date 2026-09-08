@@ -32,7 +32,7 @@ flowchart TD
 | 📄 Scenario Doc | Business workflow description in Markdown format |
 | 📡 Loading | Specified via the `<rtc-agent scenarios-url="...">` attribute URL |
 | 💾 Storage Location | `/scenarios/` directory in the virtual file system |
-| 📑 Index File | `/scenarios/INDEX.md` updated automatically |
+| 📑 Index File | `/scenarios/INDEX.md` (auto-generated when writing via `writeScenario()` API) |
 | 🧠 AI Usage | AI reads scenario docs to learn business workflows, then executes accordingly |
 
 > 💡 **In One Sentence**: Functions tell AI "what it can do"; Scenarios tell AI "how to do it."
@@ -45,13 +45,10 @@ flowchart TD
     B --> C["📋 Parse scenario list"]
     C --> D["📥 Download .md scenario files one by one"]
     D --> E["💾 Write to /scenarios/ directory"]
-    E --> F["📑 Update INDEX.md"]
-    F --> G["🧠 Update AGENT.md"]
 
     style A fill:#e3f2fd,stroke:#1565c0,stroke-width:2px
     style B fill:#fff9c4,stroke:#f9a825,stroke-width:2px
     style E fill:#e8f5e9,stroke:#388e3c,stroke-width:2px
-    style G fill:#f3e5f5,stroke:#7b1fa2,stroke-width:2px
 ```
 
 | Step | Description |
@@ -59,7 +56,9 @@ flowchart TD
 | 1 | Host application sets the `scenarios-url` attribute on the `<rtc-agent>` component |
 | 2 | Component fetches `manifest.json` from the specified URL to learn what scenarios are available |
 | 3 | Downloads `.md` scenario files one by one and writes them to the virtual file system |
-| 4 | Index and Agent guide are auto-generated; AI can then read them |
+| 4 | Scenario files are now available; AI can access them via `ls` / `read` tools |
+
+> ⚠️ **Note**: When loading scenarios via `scenarios-url`, the system does NOT auto-generate `INDEX.md` or update `AGENT.md`. To enable auto-generated indexing, use the `FunctionRegistry.writeScenario()` API to write scenarios individually.
 
 ## manifest.json
 
@@ -67,36 +66,35 @@ flowchart TD
 
 ```json
 {
-  "version": 1,
   "scenarios": [
     {
-      "slug": "create-order",
-      "title": "Create Order",
-      "file": "create-order.md"
+      "file": "create-order.md",
+      "name": "Create Order",
+      "description": "New order creation workflow"
     },
     {
-      "slug": "handle-refund",
-      "title": "Handle Refund",
-      "file": "handle-refund.md"
+      "file": "handle-refund.md",
+      "name": "Handle Refund",
+      "description": "Refund request processing workflow"
     },
     {
-      "slug": "user-onboarding",
-      "title": "User Onboarding",
-      "file": "user-onboarding.md"
+      "file": "user-onboarding.md",
+      "name": "User Onboarding",
+      "description": "Guide new users through initial setup"
     }
   ]
 }
 ```
 
-| Field | Type | Description |
-|:----:|:----:|:----:|
-| `version` | `number` | Manifest version number, currently `1` |
-| `scenarios` | `array` | Scenario list |
-| `scenarios[].slug` | `string` | Scenario identifier, used for URL routing and file naming |
-| `scenarios[].title` | `string` | Scenario title, displayed in the index |
-| `scenarios[].file` | `string` | Scenario Markdown filename |
+| Field | Type | Required | Description |
+|:----:|:----:|:----:|:----:|
+| `scenarios` | `array` | ✅ | Scenario list |
+| `scenarios[].file` | `string` | ✅ | Scenario Markdown filename (e.g., `create-order.md`) |
+| `scenarios[].name` | `string` | — | Scenario name, displayed in the index |
+| `scenarios[].description` | `string` | — | Scenario description, displayed in the index |
+| `scenarios[].id` | `string` | — | Unique scenario identifier (optional) |
 
-> 📌 It is recommended to use lowercase letters with hyphens for `slug` (e.g., `create-order`), avoiding spaces and special characters.
+> 📌 Scenario titles and descriptions can also be defined via YAML frontmatter within the `.md` files themselves. Use either the manifest's `name` / `description` or frontmatter — not both.
 
 ## Directory Structure
 
@@ -117,7 +115,7 @@ flowchart TD
     style IDX fill:#fff9c4,stroke:#f9a825,stroke-width:2px
 ```
 
-Scenario files are stored uniformly in the `/scenarios/` directory. The system automatically generates an `INDEX.md` index file listing titles and summaries of all available scenarios, making it easy for AI to locate the right one.
+Scenario files are stored uniformly in the `/scenarios/` directory. If scenarios are written via the `FunctionRegistry.writeScenario()` API, the system auto-generates an `INDEX.md` index file; if loaded via `scenarios-url` batch loading, the index is not auto-generated.
 
 ## Scenario Document Format
 

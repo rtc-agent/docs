@@ -84,7 +84,7 @@ flowchart TD
 |:--------:|------|
 | ⏱️ 令牌即将过期 | 到期前 5 分钟自动刷新，避免请求中断 |
 | 📱 页面切回前台 | 从后台切回时检查令牌状态，过期则立即刷新 |
-| 🔌 建立 WebSocket | 连接前确保令牌有效 |
+| 🔌 建立 WebSocket | 连接时按需刷新令牌，确保令牌有效 |
 
 > 💡 刷新失败不会让用户停留在"半死不活"的状态——系统会直接退出登录，引导用户重新认证。
 
@@ -95,7 +95,7 @@ flowchart LR
     subgraph DEVICE1["📱 设备 A"]
         direction TB
         DA["设备 ID: uuid-aaa"]
-        DB["设备名: Mac Chrome"]
+        DB["设备名: Mac"]
     end
 
     subgraph DEVICE2["💻 设备 B"]
@@ -114,7 +114,7 @@ flowchart LR
 | 概念 | 说明 |
 |------|------|
 | 🔖 设备 ID | 浏览器唯一标识（UUID），首次访问时自动生成 |
-| 📛 设备名 | 根据浏览器类型和操作系统自动推断（如"Mac Chrome"、"Windows PC"） |
+| 📛 设备名 | 根据操作系统自动推断（如"Mac"、"Windows PC"、"Linux PC"） |
 | 🔀 多设备 | 同一用户可在多个设备独立登录，互不影响 |
 
 > 📌 每个设备的令牌相互独立——在设备 A 上退出登录不会影响设备 B 的会话。
@@ -182,3 +182,153 @@ flowchart TD
 - [Web Component API](/docs/integration/component-api/) — 了解如何通过 `<rtc-agent>` 组件集成 RTC Agent
 - [Function 注册指南](/docs/integration/function-registration/) — 注册自定义函数扩展 AI 能力
 - [核心协议 RTC](/docs/concepts/rtc/) — 了解 Remote Tool Calling 的完整生命周期
+
+---
+
+## 开发者接入指南
+
+RTC Agent Server 本身是 OAuth2 **消费方**——它需要连接一个 OAuth2 **提供方**来完成用户认证。开发环境内置了 `mock-oauth2` 作为示例提供方；生产部署时，你需要提供自己的 OAuth2 服务。
+
+### 架构关系
+
+```mermaid
+flowchart LR
+    subgraph Browser["浏览器"]
+        User["👤 用户"]
+        FE["🖥️ 前端组件"]
+    end
+
+    subgraph RTCServer["RTC Agent Server"]
+        Consumer["OAuth2 消费方<br/>/oauth2/authorize<br/>/oauth2/token<br/>/oauth2/refresh"]
+    end
+
+    subgraph Provider["你的 OAuth2 服务"]
+        AuthPage["授权页面<br/>GET /oauth2/authorize"]
+        Exchange["代码交换<br/>POST /oauth2/token/exchange"]
+    end
+
+    User -->|"① 点击登录"| FE
+    FE -->|"② 获取授权 URL"| Consumer
+    Consumer -->|"③ 返回 Provider 授权页 URL"| FE
+    FE -->|"④ iframe 加载"| AuthPage
+    User -->|"⑤ 授权"| AuthPage
+    AuthPage -->|"⑥ 重定向回前端（携带 code）"| FE
+    FE -->|"⑦ code 换取 token"| Consumer
+    Consumer -->|"⑧ 向 Provider 交换用户信息"| Exchange
+    Exchange -->|"⑨ 返回用户身份"| Consumer
+    Consumer -->|"⑩ 签发 JWT"| FE
+```
+
+> 💡 RTC Agent Server 负责签发 JWT 令牌和管理设备；你的 OAuth2 服务只负责**验证用户身份**并返回用户信息。
+
+### 需要实现的接口
+
+你的 OAuth2 服务只需实现 **2 个端点**：
+
+#### 端点 1：授权页面 — `GET /oauth2/authorize`
+
+浏览器直接访问（通过 iframe 加载），用于展示登录/授权 UI。
+
+**请求**（RTC Agent Server 拼接后由浏览器访问）：
+
+```http
+GET /oauth2/authorize?state=<hex>&client_id=<id>&redirect_uri=<uri>
+```
+
+| 参数 | 说明 |
+| --- | --- |
+| `state` | 防 CSRF 随机串，必须原样传回 |
+| `client_id` | 客户端标识 |
+| `redirect_uri` | 授权成功后的回调地址 |
+
+**行为要求**：
+
+1. 展示登录/授权页面（可以是你的现有登录系统）
+2. 用户授权成功后，生成一个**短期、一次性**的授权码（code）
+3. HTTP 302 重定向到 `redirect_uri`，query string 中携带 `code` 和 `state`：
+
+```http
+Location: <redirect_uri>?code=<code>&state=<state>
+```
+
+**页面约束**：
+
+- 页面会在 iframe 中加载，**不能**设置 `X-Frame-Options: DENY` 或限制性的 `Content-Security-Policy: frame-ancestors`
+- Content-Type 为 `text/html; charset=utf-8`
+
+#### 端点 2：代码交换 — `POST /oauth2/token/exchange`
+
+RTC Agent Server 服务端直接调用（server-to-server），用授权码换取用户身份信息。
+
+**请求**：
+
+```http
+POST /oauth2/token/exchange
+Content-Type: application/x-www-form-urlencoded
+Accept: application/json
+
+client_id=<id>&client_secret=<secret>&code=<code>&redirect_uri=<uri>
+```
+
+**成功响应**（200）：
+
+```json
+{
+  "provider_user_id": "user-12345",
+  "username": "张三",
+  "email": "zhangsan@example.com",
+  "avatar_url": "https://example.com/avatar.png"
+}
+```
+
+| 字段 | 必填 | 说明 |
+| --- | :---: | --- |
+| `provider_user_id` | ✅ | 用户在你系统中的**稳定唯一标识**，同一用户必须始终返回相同值 |
+| `username` | 可选 | 显示名称 |
+| `email` | 可选 | 邮箱 |
+| `avatar_url` | 可选 | 头像 URL |
+
+**错误响应**：
+
+```json
+{
+  "error": "invalid_client",
+  "error_description": "client_id 或 client_secret 错误"
+}
+```
+
+| HTTP 状态码 | `error` 值 | 含义 |
+| :---: | --- | --- |
+| 400 | `invalid_request` | 缺少或非法参数 |
+| 400 | `invalid_grant` | 授权码无效、已使用或已过期 |
+| 401 | `invalid_client` | 客户端凭证错误 |
+| 500 | `server_error` | 服务端内部错误 |
+
+### 授权码语义
+
+| 约束 | 说明 |
+| --- | --- |
+| 一次性 | 同一 code 只能交换一次 |
+| 短期有效 | 建议 10 分钟内过期 |
+| 绑定用户 | code 必须关联到已认证的用户身份 |
+
+### 不需要实现的部分
+
+- ❌ 不需要签发 access_token / refresh_token — RTC Agent Server 自己签发 JWT
+- ❌ 不需要实现标准 OAuth2 的 `/token` 端点 — `/oauth2/token/exchange` 本质是用户信息接口
+- ❌ 不需要支持 scope、PKCE 等扩展
+
+### 配置 RTC Agent Server
+
+实现好你的 OAuth2 服务后，在 Server 配置中指向它：
+
+```yaml
+providers:
+  mock:
+    enabled: true
+    url: "https://your-oauth-server.com"   # 你的 OAuth2 服务地址
+    client_id: "your-client-id"            # 与你的服务约定的 client_id
+    client_secret: "your-client-secret"    # 与你的服务约定的 client_secret
+```
+
+> ⚠️ `providers.mock` 的 `mock` 是 provider 名称（不是"测试用"的意思）。Server 会将 `{url}/oauth2/authorize` 和 `{url}/oauth2/token/exchange` 拼接为两个端点地址。如果你的服务路径不同，需要扩展 `BuildProviderClients` 或保持路径一致。
