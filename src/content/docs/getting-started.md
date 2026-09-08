@@ -1,67 +1,268 @@
 ---
 title: 快速开始
-description: 安装部署 RTC Agent Server
+description: 部署 RTC Agent Server — 源码构建、Docker 单实例、Docker 分布式集群
 ---
 
-> 🚧 **文档建设中** — 快速上手指南、API 文档、部署教程即将推出。
+RTC Agent Server 提供三种部署方式，按场景选择：
 
-## 安装
+| 部署方式 | 适用场景 | 依赖 |
+|---------|---------|------|
+| [源码构建](#源码构建) | 本地开发调试 | Go 1.27, PostgreSQL, Redis |
+| [Docker 单实例](#docker-单实例) | 快速体验、小规模部署 | Docker |
+| [Docker 分布式](#docker-分布式集群) | 生产验证、多 Worker 测试 | Docker |
 
-RTC Agent Server 使用 Go 编写，支持多种安装方式。
+## 前置条件
 
-### 从源码构建
+所有部署方式都需要以下基础设施：
+
+- **PostgreSQL 17+**（需 pgvector 扩展）— 推荐使用 `pgvector/pgvector:pg17` 镜像
+- **Redis 7+** — 用于消息队列、缓存、Worker 协调
+- **LLM API** — Claude 或 OpenAI 兼容接口
+
+## 源码构建
+
+### 1. 克隆代码
 
 ```bash
-git clone https://github.com/rtc-agent/rtc-agent.git
-cd rtc-agent/server
-go build -o rtc-agent
+git clone https://github.com/rtc-agent/server.git
+cd server
 ```
 
-### 配置文件
+### 2. 启动基础设施
 
-创建 `config.yaml`：
+使用开发 Docker Compose 启动 PostgreSQL、Redis 等：
+
+```bash
+# 启动开发依赖（PostgreSQL:15432, Redis:16379, Jaeger, Mock OAuth2 等）
+go run main.go dev dependencies start
+```
+
+或手动启动 Docker：
+
+```bash
+docker compose -f etc/dev/docker-compose.yml up -d
+```
+
+### 3. 配置
+
+复制配置模板并编辑：
+
+```bash
+cp etc/config.example.yaml etc/config.local.yaml
+```
+
+编辑 `etc/config.local.yaml`，至少修改以下字段：
 
 ```yaml
-server:
-  port: 8080
-  host: 0.0.0.0
-
 database:
-  driver: postgres
-  dsn: "postgresql://user:pass@localhost:5432/rtc_agent?sslmode=disable"
+  dsn: "postgres://rtc_agent:rtc_agent@localhost:15432/rtc_agent?sslmode=disable"
 
 redis:
-  addr: "localhost:6379"
+  addr: "localhost:16379"
 
-ai:
-  provider: anthropic
-  api_key: "${ANTHROPIC_API_KEY}"
+llm:
+  provider: "claude"           # 或 "openai"
+  api_key: "your-api-key"      # 替换为实际 API Key
+  model: "claude-sonnet-4-20250514"
 ```
 
-## 运行
+> **配置合并机制**：Server 启动时自动加载 `etc/config.yaml`（基线）+ `etc/config.local.yaml`（覆盖）。
+> `config.local.yaml` 已在 `.gitignore` 中，不会被提交。只需写差异项。
+
+### 4. 构建 & 运行
 
 ```bash
-./rtc-agent serve --config config.yaml
+# 构建
+go build -o bin/rtc-agent .
+
+# 数据库迁移（首次部署）
+./bin/rtc-agent migrate
+
+# 启动服务
+./bin/rtc-agent serve
 ```
 
-## 前端接入
+服务启动在 `http://localhost:8888`。
 
-在你的网站中添加 Web Component：
+### 5. 验证
 
-```html
-<script type="module">
-  import '@rtc-agent/web-components';
-</script>
-
-<rtc-agent-chat server-url="ws://localhost:8080"></rtc-agent-chat>
+```bash
+curl http://localhost:8888/healthz
+# {"status":"ok"}
 ```
+
+## Docker 单实例
+
+最简单的 Docker 部署方式 — 一个 Server 容器 + PostgreSQL + Redis。
+
+### 1. 准备配置
+
+```bash
+cp etc/config.example.yaml etc/config.docker.yaml
+```
+
+编辑 `etc/config.docker.yaml`，将连接地址改为 Docker 服务名：
+
+```yaml
+database:
+  dsn: "postgres://rtc_agent:rtc_agent@postgres:5432/rtc_agent?sslmode=disable"
+  auto_migrate: true
+
+redis:
+  addr: "redis:6379"
+
+llm:
+  provider: "claude"
+  api_key: "your-api-key"
+  model: "claude-sonnet-4-20250514"
+```
+
+### 2. 启动
+
+```bash
+docker compose up -d
+```
+
+Compose 会自动：
+1. 启动 PostgreSQL 和 Redis（端口 15432 / 16379）
+2. 运行数据库迁移（init 容器）
+3. 启动 Server 容器（端口 8888）
+
+### 3. 验证
+
+```bash
+curl http://localhost:8888/healthz
+# {"status":"ok"}
+```
+
+### 4. 停止 & 清理
+
+```bash
+docker compose down            # 停止容器
+docker compose down -v         # 同时删除数据卷
+```
+
+## Docker 分布式集群
+
+验证多 Worker 分布式部署能力 — 2 个 Server 容器 + Nginx 负载均衡 + 完整可观测性栈。
+
+### 架构
+
+```
+                    ┌──────────┐
+                    │  Nginx   │ :18080
+                    │  (LB)    │
+                    └────┬─────┘
+                   ┌─────┴─────┐
+              ┌────┴───┐  ┌────┴───┐
+              │Server-1│  │Server-2│
+              └────┬───┘  └────┬───┘
+            ┌──────┴───────────┴──────┐
+            │                         │
+       ┌────┴────┐              ┌─────┴────┐
+       │PostgreSQL│              │  Redis   │
+       │ :25432   │              │  :26379  │
+       └──────────┘              └──────────┘
+            │
+       ┌────┴────┐         ┌───────────┐
+       │ Jaeger  │         │Mock OAuth2│
+       │ :26686  │         │  :20060   │
+       └─────────┘         └───────────┘
+```
+
+### 端口分配
+
+| 服务 | 端口 | 说明 |
+|------|------|------|
+| Nginx | 18080 | 负载均衡入口 |
+| Server 1 & 2 | 内部 8888 | 不直接暴露 |
+| PostgreSQL | 25432 | 带 pgvector |
+| Redis | 26379 | Worker 协调 |
+| Jaeger UI | 26686 | 追踪可视化 |
+| Jaeger OTLP | 14317 | gRPC 接入 |
+| Mock OAuth2 | 20060 | 开发用 OAuth2 |
+
+> **端口设计**：所有端口与开发环境（15432/16379/80）不冲突，可同时运行。
+
+### 1. 准备配置
+
+```bash
+cp etc/config.example.yaml etc/config.docker-full.yaml
+```
+
+编辑 `etc/config.docker-full.yaml`：
+
+```yaml
+database:
+  dsn: "postgres://rtc_agent:rtc_agent@postgres:5432/rtc_agent?sslmode=disable"
+  auto_migrate: true
+
+redis:
+  addr: "redis:6379"
+
+tracing:
+  enabled: true
+  endpoint: "jaeger:4317"
+  sample_rate: 1.0
+
+providers:
+  mock:
+    enabled: true
+    url: "http://mock-oauth2:10060"
+
+llm:
+  provider: "claude"
+  api_key: "your-api-key"
+  model: "claude-sonnet-4-20250514"
+```
+
+### 2. 启动
+
+```bash
+docker compose -f docker-compose.full.yml up -d
+```
+
+启动顺序：PostgreSQL/Redis → migrate（一次性容器）→ Server-1 & Server-2 → Nginx
+
+### 3. 验证
+
+```bash
+# 健康检查（通过 Nginx 负载均衡）
+curl http://localhost:18080/healthz
+# {"status":"ok"}
+
+# 查看容器状态 — 所有 8 个容器应为 healthy/running
+docker compose -f docker-compose.full.yml ps
+
+# Jaeger 追踪面板
+open http://localhost:26686
+```
+
+### 4. 分布式验证
+
+两个 Server 共享同一个 PostgreSQL 和 Redis。当用户请求通过 Nginx 分发到不同 Server 时：
+- **Session Affinity**：同一 Session 的 Turn 由同一 Worker 处理
+- **RTC Checkpoint**：Agent 执行远程工具调用时，检查点存在 Redis 中，任何 Worker 可恢复
+- **Worker 心跳**：各 Worker 独立向 Redis 注册、心跳、竞争任务
+
+## 配置参考
+
+完整配置项参见 [etc/config.example.yaml](https://github.com/rtc-agent/server/blob/main/etc/config.example.yaml)。
+
+关键配置项：
+
+| 配置 | 说明 | 必填 |
+|------|------|------|
+| `database.dsn` | PostgreSQL 连接字符串 | ✅ |
+| `redis.addr` | Redis 地址 | ✅ |
+| `auth.jwt_secret` | JWT 签名密钥（生产环境用强随机值） | ✅ |
+| `llm.provider` | 模型提供商：`claude` 或 `openai` | ✅ |
+| `llm.api_key` | LLM API 密钥 | ✅ |
+| `llm.model` | 模型名称 | ✅ |
+| `tracing.enabled` | 启用 OpenTelemetry 追踪 | 可选 |
+| `embedding.enabled` | 启用向量检索（User Memory） | 可选 |
 
 ## 下一步
 
-- [什么是 RTC Agent](/introduction/) — 了解核心概念和架构
-- GitHub — 查看源码和示例
-- 联系我们 — 如有问题，欢迎提交 Issue
-
----
-
-如有兴趣提前体验或参与共建，欢迎 [提交 Issue](https://github.com/rtc-agent/rtc-agent/issues) 或联系维护者。
+- [什么是 RTC Agent](/docs/introduction/) — 了解核心概念和架构
+- [协议参考](/docs/protocol/) — HTTP API 和 WebSocket RPC 文档（即将推出）
