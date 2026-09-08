@@ -6,6 +6,8 @@ import { unified } from '@astrojs/markdown-remark';
 
 // https://astro.build/config
 export default defineConfig({
+	site: 'https://rtc-agent.github.io',
+	base: '/docs',
 	markdown: {
 		processor: unified(),
 	},
