@@ -5,7 +5,7 @@ template: splash
 hero:
   tagline: 不是截图识别，不是 DOM 爬取。AI 通过前端工具直接操作网站，每一步都透明可观测。
   image:
-    html: '<div><picture><source media="(prefers-color-scheme: dark)" srcset="/docs/logo-dark.svg"><img src="/docs/logo.svg" alt="RTC Agent Logo" width="200" height="200"></picture></div>'
+    html: '<div style="position:relative"><img class="light:sl-hidden" src="/docs/logo-dark.svg" alt="RTC Agent Logo" width="200" height="200" style="position:absolute inset-0"><img class="dark:sl-hidden" src="/docs/logo.svg" alt="RTC Agent Logo" width="200" height="200"></div>'
   actions:
     - text: 快速开始
       link: /getting-started/
