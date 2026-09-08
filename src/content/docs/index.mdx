@@ -1,0 +1,58 @@
+---
+title: RTC Agent
+description: Remote Tool Calling — 让你的网站，3 行代码拥有 AI 助手
+template: splash
+hero:
+  tagline: 不是截图识别，不是 DOM 爬取。AI 通过前端工具直接操作网站，每一步都透明可观测。
+  image:
+    file: ../../../public/logo.svg
+  actions:
+    - text: 快速开始
+      link: /getting-started/
+      icon: right-arrow
+    - text: 什么是 RTC Agent
+      link: /introduction/
+      icon: external
+      variant: minimal
+    - text: GitHub
+      link: https://github.com/rtc-agent/rtc-agent
+      icon: external
+      variant: minimal
+---
+
+import { Card, CardGrid } from '@astrojs/starlight/components';
+
+## 核心能力
+
+<CardGrid stagger>
+  <Card title="接入极简" icon="rocket">
+    几行 JavaScript，你的网站就能对话式操控。无需改造后端，无需训练模型。
+  </Card>
+  <Card title="完全透明" icon="eye">
+    AI 做了什么、为什么这么做、改了哪些数据——所有操作实时可见，不再是黑箱。
+  </Card>
+  <Card title="高效省钱" icon="cash">
+    相比视觉解析方案，Token 消耗降低 **70%+**；相比 DOM 爬取方案，错误率下降 **50%+**。
+  </Card>
+</CardGrid>
+
+<CardGrid stagger>
+  <Card title="前端虚拟文件系统" icon="folder">
+    基于 IndexedDB 构建，AI 工具直接操作前端文件，数据不离开用户浏览器。
+  </Card>
+  <Card title="Script + Function 组合" icon="puzzle">
+    开发者只需维护 Function 库，Agent 通过 script 工具自由组合，完成复杂任务。
+  </Card>
+  <Card title="实时通信" icon="message">
+    基于 Centrifuge WebSocket，支持流式输出、工具调用进度、状态同步。
+  </Card>
+</CardGrid>
+
+## 对比其他方案
+
+| 方案 | 接入成本 | 可观测性 | Token 成本 | 隐私安全 |
+|:----:|:-------:|:-------:|:---------:|:-------:|
+| **RTC Agent** | ⭐⭐⭐⭐⭐ | ⭐⭐⭐⭐⭐ | ⭐⭐⭐⭐⭐ | ⭐⭐⭐⭐⭐ |
+| 视觉解析 (截图+OCR) | ⭐⭐⭐ | ⭐⭐ | ⭐ | ⭐⭐ |
+| DOM 爬取 (服务端解析) | ⭐⭐ | ⭐⭐⭐ | ⭐⭐⭐ | ⭐⭐⭐ |
+| 浏览器插件 | ⭐⭐ | ⭐⭐⭐⭐ | ⭐⭐⭐ | ⭐⭐⭐⭐ |

@@ -216,7 +216,7 @@ components:
 
     ContentType:
       type: string
-      enum: [ markdown, summary, text, thinking, toolcall_input, toolcall_output ]
+      enum: [ markdown, summary, text, thinking, toolcall_input, toolcall_output]
       x-enum-varnames:
         - ContentTypeMarkdown
         - ContentTypeSummary
@@ -258,12 +258,32 @@ components:
           description: 会话标题
         status:
           $ref: '#/components/schemas/SessionStatus'
+        todo_list:
+          type: array
+          description: 会话任务列表（对齐 Claude Code 的 TodoWrite 工具）
+          items:
+            $ref: '#/components/schemas/TodoItem'
         created_at:
           type: string
           format: date-time
         updated_at:
           type: string
           format: date-time
+        agent_prompt:
+          type: string
+          description: AGENT.md 内容快照（仅创建时写入，后续只读）
+        # ------------ 如果这4个字段儿都为空的话,说明自己就是root -------------- #
+        root_client_session_id:                                            #
+          type: string                                                     #
+        root_server_session_id:                                            #
+          $ref: '#/components/schemas/UUID'                                #
+        parent_client_session_id:                                          #
+          type: string                                                     #
+        parent_server_session_id:                                          #
+          $ref: '#/components/schemas/UUID'                                #
+        sub_agent_parent_message_id:                                       #
+          $ref: '#/components/schemas/UUID'                                #
+        # ------------ 如果这4个字段儿都为空的话,说明自己就是root -------------- #
         closed_at:
           type: string
           format: date-time
@@ -273,6 +293,22 @@ components:
           format: date-time
           description: 软删除时间
       required: [ id, owner_kind, owner_ref_id, status, created_at, updated_at ]
+
+    TodoItem:
+      type: object
+      description: 任务项（对齐 Claude Code 的 TodoItem 结构）
+      properties:
+        content:
+          type: string
+          description: 任务描述（祈使句，如 "Run tests"）
+        status:
+          type: string
+          enum: [ pending, in_progress, completed ]
+          description: 任务状态
+        active_form:
+          type: string
+          description: 执行中的描述（进行时，如 "Running tests"）
+      required: [ content, status, active_form ]
 
     Turn:
       type: object
@@ -459,12 +495,13 @@ components:
 
     UpdateEntity:
       type: string
-      enum: [ session, turn, message, rtc ]
+      enum: [ session, turn, message, rtc, file ]
       x-enum-varnames:
         - EntitySession
         - EntityTurn
         - EntityMessage
         - EntityRtc
+        - EntityFile
 
     UpdateAction:
       type: string
@@ -565,6 +602,10 @@ components:
         title:
           type: string
           description: 新标题（不传表示不修改）
+        deleted_at:
+          type: string
+          format: date-time
+          description: 软删除时间
       required: [ session_id ]
 
     UpdateSessionResult:
@@ -603,6 +644,9 @@ components:
         client_id:
           type: string
           description: 客户端生成的幂等 ID
+        agent_prompt:
+          type: string
+          description: AGENT.md 内容快照，创建 session 时写入，后续每轮通过 attachment 注入 LLM 上下文
       required: [ content_data, client_session_id, client_id ]
 
     SendMessageResult:
@@ -686,6 +730,37 @@ components:
             $ref: '#/components/schemas/Update'
       required: [ result ]
 
+    # ---------- CompactSession ----------
+
+    CompactSessionRequest:
+      type: object
+      description: 手动触发上下文压缩
+      properties:
+        session_id:
+          $ref: '#/components/schemas/UUID'
+        custom_instruction:
+          type: string
+          description: 自定义摘要指令，覆盖默认压缩 prompt
+      required: [ session_id ]
+
+    CompactSessionResult:
+      type: object
+      properties:
+        success:
+          type: boolean
+      required: [ success ]
+
+    CompactSessionResponse:
+      type: object
+      description: 压缩会话响应
+      properties:
+        result:
+          $ref: '#/components/schemas/CompactSessionResult'
+        updates:
+          type: array
+          items:
+            $ref: '#/components/schemas/Update'
+      required: [ result ]
 
     # ---------- StopTurn ----------
 
@@ -805,6 +880,7 @@ components:
         - v1.session.close
         - v1.session.update
         - v1.session.fork
+        - v1.session.compact
         # Message
         - v1.message.send
         - v1.message.list
@@ -824,6 +900,7 @@ components:
         - MethodSessionClose
         - MethodSessionUpdate
         - MethodSessionFork
+        - MethodSessionCompact
         - MethodMessageSend
         - MethodMessageList
         - MethodMessageGet
