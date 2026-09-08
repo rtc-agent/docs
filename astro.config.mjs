@@ -31,7 +31,7 @@ export default defineConfig({
 				alt: 'RTC Agent Logo',
 			},
 			social: [
-				{ icon: 'github', label: 'GitHub', href: 'https://github.com/rtc-agent/rtc-agent' },
+				{ icon: 'github', label: 'Server', href: 'https://github.com/rtc-agent/server' },
 			],
 			sidebar: [
 				{
