@@ -148,38 +148,95 @@ docker compose down -v         # 同时删除数据卷
 
 ### 架构
 
-```
-                    ┌──────────┐
-                    │  Nginx   │ :18080
-                    │  (LB)    │
-                    └────┬─────┘
-                   ┌─────┴─────┐
-              ┌────┴───┐  ┌────┴───┐
-              │Server-1│  │Server-2│
-              └────┬───┘  └────┬───┘
-            ┌──────┴───────────┴──────┐
-            │                         │
-       ┌────┴────┐              ┌─────┴────┐
-       │PostgreSQL│              │  Redis   │
-       │ :25432   │              │  :26379  │
-       └──────────┘              └──────────┘
-            │
-       ┌────┴────┐         ┌───────────┐
-       │ Jaeger  │         │Mock OAuth2│
-       │ :26686  │         │  :20060   │
-       └─────────┘         └───────────┘
+```mermaid
+flowchart TB
+    subgraph "客户端层"
+        Client[浏览器/Web Component]
+    end
+
+    subgraph "接入层"
+        Nginx[Nginx<br/>:28080<br/>负载均衡]
+    end
+
+    subgraph "应用层"
+        Server1[Server-1<br/>:8888]
+        Server2[Server-2<br/>:8888]
+    end
+
+    subgraph "数据层"
+        PostgreSQL[(PostgreSQL<br/>:25432<br/>pgvector)]
+        Redis[(Redis<br/>:26379<br/>队列/缓存)]
+    end
+
+    subgraph "可观测性栈"
+        Jaeger[Jaeger<br/>UI:26686<br/>OTLP:24317]
+        Prometheus[Prometheus<br/>:29090]
+        Grafana[Grafana<br/>:23001]
+        Loki[Loki<br/>:23100]
+        Promtail[Promtail]
+        Pyroscope[Pyroscope<br/>:24040]
+        Alertmanager[Alertmanager<br/>:29093]
+    end
+
+    subgraph "认证服务"
+        OAuth2[Mock OAuth2<br/>:20060]
+    end
+
+    Client --> Nginx
+    Nginx --> Server1
+    Nginx --> Server2
+
+    Server1 --> PostgreSQL
+    Server1 --> Redis
+    Server2 --> PostgreSQL
+    Server2 --> Redis
+
+    Server1 -.->|traces| Jaeger
+    Server2 -.->|traces| Jaeger
+
+    Server1 -.->|metrics| Prometheus
+    Server2 -.->|metrics| Prometheus
+
+    Promtail -.->|logs| Loki
+    Grafana --> Prometheus
+    Grafana --> Loki
+    Grafana --> Pyroscope
+    Prometheus -.->|alerts| Alertmanager
+
+    Server1 -.->|auth| OAuth2
+    Server2 -.->|auth| OAuth2
+
+    style Client fill:#e1f5fe,stroke:#01579b,stroke-width:2px
+    style Nginx fill:#fff3e0,stroke:#e65100,stroke-width:2px
+    style Server1 fill:#f3e5f5,stroke:#4a148c,stroke-width:2px
+    style Server2 fill:#f3e5f5,stroke:#4a148c,stroke-width:2px
+    style PostgreSQL fill:#e8f5e9,stroke:#1b5e20,stroke-width:2px
+    style Redis fill:#ffebee,stroke:#b71c1c,stroke-width:2px
+    style Jaeger fill:#fff9c4,stroke:#f57f17,stroke-width:2px
+    style Prometheus fill:#fff9c4,stroke:#f57f17,stroke-width:2px
+    style Grafana fill:#fff9c4,stroke:#f57f17,stroke-width:2px
+    style Loki fill:#fff9c4,stroke:#f57f17,stroke-width:2px
+    style Promtail fill:#fff9c4,stroke:#f57f17,stroke-width:2px
+    style Pyroscope fill:#fff9c4,stroke:#f57f17,stroke-width:2px
+    style Alertmanager fill:#fff9c4,stroke:#f57f17,stroke-width:2px
+    style OAuth2 fill:#fce4ec,stroke:#880e4f,stroke-width:2px
 ```
 
 ### 端口分配
 
 | 服务 | 端口 | 说明 |
 |------|------|------|
-| Nginx | 18080 | 负载均衡入口 |
+| Nginx | 28080 | 负载均衡入口 |
 | Server 1 & 2 | 内部 8888 | 不直接暴露 |
 | PostgreSQL | 25432 | 带 pgvector |
 | Redis | 26379 | Worker 协调 |
 | Jaeger UI | 26686 | 追踪可视化 |
-| Jaeger OTLP | 14317 | gRPC 接入 |
+| Jaeger OTLP | 24317 | gRPC 接入 |
+| Prometheus | 29090 | 指标采集 |
+| Grafana | 23001 | 仪表盘（admin/admin） |
+| Loki | 23100 | 日志聚合 |
+| Pyroscope | 24040 | 持续性能分析 |
+| Alertmanager | 29093 | 告警路由 |
 | Mock OAuth2 | 20060 | 开发用 OAuth2 |
 
 > **端口设计**：所有端口与开发环境（15432/16379/80）不冲突，可同时运行。
@@ -228,10 +285,10 @@ docker compose -f docker-compose.full.yml up -d
 
 ```bash
 # 健康检查（通过 Nginx 负载均衡）
-curl http://localhost:18080/healthz
+curl http://localhost:28080/healthz
 # {"status":"ok"}
 
-# 查看容器状态 — 所有 8 个容器应为 healthy/running
+# 查看容器状态 — 所有容器应为 healthy/running
 docker compose -f docker-compose.full.yml ps
 
 # Jaeger 追踪面板
@@ -241,7 +298,8 @@ open http://localhost:26686
 ### 4. 分布式验证
 
 两个 Server 共享同一个 PostgreSQL 和 Redis。当用户请求通过 Nginx 分发到不同 Server 时：
-- **Session Affinity**：同一 Session 的 Turn 由同一 Worker 处理
+
+- **Session Affinity**：通过 Redis 分布式锁（`SET NX`）实现，同一时刻只有一个 Worker 处理某个 Session 的工作
 - **RTC Checkpoint**：Agent 执行远程工具调用时，检查点存在 Redis 中，任何 Worker 可恢复
 - **Worker 心跳**：各 Worker 独立向 Redis 注册、心跳、竞争任务
 
