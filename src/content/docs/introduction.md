@@ -1,7 +1,6 @@
 ---
 title: 什么是 RTC Agent
 description: 开源的网站 AI 助手后端，通过标准化的 Remote Tool Calling 协议，让你的网站几行代码接入透明、高效、低成本的 AI 助手。
-slug: introduction
 ---
 
 > **一句话定义**：开源的网站 AI 助手后端，通过标准化的 Remote Tool Calling 协议，让你的网站几行代码接入透明、高效、低成本的 AI 助手。
