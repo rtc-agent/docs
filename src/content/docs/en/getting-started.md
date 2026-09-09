@@ -44,11 +44,13 @@ redis:
 
 llm:
   provider: "claude"           # or "openai"
-  api_key: "your-api-key"      # ← Replace with your actual API Key
+  api_key: "${LLM_API_KEY}"   # Injected via env var — set LLM_API_KEY before starting
   model: "claude-sonnet-4-20250514"
 ```
 
 > **Docker config loading**: Compose mounts `etc/config.docker.yaml` directly as `/app/etc/config.yaml` inside the container, so this file must be a **complete configuration** (copy from `config.example.yaml` and modify).
+>
+> 🔐 **API Key security**: `api_key` supports `${ENV_VAR}` syntax to reference environment variables, avoiding plaintext keys in config files. Set `export LLM_API_KEY="your-key"` before starting — Docker Compose automatically passes the variable into the container.
 
 ### 2. Start
 

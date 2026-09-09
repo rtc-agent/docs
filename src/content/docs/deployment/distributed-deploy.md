@@ -96,7 +96,7 @@ providers:
 
 llm:
   provider: "claude"
-  api_key: "your-api-key"
+  api_key: "${LLM_API_KEY}"   # 通过环境变量注入，启动前 export LLM_API_KEY="your-key"
   model: "claude-sonnet-4-20250514"
 ```
 

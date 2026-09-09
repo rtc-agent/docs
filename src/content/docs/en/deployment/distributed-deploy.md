@@ -96,7 +96,7 @@ providers:
 
 llm:
   provider: "claude"
-  api_key: "your-api-key"
+  api_key: "${LLM_API_KEY}"   # Injected via env var — set LLM_API_KEY before starting
   model: "claude-sonnet-4-20250514"
 ```
 

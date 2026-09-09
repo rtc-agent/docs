@@ -44,11 +44,13 @@ redis:
 
 llm:
   provider: "claude"           # 或 "openai"
-  api_key: "your-api-key"      # ← 替换为实际 API Key
+  api_key: "${LLM_API_KEY}"   # 通过环境变量注入，启动前 export LLM_API_KEY="your-key"
   model: "claude-sonnet-4-20250514"
 ```
 
 > **Docker 配置加载**：Compose 会将 `etc/config.docker.yaml` 直接挂载为容器内的 `/app/etc/config.yaml`，因此该文件需要是**完整配置**（从 `config.example.yaml` 复制后修改）。
+>
+> 🔐 **API Key 安全**：`api_key` 支持 `${ENV_VAR}` 形式引用环境变量，避免明文写入配置文件。启动前通过 `export LLM_API_KEY="your-key"` 设置，Docker Compose 会自动传递该变量到容器中。
 
 ### 2. 启动
 

@@ -53,11 +53,13 @@ redis:
 
 llm:
   provider: "claude"           # 或 "openai"
-  api_key: "your-api-key"      # 替换为实际 API Key
+  api_key: "${LLM_API_KEY}"   # 通过环境变量注入，启动前 export LLM_API_KEY="your-key"
   model: "claude-sonnet-4-20250514"
 ```
 
 > **配置合并机制**：Server 启动时自动加载 `etc/config.yaml`（基线）+ `etc/config.local.yaml`（覆盖）。`config.local.yaml` 已在 `.gitignore` 中，不会被提交。只需写差异项。
+>
+> 🔐 **API Key 安全**：`api_key` 支持 `${ENV_VAR}` 形式引用环境变量，避免明文写入配置文件。启动前通过 `export LLM_API_KEY="your-key"` 设置即可。
 
 ## 4. 构建 & 运行
 

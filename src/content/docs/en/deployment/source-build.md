@@ -53,11 +53,13 @@ redis:
 
 llm:
   provider: "claude"           # or "openai"
-  api_key: "your-api-key"      # Replace with your actual API Key
+  api_key: "${LLM_API_KEY}"   # Injected via env var — set LLM_API_KEY before starting
   model: "claude-sonnet-4-20250514"
 ```
 
 > **Config merging**: On startup, the Server automatically loads `etc/config.yaml` (baseline) + `etc/config.local.yaml` (overrides). `config.local.yaml` is already in `.gitignore` and will not be committed. Only write the diff items.
+>
+> 🔐 **API Key security**: `api_key` supports `${ENV_VAR}` syntax to reference environment variables, avoiding plaintext keys in config files. Set `export LLM_API_KEY="your-key"` before starting.
 
 ## 4. Build & Run
 
