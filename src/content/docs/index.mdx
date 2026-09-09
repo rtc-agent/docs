@@ -28,23 +28,32 @@ import { Card, CardGrid } from '@astrojs/starlight/components';
   <Card title="接入极简" icon="rocket">
     几行 JavaScript，你的网站就能对话式操控。无需改造后端，无需训练模型。
   </Card>
-  <Card title="完全透明" icon="eye">
+  <Card title="完全透明" icon="approve-check">
     AI 做了什么、为什么这么做、改了哪些数据——所有操作实时可见，不再是黑箱。
   </Card>
-  <Card title="高效省钱" icon="cash">
+  <Card title="高效省钱" icon="analytics">
     相比视觉解析方案，Token 消耗降低 **70%+**；相比 DOM 爬取方案，错误率下降 **50%+**。
   </Card>
 </CardGrid>
 
 <CardGrid stagger>
-  <Card title="前端虚拟文件系统" icon="folder">
+  <Card title="前端虚拟文件系统" icon="seti:folder">
     基于 IndexedDB 构建，AI 工具直接操作前端文件，数据不离开用户浏览器。
   </Card>
   <Card title="Script + Function 组合" icon="puzzle">
     开发者只需维护 Function 库，Agent 通过 script 工具自由组合，完成复杂任务。
   </Card>
-  <Card title="实时通信" icon="message">
+  <Card title="实时通信" icon="comment">
     基于 Centrifuge WebSocket，支持流式输出、工具调用进度、状态同步。
+  </Card>
+</CardGrid>
+
+<CardGrid stagger>
+  <Card title="分布式部署" icon="server">
+    Nginx 负载均衡 + 有状态/无状态服务分离，支持水平扩展，生产级可靠性。
+  </Card>
+  <Card title="安全隔离" icon="padlock">
+    OAuth2 双 Token + AST 级脚本沙箱 + 路径穿越防护，多层安全屏障。
   </Card>
 </CardGrid>
 
@@ -56,3 +65,14 @@ import { Card, CardGrid } from '@astrojs/starlight/components';
 | 视觉解析 (截图+OCR) | ⭐⭐⭐ | ⭐⭐ | ⭐ | ⭐⭐ |
 | DOM 爬取 (服务端解析) | ⭐⭐ | ⭐⭐⭐ | ⭐⭐⭐ | ⭐⭐⭐ |
 | 浏览器插件 | ⭐⭐ | ⭐⭐⭐⭐ | ⭐⭐⭐ | ⭐⭐⭐⭐ |
+
+## 👤 关于作者
+
+<CardGrid>
+  <Card title="马守越 — 全栈 AI 工程师" icon="pencil">
+    7 年后端经验，从 20 万并发的 IM 系统到 100% AI 编写的 Agent 平台。
+    经历过产品失败，也独立完成过完整系统。
+    
+    [查看完整简历 →](/docs/resume/)
+  </Card>
+</CardGrid>

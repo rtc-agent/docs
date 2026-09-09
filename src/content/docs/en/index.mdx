@@ -3,15 +3,15 @@ title: RTC Agent
 description: Remote Tool Calling — Give your website an AI assistant with 3 lines of code
 template: splash
 hero:
-  tagline: Not screenshot recognition, not DOM crawling. AI operates websites directly through frontend tools, every step transparent and observable.
+  tagline: Not screenshot recognition, not DOM scraping. AI operates websites directly through frontend tools, with every step transparent and observable.
   image:
-    file: ../../../../public/logo.svg
+    html: '<div style="position:relative"><img class="light:sl-hidden" src="/docs/logo-dark.svg" alt="RTC Agent Logo" width="200" height="200" style="position:absolute inset-0"><img class="dark:sl-hidden" src="/docs/logo.svg" alt="RTC Agent Logo" width="200" height="200"></div>'
   actions:
-    - text: Get Started
-      link: /docs/en/getting-started/
+    - text: Quick Start
+      link: /docs/getting-started/
       icon: right-arrow
     - text: What is RTC Agent
-      link: /docs/en/introduction/
+      link: /docs/introduction/
       icon: external
       variant: minimal
     - text: GitHub
@@ -22,37 +22,57 @@ hero:
 
 import { Card, CardGrid } from '@astrojs/starlight/components';
 
-## Core Features
+## Core Capabilities
 
 <CardGrid stagger>
   <Card title="Minimal Integration" icon="rocket">
-    Just a few lines of JavaScript, your website gains conversational AI control. No backend changes, no model training required.
+    Just a few lines of JavaScript, and your website can be controlled through conversation. No backend改造 needed, no model training required.
   </Card>
-  <Card title="Fully Transparent" icon="eye">
-    What AI does, why it does it, what data it changes — all operations visible in real-time, no more black boxes.
+  <Card title="Fully Transparent" icon="approve-check">
+    What AI did, why it did it, what data it changed — all operations are visible in real-time, no more black boxes.
   </Card>
-  <Card title="Cost Effective" icon="cash">
-    Compared to visual parsing, token consumption reduced by **70%+**; compared to DOM crawling, error rate decreased by **50%+**.
+  <Card title="Cost Effective" icon="analytics">
+    Compared to visual parsing solutions, Token consumption reduced by **70%+**; compared to DOM scraping solutions, error rate decreased by **50%+**.
   </Card>
 </CardGrid>
 
 <CardGrid stagger>
-  <Card title="Frontend Virtual File System" icon="folder">
+  <Card title="Frontend Virtual File System" icon="seti:folder">
     Built on IndexedDB, AI tools directly operate frontend files, data never leaves the user's browser.
   </Card>
   <Card title="Script + Function Composition" icon="puzzle">
-    Developers only maintain Function libraries, Agent freely composes through script tools to complete complex tasks.
+    Developers only maintain a Function library, the Agent freely composes through the script tool to complete complex tasks.
   </Card>
-  <Card title="Real-time Communication" icon="message">
+  <Card title="Real-time Communication" icon="comment">
     Based on Centrifuge WebSocket, supports streaming output, tool call progress, and state synchronization.
   </Card>
 </CardGrid>
 
-## Compare with Other Solutions
+<CardGrid stagger>
+  <Card title="Distributed Deployment" icon="server">
+    Nginx load balancing + stateful/stateless service separation, supports horizontal scaling, production-grade reliability.
+  </Card>
+  <Card title="Security Isolation" icon="padlock">
+    OAuth2 dual Token + AST-level script sandbox + path traversal protection, multi-layer security barriers.
+  </Card>
+</CardGrid>
 
-| Solution | Integration Cost | Observability | Token Cost | Privacy |
-|:--------:|:----------------:|:-------------:|:----------:|:-------:|
+## Comparison with Other Solutions
+
+| Solution | Integration Cost | Observability | Token Cost | Privacy Security |
+|:----:|:-------:|:-------:|:---------:|:-------:|
 | **RTC Agent** | ⭐⭐⭐⭐⭐ | ⭐⭐⭐⭐⭐ | ⭐⭐⭐⭐⭐ | ⭐⭐⭐⭐⭐ |
-| Visual Parsing (Screenshot + OCR) | ⭐⭐⭐ | ⭐⭐ | ⭐ | ⭐⭐ |
-| DOM Crawling (Server-side Parsing) | ⭐⭐ | ⭐⭐⭐ | ⭐⭐⭐ | ⭐⭐⭐ |
+| Visual Parsing (Screenshot+OCR) | ⭐⭐⭐ | ⭐⭐ | ⭐ | ⭐⭐ |
+| DOM Scraping (Server-side parsing) | ⭐⭐ | ⭐⭐⭐ | ⭐⭐⭐ | ⭐⭐⭐ |
 | Browser Extension | ⭐⭐ | ⭐⭐⭐⭐ | ⭐⭐⭐ | ⭐⭐⭐⭐ |
+
+## 👤 About the Author
+
+<CardGrid>
+  <Card title="Ma Shouyue — Full-Stack AI Engineer" icon="pencil">
+    7 years of backend experience, from IM systems with 200k concurrent users to 100% AI-written Agent platforms.
+    Experienced product failure, and independently completed full systems.
+    
+    [View Full Resume →](/docs/en/resume/)
+  </Card>
+</CardGrid>
