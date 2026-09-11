@@ -110,6 +110,14 @@ export default defineConfig({
 						{ label: 'Mermaid Live Editor', link: '/showcase/mermaid-live-editor/', translations: { 'zh-CN': 'Mermaid Live Editor' } },
 					],
 				},
+				{
+					label: 'Legal',
+					translations: { 'zh-CN': '法律' },
+					items: [
+						{ label: 'Privacy Policy', link: '/legal/privacy-policy/', translations: { 'zh-CN': '隐私权政策' } },
+						{ label: 'Terms of Service', link: '/legal/terms-of-service/', translations: { 'zh-CN': '服务条款' } },
+					],
+				},
 			],
 			plugins: [starlightClientMermaid()],
 		}),
