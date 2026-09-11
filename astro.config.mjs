@@ -35,6 +35,13 @@ export default defineConfig({
 			],
 			sidebar: [
 				{
+					label: 'About',
+					translations: { 'zh-CN': '关于', 'en': 'About' },
+					items: [
+						{ label: 'Resume', link: '/resume/', translations: { 'zh-CN': '个人简历', 'en': 'Resume' } },
+					],
+				},
+				{
 					label: 'Getting Started',
 					translations: { 'zh-CN': '开始' },
 					items: [
