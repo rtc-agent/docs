@@ -169,8 +169,70 @@ agent.windowConfig = {
   minHeight: 520,
   maxWidth: Infinity,
   maxHeight: Infinity,
+
+  // Minimized bubble position
+  bubblePosition: {
+    corner: 'bottom-right',  // Origin corner of the coordinate system
+    offset: { x: -20, y: 20 },  // Cartesian coordinate offset
+  },
 };
 ```
+
+#### Bubble Position Configuration
+
+`bubblePosition` uses a **mathematical Cartesian coordinate system** to control the position of the minimized bubble:
+
+```mermaid
+flowchart LR
+    subgraph TL["corner: 'top-left'"]
+        direction LR
+        TL1["Origin: top-left"]
+        TL2["Quadrant: 4th"]
+        TL3["x > 0, y < 0"]
+    end
+
+    subgraph TR["corner: 'top-right'"]
+        direction LR
+        TR1["Origin: top-right"]
+        TR2["Quadrant: 3rd"]
+        TR3["x < 0, y < 0"]
+    end
+
+    subgraph BL["corner: 'bottom-left'"]
+        direction LR
+        BL1["Origin: bottom-left"]
+        BL2["Quadrant: 1st"]
+        BL3["x > 0, y > 0"]
+    end
+
+    subgraph BR["corner: 'bottom-right'"]
+        direction LR
+        BR1["Origin: bottom-right"]
+        BR2["Quadrant: 2nd"]
+        BR3["x < 0, y > 0"]
+    end
+```
+
+| Field | Type | Description |
+|:-----:|:----:|:------------|
+| `corner` | `'top-left'` \| `'top-right'` \| `'bottom-left'` \| `'bottom-right'` | The corner of the host application where the coordinate origin is placed |
+| `offset.x` | `number` | Horizontal offset (positive = right, negative = left) |
+| `offset.y` | `number` | Vertical offset (positive = up, negative = down, mathematical coordinate system) |
+
+**Examples**:
+
+```ts
+// Bottom-right corner, 20px inward offset (default)
+bubblePosition: { corner: 'bottom-right', offset: { x: -20, y: 20 } }
+
+// Top-left corner, 20px offset to bottom-right
+bubblePosition: { corner: 'top-left', offset: { x: 20, y: -20 } }
+
+// Bottom-left corner, 30px offset to top-right
+bubblePosition: { corner: 'bottom-left', offset: { x: 30, y: 30 } }
+```
+
+> 💡 **Expand Direction**: On the first restore from minimized state, the window expands based on the `corner` configuration. For example, with `corner: 'bottom-right'`, the window's bottom-right corner aligns with the bubble position, expanding toward the upper-left. Subsequent minimize/restore cycles use the remembered position.
 
 **Common Scenarios**:
 

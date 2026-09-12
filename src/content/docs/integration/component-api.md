@@ -169,8 +169,70 @@ agent.windowConfig = {
   minHeight: 520,
   maxWidth: Infinity,
   maxHeight: Infinity,
+
+  // 最小化气泡位置
+  bubblePosition: {
+    corner: 'bottom-right',  // 坐标系原点所在角
+    offset: { x: -20, y: 20 },  // 数学笛卡尔坐标偏移
+  },
 };
 ```
+
+#### Bubble 位置配置
+
+`bubblePosition` 使用**数学笛卡尔坐标系**控制最小化气泡的位置：
+
+```mermaid
+flowchart LR
+    subgraph TL["corner: 'top-left'"]
+        direction LR
+        TL1["原点: 左上角"]
+        TL2["象限: 第四象限"]
+        TL3["x > 0, y < 0"]
+    end
+
+    subgraph TR["corner: 'top-right'"]
+        direction LR
+        TR1["原点: 右上角"]
+        TR2["象限: 第三象限"]
+        TR3["x < 0, y < 0"]
+    end
+
+    subgraph BL["corner: 'bottom-left'"]
+        direction LR
+        BL1["原点: 左下角"]
+        BL2["象限: 第一象限"]
+        BL3["x > 0, y > 0"]
+    end
+
+    subgraph BR["corner: 'bottom-right'"]
+        direction LR
+        BR1["原点: 右下角"]
+        BR2["象限: 第二象限"]
+        BR3["x < 0, y > 0"]
+    end
+```
+
+| 字段 | 类型 | 说明 |
+|:----:|:----:|:----:|
+| `corner` | `'top-left'` \| `'top-right'` \| `'bottom-left'` \| `'bottom-right'` | 坐标系原点在宿主应用的哪个角 |
+| `offset.x` | `number` | 水平偏移（右正左负） |
+| `offset.y` | `number` | 垂直偏移（上正下负，数学坐标系） |
+
+**示例**：
+
+```ts
+// 右下角，向内偏移 20px（默认）
+bubblePosition: { corner: 'bottom-right', offset: { x: -20, y: 20 } }
+
+// 左上角，向右下偏移 20px
+bubblePosition: { corner: 'top-left', offset: { x: 20, y: -20 } }
+
+// 左下角，向右上偏移 30px
+bubblePosition: { corner: 'bottom-left', offset: { x: 30, y: 30 } }
+```
+
+> 💡 **展开方向**：首次从最小化恢复时，窗口会根据 `corner` 配置决定展开方向。例如 `corner: 'bottom-right'` 时，窗口的右下角对齐气泡位置，向左上方向展开。后续的最小化/恢复循环使用记忆的位置。
 
 **典型场景**：
 
