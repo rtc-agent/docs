@@ -46,6 +46,8 @@ flowchart TD
 |:----:|:----:|:------:|:----:|
 | ⚙️ `agentConfig` | `object` | `null` | Declarative function registration (recommended approach) |
 | 📦 `registry` | `FunctionRegistry` | `null` | Imperative function registration (created via `defineRegistry`) |
+| 🪟 `windowConfig` | `WindowConfig` | `null` | Window behavior configuration (mode, size, interaction limits) |
+| 🎛️ `activityBarConfig` | `ActivityBarConfig` | `null` | Activity Bar button visibility configuration |
 
 ### Quick Integration
 
@@ -66,6 +68,21 @@ flowchart TD
     groups: [{ /* ... */ }]
   }}
 ></rtc-agent>
+```
+
+```ts
+// Window configuration (JS property, set after rtc-agent-ready)
+const agent = document.querySelector('rtc-agent');
+
+agent.addEventListener('rtc-agent-ready', () => {
+  // Embedded panel: disable drag/resize/buttons, default to maximized
+  agent.windowConfig = { embedded: true };
+
+  // Keep only chat, hide files/settings buttons
+  agent.activityBarConfig = {
+    disabledActivities: ['files', 'settings'],
+  };
+});
 ```
 
 ## Events
@@ -123,6 +140,66 @@ stateDiagram-v2
 | ↔️ Resize | Supports 8-directional resize operations |
 | ⌨️ Keyboard | Arrow keys move the window; Shift to accelerate |
 | 📏 Viewport constraint | Window always stays within the visible area and cannot be dragged off-screen |
+
+### Window Configuration
+
+Use the `windowConfig` property to control default window behavior and interaction limits:
+
+```ts
+agent.windowConfig = {
+  // Default window mode
+  defaultMode: 'maximized',  // 'normal' | 'maximized' | 'minimized'
+
+  // Embedded mode (shortcut)
+  // Equivalent to: defaultMode: 'maximized' + draggable: false + resizable: false
+  //                + showMinimize: false + showMaximize: false
+  embedded: true,
+
+  // Fine-grained control
+  draggable: false,       // Whether the window can be dragged
+  resizable: false,       // Whether the window can be resized
+  showMinimize: false,    // Whether to show the minimize button
+  showMaximize: false,    // Whether to show the maximize button
+  showClose: false,       // Whether to show the close button
+
+  // Size and position
+  initialSize: { width: 420, height: 640 },
+  initialPosition: { x: 100, y: 100 },
+  minWidth: 350,
+  minHeight: 520,
+  maxWidth: Infinity,
+  maxHeight: Infinity,
+};
+```
+
+**Common Scenarios**:
+
+| Scenario | Configuration |
+|:----:|------|
+| Embedded panel | `{ embedded: true }` |
+| Fixed position window | `{ draggable: false, resizable: false }` |
+| No minimize button | `{ showMinimize: false, defaultMode: 'maximized' }` |
+| Floating chat window | `null` (uses defaults) |
+
+### Activity Bar Configuration
+
+Use the `activityBarConfig` property to control button visibility in the Activity Bar:
+
+```ts
+agent.activityBarConfig = {
+  // Activities to hide (chat is always visible and cannot be hidden)
+  disabledActivities: ['files', 'settings'],
+
+  // Default active activity
+  defaultActivity: 'chat',  // 'chat' | 'files' | 'settings'
+};
+```
+
+| Activity | Description | Hideable |
+|:----:|:----:|:------:|
+| 💬 `chat` | Chat interface | ❌ Always visible |
+| 📁 `files` | File manager | ✅ |
+| ⚙️ `settings` | Settings panel | ✅ |
 
 ## State Management
 

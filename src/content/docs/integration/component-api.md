@@ -46,6 +46,8 @@ flowchart TD
 |:----:|:----:|:------:|:----:|
 | ⚙️ `agentConfig` | `object` | `null` | 声明式函数注册（推荐方式） |
 | 📦 `registry` | `FunctionRegistry` | `null` | 命令式函数注册（通过 `defineRegistry` 创建） |
+| 🪟 `windowConfig` | `WindowConfig` | `null` | 窗口行为配置（模式、尺寸、交互限制） |
+| 🎛️ `activityBarConfig` | `ActivityBarConfig` | `null` | Activity Bar 按钮显隐配置 |
 
 ### 快速接入
 
@@ -66,6 +68,21 @@ flowchart TD
     groups: [{ /* ... */ }]
   }}
 ></rtc-agent>
+```
+
+```ts
+// 窗口配置（JS 属性，在 rtc-agent-ready 后设置）
+const agent = document.querySelector('rtc-agent');
+
+agent.addEventListener('rtc-agent-ready', () => {
+  // 嵌入式面板：禁用拖拽/缩放/按钮，默认最大化
+  agent.windowConfig = { embedded: true };
+
+  // 只保留 chat 功能，隐藏 files/settings 按钮
+  agent.activityBarConfig = {
+    disabledActivities: ['files', 'settings'],
+  };
+});
 ```
 
 ## 事件
@@ -123,6 +140,66 @@ stateDiagram-v2
 | ↔️ 缩放 | 支持 8 个方向的 resize 操作 |
 | ⌨️ 键盘 | 方向键移动窗口，Shift 加速 |
 | 📏 视口约束 | 窗口始终保持在可视区域内，不会被拖出屏幕 |
+
+### 窗口配置
+
+通过 `windowConfig` 属性可以控制窗口的默认行为和交互限制：
+
+```ts
+agent.windowConfig = {
+  // 默认窗口模式
+  defaultMode: 'maximized',  // 'normal' | 'maximized' | 'minimized'
+
+  // 嵌入式模式（快捷方式）
+  // 等同于: defaultMode: 'maximized' + draggable: false + resizable: false
+  //         + showMinimize: false + showMaximize: false
+  embedded: true,
+
+  // 细粒度控制
+  draggable: false,       // 是否可拖拽
+  resizable: false,       // 是否可缩放
+  showMinimize: false,    // 是否显示最小化按钮
+  showMaximize: false,    // 是否显示最大化按钮
+  showClose: false,       // 是否显示关闭按钮
+
+  // 尺寸和位置
+  initialSize: { width: 420, height: 640 },
+  initialPosition: { x: 100, y: 100 },
+  minWidth: 350,
+  minHeight: 520,
+  maxWidth: Infinity,
+  maxHeight: Infinity,
+};
+```
+
+**典型场景**：
+
+| 场景 | 配置 |
+|:----:|------|
+| 嵌入式面板 | `{ embedded: true }` |
+| 固定位置窗口 | `{ draggable: false, resizable: false }` |
+| 无最小化按钮 | `{ showMinimize: false, defaultMode: 'maximized' }` |
+| 浮动聊天窗 | `null`（使用默认值） |
+
+### Activity Bar 配置
+
+通过 `activityBarConfig` 属性可以控制 Activity Bar 中各按钮的显隐：
+
+```ts
+agent.activityBarConfig = {
+  // 要隐藏的活动按钮（chat 始终显示，不可隐藏）
+  disabledActivities: ['files', 'settings'],
+
+  // 默认激活的活动
+  defaultActivity: 'chat',  // 'chat' | 'files' | 'settings'
+};
+```
+
+| 活动 | 说明 | 可隐藏 |
+|:----:|:----:|:------:|
+| 💬 `chat` | 聊天界面 | ❌ 始终显示 |
+| 📁 `files` | 文件管理 | ✅ |
+| ⚙️ `settings` | 设置面板 | ✅ |
 
 ## 状态管理
 
