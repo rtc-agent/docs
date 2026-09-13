@@ -1,0 +1,177 @@
+---
+title: Peep 命理工作台
+description: 把 rtc-agent 嵌入 React 命理应用，AI 通过自然语言操作人物档案、文档与三大排盘引擎。
+---
+
+import { Badge } from '@astrojs/starlight/components';
+
+<Badge text="社区案例 #2" />
+
+[Peep](https://pineapplebond.github.io/peep/) 是一站式国学命理工作台 —— 人物档案、文档管理、八字排盘、紫微斗数、六爻起卦五大模块深度整合。我们通过把 **`<rtc-agent>` 作为 Web Component 嵌入** React 应用，让 AI 直接操作业务 API：
+
+- 🧑 **"创建张三的人物档案"** → 调用 `person.create`，自动跳转详情页
+- 📝 **"写一篇日记记录今天的面试"** → 调用 `document.create`，跳转编辑页
+- 🔮 **"排张三的八字，看今年的流年"** → 调用 `bazi.chart`，展示排盘结果
+- 🎲 **"起一卦，问最近适不适合跳槽"** → 自动摇卦 → `liuyao.create` → 展示卦象
+- 📁 **"创建'紫微学习'文件夹"** → 调用 `folder.create`，跳转文档页
+
+> AI 不只是聊天 —— 它能 **读取数据**、**调用函数**、**操作界面**。
+
+## 产品预览
+
+<img src="/docs/showcase/peep-screenshot.png" alt="Peep 命理工作台界面截图" style="width:100%; border-radius:8px; box-shadow:0 2px 12px rgba(0,0,0,0.12)" />
+
+> 截图展示 Peep 主界面：左侧侧边栏、中间排盘/文档主区、右侧 `<rtc-agent>` AI 面板。
+
+## 整体架构
+
+```
+┌─────────────────────────────────────────────────────────┐
+│  Peep (React 19 + Vite 8)                               │
+│                                                         │
+│  ┌──────────┐  ┌──────────────┐  ┌───────────────────┐ │
+│  │ Sidebar  │  │   Main Area  │  │   Right Panel     │ │
+│  │  🧭 🧑 📝│  │  排盘 / 文档  │  │  ┌─────────────┐ │ │
+│  │          │  │              │  │  │ <rtc-agent> │ │ │
+│  │          │  │              │  │  │   Web       │ │ │
+│  │          │  │              │  │  │   Component │ │ │
+│  │          │  │              │  │  └─────────────┘ │ │
+│  └──────────┘  └──────────────┘  └───────────────────┘ │
+│                       ▲                    │            │
+│                       │     window.peep    │            │
+│                       └────────────────────┘            │
+│                         (AI 调用业务 API)                │
+└─────────────────────────────────────────────────────────┘
+```
+
+## 接入方式
+
+整个接入 **零侵入上游 React 源码** —— `<rtc-agent>` 是标准 Web Component，通过 CDN 加载，宿主框架无关。核心改动集中在 **3 个文件**：
+
+| 文件 | 改动 | 说明 |
+| --- | --- | --- |
+| `MainLayout.tsx` | 挂载 `<rtc-agent>` 到右侧面板 | 嵌入最大化模式 + 可拖拽分隔线 |
+| `rtc-agent-config.ts` | 用 Zod Schema 声明 7 组业务函数 | 自动生成 OpenAPI 文档供 AI 理解 |
+| `window.peep` API | 暴露宿主状态到 `window` | Agent 通过它读写业务数据 |
+
+### 第一步：嵌入 `<rtc-agent>` 到 React 布局
+
+AI 面板作为应用的**原生组成部分**，不是浮窗：
+
+```tsx
+// MainLayout.tsx — 右侧面板
+<aside style={{ width: `${rightPanelWidth}px` }}>
+  <rtc-agent
+    ref={agentRef}
+    app-label="Peep AI"
+    scenarios-url="/peep/rtc-agent/scenarios/"
+    redirect-uri="/peep/auth/callback.html"
+    server-url="https://rtc-agent.cherish.chat"
+  />
+</aside>
+```
+
+**关键设计决策：**
+
+| 决策 | 原因 |
+| --- | --- |
+| Web Component 而非 npm 包 | 宿主框架无关，升级不受 React 版本约束 |
+| 嵌入式最大化模式 | 禁用拖拽/缩放/最小化，AI 面板成为应用原生部分 |
+| 可拖拽分隔线 | 用户可自由调整面板宽度（280px ~ 800px） |
+| 测试时移除元素 | `VITE_RTC_AGENT_DISABLED=true` 彻底避免浮层拦截指针事件 |
+
+### 第二步：用 Zod Schema 声明 Agent 工具
+
+rtc-agent 的核心设计是 **"Agent 不碰你的源码，只通过声明式 API 操作状态"**。Peep 用 Zod Schema 驱动函数定义，**自动生成 OpenAPI 文档**供 AI 理解：
+
+```typescript
+// rtc-agent-config.ts
+export async function createRtcAgentConfig(): Promise<RtcAgentConfig> {
+  return {
+    name: 'Peep',
+    persona, // 从 AGENT.md 加载的 AI 人格
+    groups: [
+      { name: 'person',   functions: [/* create, get, list */] },
+      { name: 'document', functions: [/* create, list, view */] },
+      { name: 'folder',   functions: [/* create, list */] },
+      { name: 'tag',      functions: [/* list */] },
+      { name: 'bazi',     functions: [/* chart */] },
+      { name: 'ziwei',    functions: [/* chart */] },
+      { name: 'liuyao',   functions: [/* create, get, list */] },
+    ],
+  };
+}
+```
+
+每个函数都有 **Schema 校验 + 自然语言描述 + 示例值**：
+
+```typescript
+import { z } from 'zod';
+
+const personCreateSchema = z.object({
+  name: z.string().min(1).describe('人物姓名，用于显示和搜索。'),
+  birthDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/)
+    .describe('出生日期，ISO 8601 格式（YYYY-MM-DD）。'),
+  gender: z.enum(['male', 'female']).describe('性别，影响大运排法。'),
+  birthHour: z.number().min(0).max(23)
+    .optional().describe('出生时辰（0-23），可选。'),
+  birthDateType: z.enum(['solar', 'lunar'])
+    .default('solar').describe('公历 / 农历，自动转换。'),
+});
+```
+
+### 第三步：暴露宿主 API 到 `window.peep`
+
+所有业务操作都通过 `window.peep` 暴露给 rtc-agent：
+
+```typescript
+// 挂到 window，让 rtc-agent 的工具能调用
+window.peep = {
+  person:   { create, get, list },
+  document: { create, list, view },
+  folder:   { create, list },
+  tag:      { list },
+  bazi:     { chart },
+  ziwei:    { chart },
+  liuyao:   { create, get, list },
+};
+```
+
+设计原则与 mermaid-live-editor 案例一致：
+
+- **读写对称**：有 `list` 就有 `create`，Agent 能读也能写
+- **校验闭环**：Zod Schema 在运行时校验参数，错误立即反馈给 AI
+- **导航联动**：Agent 调完 `create` 后，宿主自动跳转到对应详情页
+
+## 技术栈
+
+| 层 | 技术 |
+| --- | --- |
+| 框架 | React 19 · TypeScript 6 · Vite 8 |
+| 样式 | Tailwind CSS 4 · 明暗双主题 |
+| 组件 | Radix UI · shadcn/ui · Lucide Icons |
+| 数据 | Dexie (IndexedDB) · Zustand |
+| 命理引擎 | iztro · lunar-lite · lunar-typescript |
+| AI 集成 | rtc-agent (Web Component) · Zod Schema |
+| 编辑器 | ByteMD (Markdown + GFM) |
+| 测试 | Playwright E2E (172 tests) |
+| 部署 | GitHub Pages |
+
+## 接入清单
+
+除了上述三个核心文件，还涉及：
+
+| 文件 | 用途 |
+| --- | --- |
+| `AGENT.md` | AI 人格、行为准则、领域知识 |
+| `public/rtc-agent/scenarios/` | 预置场景模板 + manifest |
+| `public/auth/callback.html` | OAuth 回调页 |
+| `vite.config.ts` | 测试环境禁用 rtc-agent 浮层 |
+
+整个接入 **不修改 rtc-agent 任何代码**，也无需打包进宿主 bundle —— 3MB 的 `<rtc-agent>` 通过 CDN 加载，按需挂载。
+
+## 源码仓库
+
+[PineappleBond/peep](https://github.com/PineappleBond/peep)
+
+在线体验：[pineapplebond.github.io/peep](https://pineapplebond.github.io/peep/)

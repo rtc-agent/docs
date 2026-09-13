@@ -18,8 +18,8 @@ hero:
       link: https://github.com/rtc-agent/server
       icon: external
       variant: minimal
-    - text: Mermaid Editor
-      link: https://rtc-agent.github.io/mermaid-live-editor
+    - text: View Showcase
+      link: /docs/en/showcase/
       icon: external
       variant: minimal
 ---
@@ -30,7 +30,7 @@ import { Card, CardGrid } from '@astrojs/starlight/components';
 
 <CardGrid stagger>
   <Card title="Minimal Integration" icon="rocket">
-    Just a few lines of JavaScript, and your website can be controlled through conversation. No backend改造 needed, no model training required.
+    Just a few lines of JavaScript, and your website can be controlled through conversation. No backend modification needed, no model training required.
   </Card>
   <Card title="Fully Transparent" icon="approve-check">
     What AI did, why it did it, what data it changed — all operations are visible in real-time, no more black boxes.
@@ -58,6 +58,23 @@ import { Card, CardGrid } from '@astrojs/starlight/components';
   </Card>
   <Card title="Security Isolation" icon="padlock">
     OAuth2 dual Token + AST-level script sandbox + path traversal protection, multi-layer security barriers.
+  </Card>
+</CardGrid>
+
+## 👥 Community Showcase
+
+See how others use rtc-agent to add AI capabilities to their websites. Full list at [Community Showcase →](/docs/en/showcase/)
+
+<CardGrid stagger>
+  <Card title="Mermaid Live Editor" icon="pencil">
+    The official Mermaid online diagram editor. Integrated with **less than 30 lines of glue code** — AI draws, validates, and fixes diagrams via natural language, zero manual code.
+
+    [View case →](/docs/en/showcase/mermaid-live-editor/) · [Live demo ↗](https://rtc-agent.github.io/mermaid-live-editor)
+  </Card>
+  <Card title="Peep — Chinese Metaphysics Workbench" icon="seti:folder">
+    A React metaphysics app. Integrated via **Web Component embedding** — AI operates person profiles, documents, and three divination engines (Bazi / Ziwei / Liuyao).
+
+    [View case →](/docs/en/showcase/peep/) · [Live demo ↗](https://pineapplebond.github.io/peep/)
   </Card>
 </CardGrid>
 

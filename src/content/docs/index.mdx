@@ -18,8 +18,8 @@ hero:
       link: https://github.com/rtc-agent/server
       icon: external
       variant: minimal
-    - text: Mermaid Editor
-      link: https://rtc-agent.github.io/mermaid-live-editor
+    - text: 查看案例
+      link: /docs/showcase/
       icon: external
       variant: minimal
 ---
@@ -58,6 +58,23 @@ import { Card, CardGrid } from '@astrojs/starlight/components';
   </Card>
   <Card title="安全隔离" icon="padlock">
     OAuth2 双 Token + AST 级脚本沙箱 + 路径穿越防护，多层安全屏障。
+  </Card>
+</CardGrid>
+
+## 👥 社区案例
+
+看看大家怎么用 rtc-agent 让网站长出 AI 能力。完整案例列表见 [Community Showcase →](/docs/showcase/)
+
+<CardGrid stagger>
+  <Card title="Mermaid Live Editor" icon="pencil">
+    Mermaid 官方在线图表编辑器。**不到 30 行胶水代码**接入，AI 通过自然语言画图、校验、修错，全程无需手写代码。
+
+    [查看案例 →](/docs/showcase/mermaid-live-editor/) · [在线体验 ↗](https://rtc-agent.github.io/mermaid-live-editor)
+  </Card>
+  <Card title="Peep 命理工作台" icon="seti:folder">
+    React 构建的国学命理应用。通过 **Web Component 嵌入**，AI 操作人物档案、文档、八字 / 紫微 / 六爻三大排盘引擎。
+
+    [查看案例 →](/docs/showcase/peep/) · [在线体验 ↗](https://pineapplebond.github.io/peep/)
   </Card>
 </CardGrid>
 

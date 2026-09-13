@@ -108,6 +108,7 @@ export default defineConfig({
 					translations: { 'zh-CN': '社区案例' },
 					items: [
 						{ label: 'Mermaid Live Editor', link: '/showcase/mermaid-live-editor/', translations: { 'zh-CN': 'Mermaid Live Editor' } },
+						{ label: 'Peep', link: '/showcase/peep/', translations: { 'zh-CN': 'Peep 命理工作台' } },
 					],
 				},
 				{

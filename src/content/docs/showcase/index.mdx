@@ -1,0 +1,53 @@
+---
+title: 社区案例
+description: 看看大家怎么用 rtc-agent 让网站长出 AI 能力。
+---
+
+import { Badge, Card, CardGrid } from '@astrojs/starlight/components';
+
+rtc-agent 的接入方式非常灵活 —— 从在线编辑器到完整业务应用，都可以用同一套"声明式 API + Agent"模式赋能 AI。本页汇总社区的真实案例。
+
+> 💡 如果你的项目也接入了 rtc-agent，欢迎通过 [GitHub PR](https://github.com/rtc-agent/server) 提交案例。
+
+<CardGrid stagger>
+  <Card title="Mermaid Live Editor" icon="pencil">
+    <Badge text="社区案例 #1" />
+
+    Mermaid 官方在线图表编辑器。通过 **不到 30 行胶水代码** 接入，AI 通过自然语言画图、校验、修错。
+
+    - 暴露 `window.editorAPI`（`getCode` / `setCode` / `validate` / `waitForReady`）
+    - 不修改上游源码，改动率 < 2%
+
+    [查看案例详情 →](/docs/showcase/mermaid-live-editor/) · [在线体验 ↗](https://rtc-agent.github.io/mermaid-live-editor)
+  </Card>
+  <Card title="Peep 命理工作台" icon="seti:folder">
+    <Badge text="社区案例 #2" />
+
+    React 构建的国学命理应用。通过 **Web Component 嵌入**，AI 操作人物档案、文档、八字 / 紫微 / 六爻三大排盘引擎。
+
+    - 用 Zod Schema 声明 7 组业务函数，自动生成 OpenAPI 文档
+    - 嵌入式最大化模式 + 可拖拽分隔线
+
+    [查看案例详情 →](/docs/showcase/peep/) · [在线体验 ↗](https://pineapplebond.github.io/peep/)
+  </Card>
+</CardGrid>
+
+## 接入模式一览
+
+不同场景下，rtc-agent 的典型接入方式：
+
+| 宿主技术栈 | 接入方式 | 适用场景 | 代表案例 |
+| --- | --- | --- | --- |
+| Svelte / 静态站点 | `<rtc-agent>` 标签直接挂载 | 单页应用、轻量集成 | Mermaid Live Editor |
+| React / Vue / 任意框架 | Web Component + `window.xxx` API | 复杂业务应用、多模块 | Peep |
+| 框架无关 | npm 包 + 声明式配置 | 希望深度定制 | （欢迎投稿） |
+
+## 通用接入步骤
+
+无论哪种模式，核心流程都只有三步：
+
+1. **暴露宿主 API 到 `window`** —— 让 Agent 能读写你的业务状态
+2. **声明 Agent 身份与工具** —— 通过 `agentConfig` 描述 persona 和 functions
+3. **挂载 `<rtc-agent>` 组件** —— 配置 `app-label` / `scenarios-url` / `server-url`
+
+详细教程见 [Getting Started →](/docs/getting-started/)

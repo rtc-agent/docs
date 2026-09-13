@@ -1,0 +1,53 @@
+---
+title: Community Showcase
+description: See how others use rtc-agent to add AI capabilities to their websites.
+---
+
+import { Badge, Card, CardGrid } from '@astrojs/starlight/components';
+
+rtc-agent's integration is flexible — from online editors to full business apps, all empowered through the same "declarative API + Agent" pattern. This page collects real cases from the community.
+
+> 💡 If your project also integrates rtc-agent, submit it via [GitHub PR](https://github.com/rtc-agent/server).
+
+<CardGrid stagger>
+  <Card title="Mermaid Live Editor" icon="pencil">
+    <Badge text="Showcase #1" />
+
+    The official Mermaid online diagram editor. Integrated with **less than 30 lines of glue code** — AI draws, validates, and fixes diagrams via natural language.
+
+    - Exposes `window.editorAPI` (`getCode` / `setCode` / `validate` / `waitForReady`)
+    - Zero changes to upstream source, modification rate < 2%
+
+    [View case details →](/docs/en/showcase/mermaid-live-editor/) · [Live demo ↗](https://rtc-agent.github.io/mermaid-live-editor)
+  </Card>
+  <Card title="Peep — Chinese Metaphysics Workbench" icon="seti:folder">
+    <Badge text="Showcase #2" />
+
+    A React metaphysics app. Integrated via **Web Component embedding** — AI operates person profiles, documents, and three divination engines (Bazi / Ziwei / Liuyao).
+
+    - Zod Schema declares 7 groups of business functions, auto-generates OpenAPI docs
+    - Embedded maximized mode + draggable splitter
+
+    [View case details →](/docs/en/showcase/peep/) · [Live demo ↗](https://pineapplebond.github.io/peep/)
+  </Card>
+</CardGrid>
+
+## Integration Patterns
+
+Typical integration patterns across different scenarios:
+
+| Host Stack | Integration | Use Case | Example |
+| --- | --- | --- | --- |
+| Svelte / static site | Mount `<rtc-agent>` tag directly | SPA, lightweight integration | Mermaid Live Editor |
+| React / Vue / any framework | Web Component + `window.xxx` API | Complex business app, multi-module | Peep |
+| Framework-agnostic | npm package + declarative config | Deep customization | (PR welcome) |
+
+## Common Integration Steps
+
+Regardless of pattern, the core flow is always three steps:
+
+1. **Expose host API on `window`** — so Agent can read/write your business state
+2. **Declare Agent identity and tools** — describe persona and functions via `agentConfig`
+3. **Mount the `<rtc-agent>` component** — configure `app-label` / `scenarios-url` / `server-url`
+
+Full tutorial at [Getting Started →](/docs/en/getting-started/)
