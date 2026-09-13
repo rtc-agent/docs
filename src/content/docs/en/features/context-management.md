@@ -218,6 +218,43 @@ The attachment system dynamically injects contextual information during conversa
 | 🧠 SessionMemory | Every turn | Latest 5 session memories (up to 5,000 tokens) |
 | 🗂️ UserMemory | Every turn | User memories filtered by importance |
 
+## Compression Status Visualization
+
+The following Session model fields reflect compression status in real-time, displayed by the frontend via the `rtc-token-usage` component:
+
+| Field | Description | Calculation |
+|-------|-------------|-------------|
+| `compression_progress` | Compression progress (0-100) | `current tokens / compression_threshold * 100` |
+| `compression_threshold` | Compression trigger threshold | `contextTokensLimit - autoCompactBufferTokens` |
+| `rounds_until_compression` | Rounds until compression | EWMA-based prediction, -1 means threshold exceeded |
+| `estimated_next_round_tokens` | Next round token estimate | Based on EWMA (Exponentially Weighted Moving Average) |
+
+```mermaid
+flowchart LR
+    subgraph PROGRESS["📊 Compression Progress Visualization"]
+        direction TB
+        RING["🔵 Circular Progress<br/>compression_progress"]
+        THRESHOLD["📏 Threshold Line<br/>compression_threshold"]
+        ROUNDS["🔢 Remaining Rounds<br/>rounds_until_compression"]
+    end
+
+    PROGRESS --> UI["🖥️ rtc-token-usage Component"]
+
+    style PROGRESS fill:#e3f2fd,stroke:#1565c0,stroke-width:2px
+    style UI fill:#e8f5e9,stroke:#388e3c
+```
+
+### Compression Progress Interpretation
+
+| Progress Range | Meaning | User Guidance |
+|:--------------:|---------|---------------|
+| 0-50% | Context is ample | Normal usage |
+| 50-80% | Context gradually filling | Continue conversation, monitor progress |
+| 80-100% | Compression approaching | Prepare for compression |
+| > 100% | Threshold exceeded, compression triggered | `rounds_until_compression` becomes -1 |
+
+> 💡 `rounds_until_compression` is estimated using the EWMA (Exponentially Weighted Moving Average) algorithm, which considers historical token consumption trends across rounds. The prediction becomes more accurate as conversation rounds increase.
+
 ## Next Steps
 
 - [Memory System](/docs/en/features/memory/) — Dive deeper into how Session Memory and User Memory work

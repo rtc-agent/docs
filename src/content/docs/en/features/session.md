@@ -201,6 +201,66 @@ Pushed change types:
 | Updated | Session title modified, state changed |
 | Closed | Session was closed |
 
+## Token Usage & Cost Tracking
+
+Each Session automatically accumulates LLM token consumption and cost, pushed to the frontend in real-time via `session.updated` events.
+
+```mermaid
+flowchart TD
+    subgraph FIELDS["📊 Token Statistics Fields"]
+        direction TB
+        T1["🔢 total_tokens<br/>Cumulative Total Tokens"]
+        T2["💰 total_cost_usd<br/>Cumulative Cost (USD)"]
+        T3["📥 total_input_tokens<br/>Cumulative Input Tokens"]
+        T4["📤 total_output_tokens<br/>Cumulative Output Tokens"]
+        T5["📦 total_cached_read_tokens<br/>Cached Read Tokens"]
+        T6["📦 total_cached_write_tokens<br/>Cached Write Tokens"]
+        T7["🧠 total_reasoning_tokens<br/>Reasoning Tokens"]
+    end
+
+    LLM["🧠 LLM Call Completed"] -->|"Extract usage"| FIELDS
+    FIELDS -->|"session.updated Event"| FE["🖥️ Frontend Display"]
+
+    style FIELDS fill:#e3f2fd,stroke:#1565c0,stroke-width:2px
+    style FE fill:#e8f5e9,stroke:#388e3c
+```
+
+### Token Statistics Fields
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `total_tokens` | int64 | Cumulative total token count (all types) |
+| `total_input_tokens` | int64 | Cumulative pure input tokens (excluding cached read/write) |
+| `total_output_tokens` | int64 | Cumulative output token count |
+| `total_cached_read_tokens` | int64 | Cumulative cached read token count |
+| `total_cached_write_tokens` | int64 | Cumulative cached write token count |
+| `total_reasoning_tokens` | int64 | Cumulative reasoning token count |
+| `total_cost_usd` | float64 | Cumulative cost in USD |
+| `last_token_update_at` | time | Last token statistics update timestamp |
+
+### Token Estimation Fields
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `estimated_next_round_tokens` | int64 | EWMA-based prediction for next round tokens |
+| `compression_progress` | float64 | Compression progress (0-100), computed in real-time |
+| `compression_threshold` | int64 | Compression trigger threshold |
+| `rounds_until_compression` | int | Rounds until compression (-1 means threshold exceeded) |
+
+### Cost Calculation
+
+The system supports multi-dimensional cost calculation, automatically computed based on model pricing configuration:
+
+| Dimension | Description |
+|-----------|-------------|
+| Input Tokens | Cost for non-cached pure input tokens |
+| Output Tokens | Cost for output tokens |
+| Cached Read | Cost for cache-hit tokens (typically lower) |
+| Cached Write | Cost for cache-write tokens |
+| Reasoning Tokens | Cost for reasoning tokens (e.g., thinking) |
+
+> 💡 Token statistics use a throttling mechanism (Throttle) to control the push frequency of `session.updated` events, avoiding event storms. The frontend displays this data via the `rtc-token-usage` component.
+
 ## Next Steps
 
 - [Messaging](/docs/en/features/messaging/) — Learn about message interactions within sessions

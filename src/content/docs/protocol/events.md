@@ -48,7 +48,7 @@ flowchart TD
 | 事件类型 | Topic 频道 | Live 频道 | 说明 |
 |---------|:----------:|:---------:|------|
 | `session.created` | ✅ | ❌ | 会话创建 |
-| `session.updated` | ✅ | ❌ | 会话更新（标题、状态等） |
+| `session.updated` | ✅ | ❌ | 会话更新（标题、状态、Token 统计等） |
 | `turn.created` | ✅ | ❌ | Turn 创建 |
 | `turn.updated` | ✅ | ❌ | Turn 状态变更 |
 | `message.created` | ✅ | ❌ | 消息创建 |
@@ -113,6 +113,42 @@ flowchart TD
     style C fill:#e8f5e9,stroke:#388e3c,stroke-width:2px
     style D fill:#f3e5f5,stroke:#7b1fa2,stroke-width:2px
 ```
+
+---
+
+## session.updated 新增字段
+
+`session.updated` 事件在 Session 数据中包含 **Token 统计** 和 **压缩状态** 字段，用于前端实时展示用量和压缩进度：
+
+### Token 统计字段
+
+| 字段 | 类型 | 说明 |
+|------|:----:|------|
+| `total_tokens` | int64 | 累计总 Token 数（包含所有类型） |
+| `total_input_tokens` | int64 | 累计纯输入 Token 数（不含 cached read/write） |
+| `total_output_tokens` | int64 | 累计输出 Token 数 |
+| `total_cached_read_tokens` | int64 | 累计缓存读取 Token 数 |
+| `total_cached_write_tokens` | int64 | 累计缓存写入 Token 数 |
+| `total_reasoning_tokens` | int64 | 累计推理 Token 数 |
+| `total_cost_usd` | float64 | 累计成本（美元） |
+| `last_token_update_at` | time | 最后一次 Token 统计更新时间 |
+
+### Token 预估与压缩状态字段
+
+| 字段 | 类型 | 说明 |
+|------|:----:|------|
+| `estimated_next_round_tokens` | int64 | 基于 EWMA 的下一轮 Token 预估 |
+| `compression_progress` | float64 | 压缩进度 (0-100)，后端实时计算 |
+| `compression_threshold` | int64 | 压缩触发阈值（contextTokensLimit - autoCompactBufferTokens） |
+| `rounds_until_compression` | int | 距离压缩的轮次（-1 表示已超过阈值） |
+
+### 其他新增字段
+
+| 字段 | 类型 | 说明 |
+|------|:----:|------|
+| `device_id` | string | 创建此 Session 的设备 ID（来自 JWT Token），用于前端判断 RTC 请求归属 |
+
+> 💡 Token 统计字段通过节流机制（Throttle）控制推送频率，避免高频事件风暴。前端通过 `rtc-token-usage` 组件展示这些数据，详见 [会话管理](/docs/features/session/) 和 [上下文管理](/docs/features/context-management/)。
 
 ---
 

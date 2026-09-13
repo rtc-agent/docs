@@ -3,7 +3,7 @@ title: HTTP API
 description: RTC Agent HTTP authentication endpoints — standard OAuth2 authorization code flow, supporting multiple Providers, token refresh, and device management.
 ---
 
-RTC Agent's HTTP API provides **3 OAuth2 endpoints** for user authentication and token management. The entire flow follows the standard OAuth2 authorization code pattern, compatible with common Providers like GitHub and Google.
+RTC Agent's HTTP API provides **4 OAuth2 endpoints** for user authentication and token management. The entire flow follows the standard OAuth2 authorization code pattern, compatible with common Providers like GitHub and Google.
 
 ## Authentication Flow
 
@@ -33,6 +33,7 @@ sequenceDiagram
 | Endpoint | Method | Function | When Called |
 |------|:----:|------|----------|
 | `/oauth2/authorize` | GET | Get authorization redirect URL | User clicks login |
+| `/oauth2/providers` | GET | Get list of enabled OAuth Providers | Frontend initializes login page |
 | `/oauth2/token` | POST | Exchange authorization code for tokens | After authorization callback |
 | `/oauth2/refresh` | POST | Refresh access_token | When token is about to expire |
 
@@ -62,6 +63,30 @@ Get the redirect URL for the OAuth2 authorization page. The frontend uses this U
 |------|:----:|------|
 | `redirect_url` | string | Full URL to the OAuth2 Provider's authorization page |
 | `state` | string | CSRF protection random state parameter; must be returned as-is in the callback |
+
+---
+
+## GET /oauth2/providers
+
+Get the list of currently enabled OAuth2 Providers. The frontend calls this endpoint when initializing the login page to dynamically display available login options.
+
+### Request Parameters
+
+None.
+
+### Response
+
+```json
+{
+  "providers": ["github", "google"]
+}
+```
+
+| Field | Type | Description |
+|------|:----:|------|
+| `providers` | string[] | List of enabled provider names (e.g., `"github"`, `"google"`, `"mock"`) |
+
+> 💡 The frontend dynamically renders login buttons based on the returned provider list. If only the mock provider is enabled, the list will be `["mock"]`.
 
 ---
 

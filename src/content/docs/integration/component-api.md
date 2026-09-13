@@ -16,7 +16,8 @@ flowchart TD
     B --> B3["bubble-icon: 气泡图标"]
     B --> B4["scenarios-url: 场景文档"]
     B --> B5["server-url: 服务端地址"]
-    B --> B6["agentConfig: 声明式配置 (JS)"]
+    B --> B6["redirect-uri: OAuth 回调地址"]
+    B --> B7["agentConfig: 声明式配置 (JS)"]
 
     C --> C1["rtc-agent-ready"]
 
@@ -39,6 +40,7 @@ flowchart TD
 | 🖼️ `bubble-icon` | `string` | 默认图标 | 最小化气泡内显示的 SVG / HTML 内容 |
 | 📄 `scenarios-url` | `string` | — | 场景文档的 URL，指向 `manifest.json` |
 | 🔗 `server-url` | `string` | `""` | 服务端地址。为空时使用当前页面域名 |
+| 🔁 `redirect-uri` | `string` | `window.location.origin + '/auth/callback.html'` | OAuth 回调地址。支持绝对路径和相对路径 |
 
 **JS 属性**（仅通过 JavaScript 设置，非 HTML attribute）：
 
@@ -370,9 +372,10 @@ flowchart TD
 
 | 区域 | 行为 |
 |:----:|:----:|
-| ⌨️ **输入区** | textarea + 底部工具栏；Enter 提交，Shift+Enter 换行；工具栏包含附件、工具、模式切换、发送/停止 |
+| ⌨️ **输入区** | textarea + 底部工具栏；Enter 提交，Shift+Enter 换行；工具栏包含附件、工具、模式切换、发送/停止；当配置了 `scenarios-url` 时，工具栏显示 scenario 选择按钮，点击后弹出 `rtc-scenario-panel` 组件供用户选择场景 |
 | 📨 **消息列表** | 自动滚动到底部；用户滚动离开时显示"新消息"按钮；支持 Markdown 渲染和代码高亮 |
 | ⚡ **工具确认弹窗** | 显示工具名和参数；Yes / No 按钮；点击背景等同于拒绝 |
+| 🔄 **连接失败重试** | 连接断开时显示重试按钮，也可通过 JS 调用 `agent.reconnect()` 方法手动重连 |
 
 ## 下一步
 

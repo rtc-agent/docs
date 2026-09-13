@@ -27,7 +27,7 @@ flowchart TD
 | 步骤 | 说明 |
 |:----:|------|
 | 1 | 用户点击登录按钮，弹出登录对话框 |
-| 2 | 对话框通过 iframe 展示 OAuth2 Provider 的授权页面 |
+| 2 | 对话框弹出新窗口（popup window），加载 OAuth2 Provider 的授权页面 |
 | 3 | 用户在 Provider 页面完成授权（如 GitHub、Google 等） |
 | 4 | 授权成功后，系统获取授权码并换取令牌 |
 | 5 | 令牌存储到浏览器本地，登录完成 |
@@ -210,7 +210,7 @@ flowchart LR
     User -->|"① 点击登录"| FE
     FE -->|"② 获取授权 URL"| Consumer
     Consumer -->|"③ 返回 Provider 授权页 URL"| FE
-    FE -->|"④ iframe 加载"| AuthPage
+    FE -->|"④ 弹出 popup 窗口"| AuthPage
     User -->|"⑤ 授权"| AuthPage
     AuthPage -->|"⑥ 重定向回前端（携带 code）"| FE
     FE -->|"⑦ code 换取 token"| Consumer
@@ -227,7 +227,7 @@ flowchart LR
 
 #### 端点 1：授权页面 — `GET /oauth2/authorize`
 
-浏览器直接访问（通过 iframe 加载），用于展示登录/授权 UI。
+浏览器通过新窗口（popup window）打开，用于展示登录/授权 UI。
 
 **请求**（RTC Agent Server 拼接后由浏览器访问）：
 
@@ -253,7 +253,7 @@ Location: <redirect_uri>?code=<code>&state=<state>
 
 **页面约束**：
 
-- 页面会在 iframe 中加载，**不能**设置 `X-Frame-Options: DENY` 或限制性的 `Content-Security-Policy: frame-ancestors`
+- 页面会在 popup window 中打开，不再受 `X-Frame-Options` 或 `Content-Security-Policy: frame-ancestors` 的限制
 - Content-Type 为 `text/html; charset=utf-8`
 
 #### 端点 2：代码交换 — `POST /oauth2/token/exchange`
@@ -332,3 +332,43 @@ providers:
 ```
 
 > ⚠️ `providers.mock` 的 `mock` 是 provider 名称（不是"测试用"的意思）。Server 会将 `{url}/oauth2/authorize` 和 `{url}/oauth2/token/exchange` 拼接为两个端点地址。如果你的服务路径不同，需要扩展 `BuildProviderClients` 或保持路径一致。
+
+#### 内置 Provider 配置
+
+除了自定义 mock provider，Server 还内置了 GitHub 和 Google OAuth2 provider 支持：
+
+```yaml
+providers:
+  github:
+    enabled: true
+    client_id: "your-github-client-id"
+    client_secret: "your-github-client-secret"
+    scope: "read:user user:email"         # 可选，默认值
+
+  google:
+    enabled: true
+    client_id: "your-google-client-id"
+    client_secret: "your-google-client-secret"
+    scope: "openid email profile"         # 可选，默认值
+```
+
+> 💡 可以同时启用多个 provider，前端登录界面会显示所有已启用的 provider 供用户选择。Server 启动时会校验至少启用一个 provider。
+
+#### 前端 `redirect-uri` 属性
+
+`<rtc-agent>` 组件支持 `redirect-uri` 属性，用于自定义 OAuth2 授权完成后的回调地址：
+
+```html
+<rtc-agent
+  server-url="https://your-server.com"
+  redirect-uri="https://your-app.com/auth/callback.html"
+></rtc-agent>
+```
+
+| 特性 | 说明 |
+|------|------|
+| 默认值 | `window.location.origin + '/auth/callback.html'` |
+| 相对路径 | 以 `/` 开头时，自动拼接当前 origin（如 `/auth/callback.html` → `https://your-app.com/auth/callback.html`） |
+| 绝对路径 | 完整 URL，适用于回调端点部署在不同 origin 的场景 |
+
+> 💡 当 `<rtc-agent>` 嵌入在与你服务器不同 origin 的页面中时，需要通过 `redirect-uri` 显式指定回调地址，确保 OAuth2 授权码能正确返回。

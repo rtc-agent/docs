@@ -58,11 +58,12 @@ sequenceDiagram
     Server-->>FE: access_token + refresh_token
 ```
 
-**3 endpoints** cover the complete authentication lifecycle:
+**4 endpoints** cover the complete authentication lifecycle:
 
 | Endpoint | Method | Function |
 |------|:----:|------|
 | `/oauth2/authorize` | GET | Get OAuth2 authorization redirect URL |
+| `/oauth2/providers` | GET | Get list of enabled OAuth Providers |
 | `/oauth2/token` | POST | Exchange authorization code for access_token |
 | `/oauth2/refresh` | POST | Refresh access_token |
 

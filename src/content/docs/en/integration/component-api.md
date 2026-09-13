@@ -16,7 +16,8 @@ flowchart TD
     B --> B3["bubble-icon: bubble icon"]
     B --> B4["scenarios-url: scenario docs"]
     B --> B5["server-url: server address"]
-    B --> B6["agentConfig: declarative config (JS)"]
+    B --> B6["redirect-uri: OAuth callback URL"]
+    B --> B7["agentConfig: declarative config (JS)"]
 
     C --> C1["rtc-agent-ready"]
 
@@ -39,6 +40,7 @@ flowchart TD
 | 🖼️ `bubble-icon` | `string` | Default icon | SVG / HTML content displayed inside the minimized bubble |
 | 📄 `scenarios-url` | `string` | — | URL of the scenario manifest, pointing to `manifest.json` |
 | 🔗 `server-url` | `string` | `""` | Server address. Falls back to the current page's domain when empty |
+| 🔁 `redirect-uri` | `string` | `window.location.origin + '/auth/callback.html'` | OAuth callback URL. Supports both absolute and relative paths |
 
 **JS Properties** (set via JavaScript only, not HTML attributes):
 
@@ -370,9 +372,10 @@ flowchart TD
 
 | Area | Behavior |
 |:----:|:----:|
-| ⌨️ **Input Area** | Textarea + bottom toolbar; Enter to submit, Shift+Enter for newline; toolbar includes attachments, tools, mode toggle, send/stop |
+| ⌨️ **Input Area** | Textarea + bottom toolbar; Enter to submit, Shift+Enter for newline; toolbar includes attachments, tools, mode toggle, send/stop; when `scenarios-url` is configured, a scenario selection button is shown in the toolbar, opening the `rtc-scenario-panel` component for users to pick a scenario |
 | 📨 **Message List** | Auto-scrolls to bottom; "New messages" button shown when user scrolls away; supports Markdown rendering and code highlighting |
 | ⚡ **Tool Confirmation Dialog** | Displays tool name and parameters; Yes / No buttons; clicking the background is equivalent to rejecting |
+| 🔄 **Connection Retry** | A retry button is displayed when the connection fails; you can also call `agent.reconnect()` programmatically to reconnect |
 
 ## Next Steps
 

@@ -58,11 +58,12 @@ sequenceDiagram
     Server-->>FE: access_token + refresh_token
 ```
 
-**3 个端点**覆盖完整认证生命周期：
+**4 个端点**覆盖完整认证生命周期：
 
 | 端点 | 方法 | 功能 |
 |------|:----:|------|
 | `/oauth2/authorize` | GET | 获取 OAuth2 授权重定向 URL |
+| `/oauth2/providers` | GET | 获取已启用的 OAuth Provider 列表 |
 | `/oauth2/token` | POST | 授权码换取 access_token |
 | `/oauth2/refresh` | POST | 刷新 access_token |
 

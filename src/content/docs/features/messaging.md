@@ -42,10 +42,11 @@ flowchart TD
 | 📄 压缩摘要 | 上下文压缩后的摘要（`summary`） | Markdown 渲染 |
 | 📃 纯文本 | 未格式化的文本内容（`text`） | 纯文本 |
 | 🔧 工具消息 | 独立的工具角色消息（`tool` role） | 输入/输出卡片 |
+| 📩 用户消息 | 用户输入的内容，含场景注入（`user_message`） | 纯文本 + 场景标签 |
 | ℹ️ 系统消息 | 系统通知 | 纯文本 |
 
 > **MessageRole** 共 4 种：`user`、`assistant`、`system`、`tool`
-> **ContentType** 共 6 种：`text`、`markdown`、`summary`、`thinking`、`toolcall_input`、`toolcall_output`
+> **ContentType** 共 7 种：`text`、`markdown`、`summary`、`thinking`、`toolcall_input`、`toolcall_output`、`user_message`
 
 ## 消息发送流程
 
@@ -277,6 +278,73 @@ flowchart TD
 | 发送失败 | 标记 `failed`，显示重试按钮 |
 | 幂等保证 | 使用 `client_id` 去重，重试不产生重复消息 |
 | RTC 失败 | 指数退避重试（1s → 2s → 4s → ... → 30s 封顶） |
+
+## user_message 内容类型
+
+`user_message` 是第 7 种 ContentType，用于支持 **场景注入**——在用户消息中嵌入结构化上下文，服务端将其解析后以系统提示词的形式注入 LLM。
+
+### 数据结构
+
+```json
+{
+  "type": "user_message",
+  "data": {
+    "text": "请帮我创建一个任务",
+    "scenarios": [
+      {
+        "filepath": "/scenarios/create-task.md",
+        "title": "Create and Complete a Task",
+        "file_content": "# Create Task\n\n..."
+      }
+    ],
+    "files": []
+  }
+}
+```
+
+| 字段 | 类型 | 说明 |
+|------|------|------|
+| `text` | string | 消息文本内容 |
+| `scenarios` | `ScenarioRef[]` | 场景列表（可选），包含完整文件内容 |
+| `files` | `FileAttachment[]` | 文件附件列表（可选，预留） |
+
+### ScenarioRef 结构
+
+| 字段 | 类型 | 说明 |
+|------|------|------|
+| `filepath` | string | 场景文件路径 |
+| `title` | string | 场景标题 |
+| `file_content` | string | 场景文件完整内容（Markdown 格式） |
+
+> 💡 **注入机制**：服务端从 `UserMessageContent.Scenarios` 提取场景，以 `<scenarios>` XML 标签注入系统消息。最终消息顺序为：`[system] Attachments` → `[system] Scenarios` → `[system] Command prompts` → `[conversation history]`。
+
+## Token 用量显示
+
+前端通过 `rtc-token-usage` Web Component 在输入区域工具栏实时展示 Token 消耗和成本信息。
+
+```mermaid
+flowchart LR
+    subgraph DISPLAY["📊 Token 用量显示"]
+        RING["🔵 圆环进度<br/>压缩阈值可视化"]
+        INFO["📋 统计信息<br/>总 Token / 成本"]
+    end
+
+    Server["⚙️ session.updated 事件"] -->|"推送 token 字段"| DISPLAY
+
+    style DISPLAY fill:#e3f2fd,stroke:#1565c0,stroke-width:2px
+    style RING fill:#e8f5e9,stroke:#388e3c
+    style INFO fill:#fff9c4,stroke:#f9a825
+```
+
+| 显示项 | 数据来源 | 说明 |
+|--------|----------|------|
+| 圆环进度 | `compression_progress` | 当前上下文占压缩阈值的百分比 |
+| 总 Token | `total_tokens` | 累计消耗的总 Token 数 |
+| 总成本 | `total_cost_usd` | 累计成本（美元） |
+| 输入/输出 | `total_input_tokens` / `total_output_tokens` | 分类 Token 统计 |
+| 预估下轮 | `estimated_next_round_tokens` | 基于 EWMA 的下一轮 Token 预估 |
+
+> 💡 圆环进度帮助用户直观感知上下文窗口使用程度，提前预判何时会触发自动压缩。
 
 ## 下一步
 

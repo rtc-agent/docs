@@ -159,6 +159,7 @@ sequenceDiagram
 | `summary` | 上下文摘要 | `SummaryItem[]` |
 | `toolcall_input` | 工具调用请求 | `ToolCall` 对象 |
 | `toolcall_output` | 工具调用结果 | `ToolCall` 对象 |
+| `user_message` | 用户消息（含场景注入） | `UserMessageContent` 对象 |
 
 ---
 

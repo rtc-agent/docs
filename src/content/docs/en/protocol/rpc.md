@@ -159,6 +159,7 @@ sequenceDiagram
 | `summary` | Context summary | `SummaryItem[]` |
 | `toolcall_input` | Tool call request | `ToolCall` object |
 | `toolcall_output` | Tool call result | `ToolCall` object |
+| `user_message` | User message (with scenario injection) | `UserMessageContent` object |
 
 ---
 

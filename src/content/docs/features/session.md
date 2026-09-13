@@ -201,6 +201,66 @@ sequenceDiagram
 | 更新 | 会话标题修改、状态变更 |
 | 关闭 | 会话被关闭 |
 
+## Token 用量与成本统计
+
+每个 Session 自动累计 LLM Token 消耗与成本，通过 `session.updated` 事件实时推送到前端。
+
+```mermaid
+flowchart TD
+    subgraph FIELDS["📊 Token 统计字段"]
+        direction TB
+        T1["🔢 total_tokens<br/>累计总 Token"]
+        T2["💰 total_cost_usd<br/>累计成本（美元）"]
+        T3["📥 total_input_tokens<br/>累计输入 Token"]
+        T4["📤 total_output_tokens<br/>累计输出 Token"]
+        T5["📦 total_cached_read_tokens<br/>缓存读取 Token"]
+        T6["📦 total_cached_write_tokens<br/>缓存写入 Token"]
+        T7["🧠 total_reasoning_tokens<br/>推理 Token"]
+    end
+
+    LLM["🧠 LLM 调用完成"] -->|"提取 usage"| FIELDS
+    FIELDS -->|"session.updated 事件"| FE["🖥️ 前端展示"]
+
+    style FIELDS fill:#e3f2fd,stroke:#1565c0,stroke-width:2px
+    style FE fill:#e8f5e9,stroke:#388e3c
+```
+
+### Token 统计字段
+
+| 字段 | 类型 | 说明 |
+|------|------|------|
+| `total_tokens` | int64 | 累计总 Token 数（包含所有类型） |
+| `total_input_tokens` | int64 | 累计纯输入 Token 数（不含 cached read/write） |
+| `total_output_tokens` | int64 | 累计输出 Token 数 |
+| `total_cached_read_tokens` | int64 | 累计缓存读取 Token 数 |
+| `total_cached_write_tokens` | int64 | 累计缓存写入 Token 数 |
+| `total_reasoning_tokens` | int64 | 累计推理 Token 数 |
+| `total_cost_usd` | float64 | 累计成本（美元） |
+| `last_token_update_at` | time | 最后一次 Token 统计更新时间 |
+
+### Token 预估字段
+
+| 字段 | 类型 | 说明 |
+|------|------|------|
+| `estimated_next_round_tokens` | int64 | 基于 EWMA 的下一轮 Token 预估 |
+| `compression_progress` | float64 | 压缩进度 (0-100)，实时计算 |
+| `compression_threshold` | int64 | 压缩触发阈值 |
+| `rounds_until_compression` | int | 距离压缩的轮次（-1 表示已超过阈值） |
+
+### 成本计算
+
+系统支持多维度成本计算，根据模型定价配置自动计算：
+
+| 维度 | 说明 |
+|------|------|
+| 输入 Token | 非缓存的纯输入 Token 成本 |
+| 输出 Token | 输出 Token 成本 |
+| 缓存读取 | 缓存命中的 Token 成本（通常更低） |
+| 缓存写入 | 缓存写入的 Token 成本 |
+| 推理 Token | 推理过程（如 thinking）的 Token 成本 |
+
+> 💡 Token 统计通过节流机制（Throttle）控制 `session.updated` 事件的推送频率，避免高频事件风暴。前端通过 `rtc-token-usage` 组件展示这些数据。
+
 ## 下一步
 
 - [消息与对话](/docs/features/messaging/) — 了解会话内的消息交互

@@ -48,7 +48,7 @@ flowchart TD
 | Event Type | Topic Channel | Live Channel | Description |
 |---------|:----------:|:---------:|------|
 | `session.created` | ✅ | ❌ | Session created |
-| `session.updated` | ✅ | ❌ | Session updated (title, status, etc.) |
+| `session.updated` | ✅ | ❌ | Session updated (title, status, token statistics, etc.) |
 | `turn.created` | ✅ | ❌ | Turn created |
 | `turn.updated` | ✅ | ❌ | Turn state changed |
 | `message.created` | ✅ | ❌ | Message created |
@@ -113,6 +113,42 @@ flowchart TD
     style C fill:#e8f5e9,stroke:#388e3c,stroke-width:2px
     style D fill:#f3e5f5,stroke:#7b1fa2,stroke-width:2px
 ```
+
+---
+
+## session.updated New Fields
+
+The `session.updated` event includes **token statistics** and **compression status** fields in the Session data, used by the frontend to display real-time usage and compression progress:
+
+### Token Statistics Fields
+
+| Field | Type | Description |
+|-------|:----:|------|
+| `total_tokens` | int64 | Cumulative total token count (all types) |
+| `total_input_tokens` | int64 | Cumulative pure input tokens (excluding cached read/write) |
+| `total_output_tokens` | int64 | Cumulative output token count |
+| `total_cached_read_tokens` | int64 | Cumulative cached read token count |
+| `total_cached_write_tokens` | int64 | Cumulative cached write token count |
+| `total_reasoning_tokens` | int64 | Cumulative reasoning token count |
+| `total_cost_usd` | float64 | Cumulative cost in USD |
+| `last_token_update_at` | time | Last token statistics update timestamp |
+
+### Token Estimation & Compression Status Fields
+
+| Field | Type | Description |
+|-------|:----:|------|
+| `estimated_next_round_tokens` | int64 | EWMA-based prediction for next round tokens |
+| `compression_progress` | float64 | Compression progress (0-100), computed in real-time |
+| `compression_threshold` | int64 | Compression trigger threshold (contextTokensLimit - autoCompactBufferTokens) |
+| `rounds_until_compression` | int | Rounds until compression (-1 means threshold exceeded) |
+
+### Other New Fields
+
+| Field | Type | Description |
+|-------|:----:|------|
+| `device_id` | string | Device ID that created this Session (from JWT Token), used by the frontend to determine RTC request ownership |
+
+> 💡 Token statistics fields use a throttling mechanism (Throttle) to control push frequency, avoiding event storms. The frontend displays this data via the `rtc-token-usage` component. See [Session Management](/docs/en/features/session/) and [Context Management](/docs/en/features/context-management/) for details.
 
 ---
 

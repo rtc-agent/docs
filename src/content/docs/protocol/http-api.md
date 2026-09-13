@@ -3,7 +3,7 @@ title: HTTP API
 description: RTC Agent 的 HTTP 认证接口——标准 OAuth2 授权码流程，支持多 Provider、令牌刷新和设备管理。
 ---
 
-RTC Agent 的 HTTP API 提供 **3 个 OAuth2 端点**，处理用户认证和令牌管理。整个流程遵循标准 OAuth2 授权码模式，兼容 GitHub、Google 等常见 Provider。
+RTC Agent 的 HTTP API 提供 **4 个 OAuth2 端点**，处理用户认证和令牌管理。整个流程遵循标准 OAuth2 授权码模式，兼容 GitHub、Google 等常见 Provider。
 
 ## 认证流程
 
@@ -33,6 +33,7 @@ sequenceDiagram
 | 端点 | 方法 | 功能 | 调用时机 |
 |------|:----:|------|----------|
 | `/oauth2/authorize` | GET | 获取授权重定向 URL | 用户点击登录 |
+| `/oauth2/providers` | GET | 获取已启用的 OAuth Provider 列表 | 前端初始化登录页 |
 | `/oauth2/token` | POST | 授权码换取令牌 | 授权回调后 |
 | `/oauth2/refresh` | POST | 刷新 access_token | 令牌即将过期 |
 
@@ -62,6 +63,30 @@ sequenceDiagram
 |------|:----:|------|
 | `redirect_url` | string | OAuth2 Provider 授权页面的完整 URL |
 | `state` | string | CSRF 防护随机状态参数，回调时必须原样传回 |
+
+---
+
+## GET /oauth2/providers
+
+获取当前已启用的 OAuth2 Provider 列表。前端在初始化登录页时调用此端点，动态展示可用的登录选项。
+
+### 请求参数
+
+无。
+
+### 响应
+
+```json
+{
+  "providers": ["github", "google"]
+}
+```
+
+| 字段 | 类型 | 说明 |
+|------|:----:|------|
+| `providers` | string[] | 已启用的 Provider 名称列表（如 `"github"`、`"google"`、`"mock"`） |
+
+> 💡 前端根据返回的 provider 列表动态渲染登录按钮。如果只启用了 mock provider，则列表为 `["mock"]`。
 
 ---
 

@@ -27,7 +27,7 @@ flowchart TD
 | Step | Description |
 |:----:|------|
 | 1 | User clicks the login button, and a login dialog appears |
-| 2 | The dialog displays the OAuth2 Provider's authorization page via an iframe |
+| 2 | The dialog opens a popup window to load the OAuth2 Provider's authorization page |
 | 3 | User completes authorization on the Provider page (e.g., GitHub, Google) |
 | 4 | After successful authorization, the system obtains the authorization code and exchanges it for tokens |
 | 5 | Tokens are stored in the browser locally, and login is complete |
@@ -210,7 +210,7 @@ flowchart LR
     User -->|"① Click login"| FE
     FE -->|"② Get auth URL"| Consumer
     Consumer -->|"③ Return Provider auth page URL"| FE
-    FE -->|"④ Load in iframe"| AuthPage
+    FE -->|"④ Open popup window"| AuthPage
     User -->|"⑤ Authorize"| AuthPage
     AuthPage -->|"⑥ Redirect to frontend (with code)"| FE
     FE -->|"⑦ Exchange code for token"| Consumer
@@ -227,7 +227,7 @@ Your OAuth2 service only needs to implement **2 endpoints**:
 
 #### Endpoint 1: Authorization Page — `GET /oauth2/authorize`
 
-Accessed directly by the browser (loaded via iframe), used to display the login/authorization UI.
+Opened in a popup window, used to display the login/authorization UI.
 
 **Request** (assembled by RTC Agent Server, accessed by the browser):
 
@@ -253,7 +253,7 @@ Location: <redirect_uri>?code=<code>&state=<state>
 
 **Page constraints**:
 
-- The page will be loaded in an iframe — you **must not** set `X-Frame-Options: DENY` or a restrictive `Content-Security-Policy: frame-ancestors`
+- The page will be opened in a popup window — no longer restricted by `X-Frame-Options` or `Content-Security-Policy: frame-ancestors`
 - Content-Type must be `text/html; charset=utf-8`
 
 #### Endpoint 2: Code Exchange — `POST /oauth2/token/exchange`
@@ -332,3 +332,43 @@ providers:
 ```
 
 > ⚠️ The `mock` in `providers.mock` is the provider name (it doesn't mean "test only"). The Server will concatenate `{url}/oauth2/authorize` and `{url}/oauth2/token/exchange` as the two endpoint addresses. If your service uses different paths, you'll need to extend `BuildProviderClients` or keep the paths consistent.
+
+#### Built-in Provider Configuration
+
+In addition to the custom mock provider, the Server also includes built-in GitHub and Google OAuth2 provider support:
+
+```yaml
+providers:
+  github:
+    enabled: true
+    client_id: "your-github-client-id"
+    client_secret: "your-github-client-secret"
+    scope: "read:user user:email"         # Optional, default value
+
+  google:
+    enabled: true
+    client_id: "your-google-client-id"
+    client_secret: "your-google-client-secret"
+    scope: "openid email profile"         # Optional, default value
+```
+
+> 💡 Multiple providers can be enabled simultaneously — the frontend login interface will display all enabled providers for users to choose from. The Server validates that at least one provider is enabled at startup.
+
+#### Frontend `redirect-uri` Attribute
+
+The `<rtc-agent>` component supports a `redirect-uri` attribute to customize the callback URL after OAuth2 authorization:
+
+```html
+<rtc-agent
+  server-url="https://your-server.com"
+  redirect-uri="https://your-app.com/auth/callback.html"
+></rtc-agent>
+```
+
+| Feature | Description |
+|---------|-------------|
+| Default | `window.location.origin + '/auth/callback.html'` |
+| Relative path | When starting with `/`, the current origin is automatically prepended (e.g., `/auth/callback.html` → `https://your-app.com/auth/callback.html`) |
+| Absolute path | Full URL, useful when the callback endpoint is hosted at a different origin |
+
+> 💡 When `<rtc-agent>` is embedded in a page hosted at a different origin than your server, you need to explicitly specify the callback URL via `redirect-uri` to ensure the OAuth2 authorization code is returned correctly.

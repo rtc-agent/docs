@@ -42,10 +42,11 @@ flowchart TD
 | 📄 Summary | Compressed summary after context compaction (`summary`) | Markdown rendered |
 | 📃 Plain Text | Unformatted text content (`text`) | Plain text |
 | 🔧 Tool Message | Independent tool role message (`tool` role) | Input/output cards |
+| 📩 User Message | User input with embedded scenarios for injection (`user_message`) | Plain text + scenario tags |
 | ℹ️ System Message | System notifications | Plain text |
 
 > **MessageRole** has 4 types: `user`, `assistant`, `system`, `tool`
-> **ContentType** has 6 types: `text`, `markdown`, `summary`, `thinking`, `toolcall_input`, `toolcall_output`
+> **ContentType** has 7 types: `text`, `markdown`, `summary`, `thinking`, `toolcall_input`, `toolcall_output`, `user_message`
 
 ## Message Sending Flow
 
@@ -277,6 +278,73 @@ flowchart TD
 | Send failure | Marked as `failed`, retry button displayed |
 | Idempotency | Uses `client_id` for deduplication; retries produce no duplicates |
 | RTC failure | Exponential backoff retry (1s → 2s → 4s → ... → 30s cap) |
+
+## user_message Content Type
+
+`user_message` is the 7th ContentType, supporting **scenario injection** — embedding structured context within user messages that the server parses and injects as system prompts into the LLM.
+
+### Data Structure
+
+```json
+{
+  "type": "user_message",
+  "data": {
+    "text": "Please help me create a task",
+    "scenarios": [
+      {
+        "filepath": "/scenarios/create-task.md",
+        "title": "Create and Complete a Task",
+        "file_content": "# Create Task\n\n..."
+      }
+    ],
+    "files": []
+  }
+}
+```
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `text` | string | Message text content |
+| `scenarios` | `ScenarioRef[]` | Scenario list (optional), containing full file content |
+| `files` | `FileAttachment[]` | File attachment list (optional, reserved) |
+
+### ScenarioRef Structure
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `filepath` | string | Scenario file path |
+| `title` | string | Scenario title |
+| `file_content` | string | Full scenario file content (Markdown format) |
+
+> 💡 **Injection mechanism**: The server extracts scenarios from `UserMessageContent.Scenarios` and injects them as system messages with `<scenarios>` XML tags. The final message order is: `[system] Attachments` → `[system] Scenarios` → `[system] Command prompts` → `[conversation history]`.
+
+## Token Usage Display
+
+The frontend uses the `rtc-token-usage` Web Component to display real-time token consumption and cost information in the input area toolbar.
+
+```mermaid
+flowchart LR
+    subgraph DISPLAY["📊 Token Usage Display"]
+        RING["🔵 Circular Progress<br/>Compression Threshold Visualization"]
+        INFO["📋 Statistics<br/>Total Tokens / Cost"]
+    end
+
+    Server["⚙️ session.updated Event"] -->|"Push token fields"| DISPLAY
+
+    style DISPLAY fill:#e3f2fd,stroke:#1565c0,stroke-width:2px
+    style RING fill:#e8f5e9,stroke:#388e3c
+    style INFO fill:#fff9c4,stroke:#f9a825
+```
+
+| Display Item | Data Source | Description |
+|--------------|-------------|-------------|
+| Circular Progress | `compression_progress` | Current context as percentage of compression threshold |
+| Total Tokens | `total_tokens` | Cumulative total token count |
+| Total Cost | `total_cost_usd` | Cumulative cost in USD |
+| Input/Output | `total_input_tokens` / `total_output_tokens` | Categorized token statistics |
+| Estimated Next Round | `estimated_next_round_tokens` | EWMA-based prediction for next round |
+
+> 💡 The circular progress indicator helps users intuitively perceive context window usage and anticipate when auto-compression will trigger.
 
 ## Next Steps
 

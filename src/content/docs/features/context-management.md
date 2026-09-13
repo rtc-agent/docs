@@ -218,6 +218,43 @@ flowchart TD
 | 🧠 SessionMemory | 每轮 | 最近 5 条会话记忆（最多 5,000 tokens） |
 | 🗂️ UserMemory | 每轮 | 按重要性过滤的用户记忆 |
 
+## 压缩状态可视化
+
+Session 模型中的以下字段实时反映压缩状态，前端通过 `rtc-token-usage` 组件展示：
+
+| 字段 | 说明 | 计算方式 |
+|------|------|----------|
+| `compression_progress` | 压缩进度 (0-100) | `当前 token 数 / compression_threshold * 100` |
+| `compression_threshold` | 压缩触发阈值 | `contextTokensLimit - autoCompactBufferTokens` |
+| `rounds_until_compression` | 距离压缩的轮次 | 基于 EWMA 预估，-1 表示已超过阈值 |
+| `estimated_next_round_tokens` | 下一轮 Token 预估 | 基于 EWMA（指数加权移动平均）算法 |
+
+```mermaid
+flowchart LR
+    subgraph PROGRESS["📊 压缩进度可视化"]
+        direction TB
+        RING["🔵 圆环进度<br/>compression_progress"]
+        THRESHOLD["📏 阈值线<br/>compression_threshold"]
+        ROUNDS["🔢 剩余轮次<br/>rounds_until_compression"]
+    end
+
+    PROGRESS --> UI["🖥️ rtc-token-usage 组件"]
+
+    style PROGRESS fill:#e3f2fd,stroke:#1565c0,stroke-width:2px
+    style UI fill:#e8f5e9,stroke:#388e3c
+```
+
+### 压缩进度解读
+
+| 进度范围 | 含义 | 用户建议 |
+|:--------:|------|----------|
+| 0-50% | 上下文充裕 | 正常使用 |
+| 50-80% | 上下文逐渐填满 | 可继续对话，关注进度 |
+| 80-100% | 即将触发压缩 | 准备接受压缩 |
+| > 100% | 超过阈值，压缩已触发 | `rounds_until_compression` 变为 -1 |
+
+> 💡 `rounds_until_compression` 基于 EWMA（Exponentially Weighted Moving Average）算法预估，综合考虑历史轮次的 Token 消耗趋势。随着对话轮次增多，预估值会越来越准确。
+
 ## 下一步
 
 - [记忆系统](/docs/features/memory/) — 深入了解 Session Memory 和 User Memory 的工作原理
