@@ -137,10 +137,13 @@ flowchart TD
 
 | 字段 | 类型 | 说明 |
 |------|:----:|------|
+| `current_context_tokens` | int64 | 当前上下文实际 token 数（由服务端 cumulativeTokenCounter 回写，压缩后更新为真实值） |
 | `estimated_next_round_tokens` | int64 | 基于 EWMA 的下一轮 Token 预估 |
-| `compression_progress` | float64 | 压缩进度 (0-100)，后端实时计算 |
+| `compression_progress` | float64 | 压缩进度 (0-100)，基于 `current_context_tokens` 与 `compression_threshold` 计算 |
 | `compression_threshold` | int64 | 压缩触发阈值（contextTokensLimit - autoCompactBufferTokens） |
 | `rounds_until_compression` | int | 距离压缩的轮次（-1 表示已超过阈值） |
+
+> 💡 `current_context_tokens` 替换了旧的 `total_tokens` 作为压缩进度显示的基准。压缩完成后，该值会被回写为压缩后的实际上下文大小，前端进度条会即时反映真实状态。对于尚未初始化该字段的旧 Session，前端会 fallback 到 `total_tokens`。
 
 ### 其他新增字段
 

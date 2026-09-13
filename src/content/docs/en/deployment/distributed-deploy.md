@@ -139,6 +139,47 @@ docker compose -f docker-compose.full.yml down      # Stop containers
 docker compose -f docker-compose.full.yml down -v   # Also delete data volumes
 ```
 
+## 6. Restart Recovery
+
+The Server automatically performs **stale turns recovery** on startup, ensuring that work interrupted by crashes or restarts can continue.
+
+### Recovery Flow
+
+```mermaid
+flowchart TD
+    A["🔄 Server Startup"] --> B["Scan stale turns"]
+    B --> C{"Found stale turns?"}
+    C -->|"❌ None"| D["Normal startup"]
+    C -->|"✅ Yes"| E["Mark as interrupted"]
+    E --> F["Requeue ghost work"]
+    F --> G["Publish resume work items"]
+    G --> H["Release stale session locks"]
+    H --> I["Workers resume processing"]
+
+    style A fill:#e3f2fd,stroke:#1565c0,stroke-width:2px
+    style E fill:#fff9c4,stroke:#f9a825,stroke-width:2px
+    style I fill:#e8f5e9,stroke:#388e3c,stroke-width:2px
+```
+
+### Key Concepts
+
+| Concept | Description |
+| --- | --- |
+| **Stale Turn** | A Turn in a non-terminal state (`running` / `pending` / `interrupted`), left over from a previous crash or restart |
+| **Ghost Work** | A work item in `processing` state whose session lock has expired (left over from a Worker crash) |
+| **recoverStaleTurns** | The recovery entry point at Server startup, scans and processes all stale turns |
+| **RequeueGhostWork** | Places ghost work items back into the queue for Workers to reclaim |
+
+### Recovery Behavior
+
+1. **Find stale turns**: Scans the database for all Turns in `running`, `pending`, or `interrupted` state
+2. **Mark interrupted**: Marks `running` / `pending` Turns as `interrupted`
+3. **Requeue ghost work**: Batch checks and requeues work items left behind by crashes
+4. **Publish resume**: Publishes a resume work item for each stale Turn, triggering Worker recovery
+5. **Release session locks**: Cleans up expired session distributed locks, allowing Workers to compete again
+
+> 💡 The recovery process is transparent to frontend users. Interrupted Turns notify the frontend of the `interrupted` state via `turn.updated` events, then automatically resume processing. RTC Checkpoints also play a role here — Turns waiting for frontend tool results can recover from Redis Checkpoints without requiring user re-action.
+
 ## Next Steps
 
 - [Getting Started](/docs/en/getting-started/) — Back to overview

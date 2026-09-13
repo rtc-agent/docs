@@ -323,18 +323,26 @@ flowchart TD
 The frontend uses the `rtc-token-usage` Web Component to display real-time token consumption and cost information in the input area toolbar.
 
 ```mermaid
-flowchart LR
+flowchart TD
     subgraph DISPLAY["📊 Token Usage Display"]
         RING["🔵 Circular Progress<br/>Compression Threshold Visualization"]
-        INFO["📋 Statistics<br/>Total Tokens / Cost"]
+        TOOLTIP["📋 Hover Detail Panel<br/>Breakdown + Cost"]
     end
 
-    Server["⚙️ session.updated Event"] -->|"Push token fields"| DISPLAY
+    subgraph DATAFLOW["Data Flow"]
+        Server["⚙️ session.updated Event"] -->|"Push token fields"| Mapping["Mapping Layer<br/>snake_case → camelCase"]
+        Mapping --> Layout["chat-layout<br/>Orchestration Layer"]
+        Layout -->|"setTokenUsage()"| InputArea["input-area<br/>Intermediate Host"]
+        InputArea -->|"Property Binding"| DISPLAY
+    end
 
     style DISPLAY fill:#e3f2fd,stroke:#1565c0,stroke-width:2px
     style RING fill:#e8f5e9,stroke:#388e3c
-    style INFO fill:#fff9c4,stroke:#f9a825
+    style TOOLTIP fill:#fff9c4,stroke:#f9a825
+    style DATAFLOW fill:#f3e5f5,stroke:#7b1fa2,stroke-width:2px
 ```
+
+### Display Items
 
 | Display Item | Data Source | Description |
 |--------------|-------------|-------------|
@@ -342,9 +350,35 @@ flowchart LR
 | Total Tokens | `total_tokens` | Cumulative total token count |
 | Total Cost | `total_cost_usd` | Cumulative cost in USD |
 | Input/Output | `total_input_tokens` / `total_output_tokens` | Categorized token statistics |
+| Cache Hit Rate | `cached_read` / `input` | Cache reads as percentage of total input (capped at 99%) |
 | Estimated Next Round | `estimated_next_round_tokens` | EWMA-based prediction for next round |
+| Compression Countdown | `rounds_until_compression` | Rounds remaining until auto-compression |
 
-> 💡 The circular progress indicator helps users intuitively perceive context window usage and anticipate when auto-compression will trigger.
+### Protocol Field Mapping
+
+Snake_case fields from the backend `session.updated` event are mapped to frontend camelCase properties:
+
+| Protocol Field (snake_case) | Frontend Property (camelCase) | Description |
+|-----------------------------|-------------------------------|-------------|
+| `current_context_tokens` | `currentContextTokens` | Current context token count |
+| `estimated_next_round_tokens` | `estimatedNextRoundTokens` | Estimated next round tokens (circle progress numerator) |
+| `compression_threshold` | `compressionThreshold` | Compression trigger threshold (circle progress denominator) |
+| `compression_progress` | `compressionProgress` | Compression progress (0-100) |
+| `rounds_until_compression` | `roundsUntilCompression` | Rounds until compression |
+| `total_tokens` | `totalTokens` | Cumulative total tokens |
+| `total_cost_usd` | `totalCostUsd` | Cumulative cost |
+
+### Circular Progress & Color Thresholds
+
+Circle progress formula: `estimatedNext / compressionThreshold * 100%`
+
+| Progress Range | Color | Meaning |
+|:--------------:|:-----:|---------|
+| < 50% | 🔵 Blue | Context is plentiful |
+| 50% - 70% | 🟡 Yellow | Approaching compression threshold |
+| > 70% | 🔴 Red | Compression imminent |
+
+> 💡 When `roundsUntilCompression` is within 0-3 rounds, the tooltip footer shows "X rounds until compression (Y%)"; at 1 or fewer rounds, it escalates to warning color.
 
 ## Next Steps
 

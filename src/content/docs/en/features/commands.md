@@ -66,7 +66,7 @@ Parsing rules:
 - The rest is the **arguments** (passed as raw string)
 - Command name matching priority: **exact match** > **alias match**
 
-Commands come from two sources: system **built-in commands** (`/compact`, `/goal`) and **custom commands** registered by the host application via API.
+Commands come from two sources: system **built-in commands** (`/compact`, `/goal`, `/persona`) and **custom commands** registered by the host application via API.
 
 ---
 
@@ -102,6 +102,49 @@ flowchart LR
 
 ---
 
+## /persona — Role Switching
+
+Switch the AI's role/persona for the current session. After entering a role name, the AI adopts that role's vocabulary, priorities, and typical reasoning patterns until the session ends or the command is overridden.
+
+### Usage
+
+```text
+/persona <role-name>
+```
+
+| Parameter | Required | Description |
+|-----------|----------|-------------|
+| Role name | Yes | Role description, e.g. `senior-backend-engineer`, `product-manager`, `security-expert`. Enter `default` to revert to default behavior |
+
+### How It Works
+
+`/persona` is a **session-scoped** command -- it stays active for the entire session after being triggered. The backend maintains the persona through two phases:
+
+| Phase | Description |
+|-------|-------------|
+| **Trigger prompt** | On the first invocation, a system message is injected to activate the role |
+| **Sustain prompt** | On subsequent turns, a reminder is injected to keep the AI in character |
+
+```mermaid
+flowchart LR
+    A["👤 /persona senior-backend-engineer"] --> B["📝 Inject system prompt"]
+    B --> C["🧠 AI adopts role"]
+    C --> D["🔄 Maintain role on subsequent turns"]
+    D --> E["🔁 New /persona command overrides"]
+
+    style A fill:#e3f2fd,stroke:#1565c0,stroke-width:2px
+    style C fill:#e8f5e9,stroke:#388e3c,stroke-width:2px
+    style E fill:#fff3e0,stroke:#f57c00,stroke-width:2px
+```
+
+| Key Rule | Description |
+|----------|-------------|
+| **Session-scoped** | The persona is only valid for the current session; it expires when the session closes |
+| **Overridable** | Enter a new `/persona` command to switch roles |
+| **Reversible** | Use `/persona default` to revert to default behavior |
+
+---
+
 ## /loop — Loop Execution (Planned)
 
 > ⚠️ **This feature is still in the planning stage and has not been implemented.** The following describes the design proposal.
@@ -121,6 +164,18 @@ Users describe tasks that need to be executed in a loop using natural language. 
 ## /goal — Goal-Driven
 
 The user sets a **completion condition**, and the AI works continuously until the condition is met. During execution, the AI self-assesses whether the goal has been achieved, declaring completion via the `complete_goal` tool, or cancelling via the `cancel_goal` tool.
+
+### Command Interaction Model
+
+`/goal` uses **special prefix handling**: after the user types `/goal <condition>`, the frontend sends it as a regular message. The backend detects the prefix through the command registry (`GoalWorkflow`) and injects a system prompt to guide the AI into the goal-setting workflow.
+
+Unlike commands with frontend direct handling like `/compact`, `/goal` does not execute an operation immediately -- it triggers a **multi-turn conversation workflow**:
+
+| Comparison | `/compact` | `/goal` |
+|------------|-----------|---------|
+| Handling mode | Frontend sends RPC directly | Special prefix → system prompt injection |
+| Execution timing | Immediate | AI interprets and guides multi-turn interaction |
+| User confirmation | Not required | Required to confirm the goal condition |
 
 ### Core Flow
 
@@ -211,5 +266,6 @@ After command execution, the frontend provides feedback to the user via Toast no
 ## Next Steps
 
 - [Skill System](/docs/en/features/skill-system/) — Learn how the host registers custom functions to extend AI capabilities
+- [LLM Built-in Tools](/docs/en/features/llm-tools/) — Learn about the built-in tools available to the AI during conversation
 - [RTC Protocol](/docs/en/concepts/rtc/) — Learn about the remote tool calling mechanism behind commands
 - [Session Management](/docs/en/features/session/) — Learn about the session context in which commands operate

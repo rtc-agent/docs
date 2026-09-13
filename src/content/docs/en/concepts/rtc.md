@@ -196,6 +196,12 @@ flowchart LR
 
 > The next RTC is processed only after the current one completes. This is transparent to the user — the AI naturally completes each operation in sequence.
 
+## Worker Queue Model
+
+The rtc-queue uses a **hold-lock mode** to handle consecutive work for the same Session: after completing a work item, the Worker retains the session lock and continues claiming more work from the same Session until the queue is empty, then releases the lock. This ensures that turn-loop agents (e.g., executing multiple RTC tool calls in sequence) don't need to re-compete for the lock between operations, improving efficiency for consecutive processing.
+
+> 💡 This is an internal optimization, completely transparent to users. Users simply experience the coherence of AI operations — no unnecessary waits between multiple tool calls.
+
 ## Next Steps
 
 - [Virtual File System](/docs/en/concepts/virtual-fs/) — Learn about the file system that RTC tools operate on

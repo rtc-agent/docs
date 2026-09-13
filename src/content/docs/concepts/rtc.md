@@ -196,6 +196,12 @@ flowchart LR
 
 > 当前 RTC 完成后，才会处理下一个。这对用户来说是无感知的——AI 会自然地依次完成每个操作。
 
+## Worker 队列模型
+
+rtc-queue 使用 **hold-lock 模式** 处理同一 Session 的连续工作：Worker 在完成一个 work item 后保持 session 锁，继续领取同一 Session 的后续工作，直到队列为空才释放锁。这确保了 turn-loop Agent（如连续执行多个 RTC 工具调用）无需在每次操作间重新竞争锁，提升了连续处理的效率。
+
+> 💡 这是内部优化，对用户完全透明。用户只会感受到 AI 操作的连贯性——多个工具调用之间没有不必要的等待。
+
 ## 下一步
 
 - [虚拟文件系统](/docs/concepts/virtual-fs/) — 了解 RTC 工具操作的文件系统

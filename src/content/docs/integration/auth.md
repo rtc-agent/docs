@@ -34,6 +34,68 @@ flowchart TD
 
 > 💡 **设计原则**：登录流程完全委托给 OAuth2 Provider——RTC Agent 不接触用户密码，安全由 Provider 保障。
 
+### Provider 选择界面
+
+当 Server 配置了多个 OAuth2 Provider 时，前端登录页面会自动展示所有已启用的 Provider 供用户选择：
+
+```mermaid
+flowchart TD
+    A["🖥️ 用户打开应用"] --> B["📋 请求可用 Provider 列表"]
+    B --> C["GET /oauth2/providers"]
+    C --> D{"Provider 数量？"}
+    D -->|"1 个"| E["显示单个登录按钮<br/>（如 'Sign in with GitHub'）"]
+    D -->|"多个"| F["显示 Provider 按钮列表<br/>（GitHub、Google 等）"]
+    E --> G["👆 用户点击"]
+    F --> G
+    G --> H["🪟 弹出授权对话框"]
+
+    style E fill:#e8f5e9,stroke:#388e3c,stroke-width:2px
+    style F fill:#e3f2fd,stroke:#1565c0,stroke-width:2px
+    style H fill:#fff9c4,stroke:#f9a825,stroke-width:2px
+```
+
+| 特性 | 说明 |
+|:----:|------|
+| 🔍 动态发现 | 前端通过 `GET /oauth2/providers` 获取可用 Provider 列表，不硬编码数量 |
+| 🎨 品牌化样式 | GitHub、Google 等已知 Provider 有专属图标和品牌色 |
+| 📱 自适应布局 | 单个 Provider 时显示大号主按钮，多个时显示按钮列表 |
+| 🔄 失败回退 | Provider 列表加载失败时，回退显示 Mock Provider 按钮 |
+
+### 弹窗授权流程
+
+用户选择 Provider 后，授权流程在弹窗（popup window）中完成：
+
+```mermaid
+sequenceDiagram
+    actor User as 👤 用户
+    participant Page as 🖥️ 登录页
+    participant Dialog as 🪟 授权对话框
+    participant Popup as 🌐 OAuth Provider 弹窗
+    participant Server as ⚙️ RTC Server
+
+    User->>Page: 点击 Provider 按钮
+    Page->>Dialog: 挂载对话框（携带 provider 名称）
+    Dialog->>Server: 获取授权 URL
+    Server-->>Dialog: 返回 redirect_url + state
+    Dialog->>Popup: window.open() 打开授权页
+    Dialog-->>User: "请在弹出的窗口中完成授权"
+    User->>Popup: 完成授权
+    Popup->>Dialog: postMessage({code, state})
+    Dialog->>Server: 用授权码换取 token
+    Server-->>Dialog: 返回 access_token + refresh_token
+    Dialog-->>Page: 登录成功，自动关闭
+```
+
+| 状态 | 用户看到的行为 |
+|:----:|---------------|
+| 准备中 | 加载动画 + "正在准备授权..." |
+| 等待授权 | "请在弹出的窗口中完成授权" + "重新打开授权窗口"按钮 |
+| 验证中 | 加载动画 + "正在验证身份..." |
+| 成功 | "即将自动关闭..."，800ms 后自动关闭 |
+| 失败 | 错误信息 + "重试"按钮 |
+
+> 💡 弹窗被用户手动关闭但授权未完成时，对话框会显示"授权已取消"并允许重试。
+
 ## 双令牌机制
 
 ```mermaid

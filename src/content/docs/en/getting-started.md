@@ -111,6 +111,8 @@ For scenarios where you need to develop and debug on the Server side. Requires G
 
 For the full configuration options, see [etc/config.example.yaml](https://github.com/rtc-agent/server/blob/main/etc/config.example.yaml).
 
+### Required Configuration
+
 | Config | Description | Required |
 | --- | --- | --- |
 | `database.dsn` | PostgreSQL connection string | ✅ |
@@ -119,9 +121,43 @@ For the full configuration options, see [etc/config.example.yaml](https://github
 | `llm.provider` | Model provider: `claude` or `openai` | ✅ |
 | `llm.api_key` | LLM API key | ✅ |
 | `llm.model` | Model name | ✅ |
-| `tracing.enabled` | Enable OpenTelemetry tracing | Optional |
-| `embedding.enabled` | Enable vector retrieval (User Memory) | Optional |
 
+### Optional Configuration
+
+| Config | Description | Default |
+| --- | --- | --- |
+| `tracing.enabled` | Enable OpenTelemetry tracing | `false` |
+| `embedding.enabled` | Enable vector retrieval (User Memory) | `false` |
+| `log.level` | Log level: `debug` / `info` / `warn` / `error` | `info` |
+| `log.server_log_file` | Server log file path (JSON format, for promtail collection). Leave empty to disable file logging. Logs use lumberjack auto-rotation (100MB/file, retain 3, 7 days, gzip compression) | empty |
+| `worker.cache_hit_rate_warn_threshold` | Cache hit rate warning threshold (0.0-1.0). A warn log is emitted when the session's cumulative cache hit rate drops below this value. Negative values disable the warning | `0.88` |
+| `llm.retry_max_attempts` | Maximum retry attempts on model call failure. 0 means no retry | `0` |
+| `llm.retry_base_delay` | Base delay for retry backoff (exponential: `base_delay * 2^(attempt-1)`) | `1s` |
+
+### Model Pricing Configuration
+
+The `llm.pricing` section allows customizing model costs so the system can calculate per-invocation cost (`total_cost_usd`). All prices are in **USD per million tokens**. Defaults to Claude 3.5 Sonnet pricing when not configured.
+
+```yaml
+llm:
+  pricing:
+    input_per_million: 3.0        # Normal input token price
+    output_per_million: 15.0      # Output token price
+    cached_read_per_million: 0.3  # Cache read (cache hit) price, typically 10% of input
+    cached_write_per_million: 3.75 # Cache write (cache creation) price, typically 125% of input
+    reasoning_per_million: 0.0    # Reasoning (thinking) token price
+```
+
+| Field | Description | Default (Claude 3.5 Sonnet) |
+| --- | --- | --- |
+| `input_per_million` | Normal input token price (USD/million tokens) | `3.0` |
+| `output_per_million` | Output token price (USD/million tokens) | `15.0` |
+| `cached_read_per_million` | Cache read (cache hit) price (USD/million tokens) | `0.3` |
+| `cached_write_per_million` | Cache write (cache creation) price (USD/million tokens) | `3.75` |
+| `reasoning_per_million` | Reasoning (thinking) token price (USD/million tokens) | `0.0` |
+
+> 💡 When using a different model, refer to your model provider's pricing page and set `llm.pricing` accordingly. Cost calculation accumulates after each LLM call into the Session's `total_cost_usd` field, which is pushed to the frontend via `session.updated` events.
+>
 > 🔐 **Production security**: Before deploying to production, ensure HTTPS is enabled, configure a proper OAuth2 provider (not Mock), use a strong random `jwt_secret`, and set CORS allowlists.
 
 ## Troubleshooting

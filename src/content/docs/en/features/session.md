@@ -201,6 +201,132 @@ Pushed change types:
 | Updated | Session title modified, state changed |
 | Closed | Session was closed |
 
+## Session Tree & Navigation
+
+RTC Agent provides two session navigation methods: **Session Tree** (sidebar) and **Session Tabs** (tab bar), each suited for different use cases.
+
+### Session Tree
+
+The session tree is a VS Code-style hierarchical structure, ideal for managing large numbers of sessions and viewing session relationships.
+
+```mermaid
+flowchart LR
+    subgraph TREE["📂 Session Tree"]
+        direction TB
+        ROOT1["📁 Root Session 1"]
+        ROOT1 --> CHILD1["💬 Child Session 1.1"]
+        ROOT1 --> CHILD2["💬 Child Session 1.2"]
+        ROOT2["📁 Root Session 2"]
+        ROOT2 --> CHILD3["💬 Child Session 2.1"]
+    end
+
+    style TREE fill:#e3f2fd,stroke:#1565c0,stroke-width:2px
+```
+
+**Components**:
+- `<rtc-session-tree>` — Session tree container with refresh, new, and delete buttons
+- `<rtc-session-tree-item>` — Individual tree node with recursive child rendering
+
+**Features**:
+- 📂 **Hierarchical Structure**: Supports parent-child session relationships (linked via `rootClientSessionId`)
+- 🔽 **Expand/Collapse**: Click arrow icons to expand or collapse child sessions
+- ⌨️ **Keyboard Navigation**: Full ARIA `role="tree"` support (arrow keys, Home, End, Enter)
+- 🎯 **Selection Highlight**: Currently selected session is highlighted
+
+**Events**:
+
+| Event | Description |
+|-------|-------------|
+| `rtc-session-tree-select` | User clicks or keyboard-activates a session node |
+| `rtc-session-tree-toggle` | User clicks expand/collapse arrow |
+| `rtc-session-tree-new` | User clicks new session button |
+| `rtc-session-delete-requested` | User clicks delete button |
+
+> ⚠️ **Breaking Change**: The new session creation event has been renamed from `rtc-new-session` to `rtc-session-tree-new` for better naming consistency.
+
+### Session Tabs
+
+Session tabs are browser-style tabs for quick switching between sessions.
+
+```mermaid
+flowchart LR
+    subgraph TABS["📑 Tab Bar"]
+        direction LR
+        TAB1["💬 Session 1 ●"]
+        TAB2["💬 Session 2 ○"]
+        TAB3["💬 Session 3 ○"]
+        TAB1 -.->|"Activate"| TAB2
+    end
+
+    style TABS fill:#e8f5e9,stroke:#388e3c,stroke-width:2px
+```
+
+**Components**:
+- `<rtc-session-tab-bar>` — Tab bar container
+- `<rtc-session-tab>` — Individual tab
+
+**Features**:
+- 🔄 **Quick Switching**: Click a tab to switch sessions
+- ❌ **Close Tabs**: Click the close button on a tab
+- 💾 **State Persistence**: Tab order and active state saved to localStorage
+- 📝 **Unsaved Drafts**: Supports temporary session tabs not yet persisted
+
+### Chat Layout
+
+`<rtc-chat-layout>` is the new main chat interface layout component, integrating session tree and tab bar:
+
+```mermaid
+flowchart TD
+    LAYOUT["📐 rtc-chat-layout<br/>Two-column layout"] --> LEFT["📂 Left: Session Tree<br/>rtc-session-tree"]
+    LAYOUT --> RIGHT["📑 Right: Tab bar + Chat content"]
+    
+    RIGHT --> TABBAR["📑 rtc-session-tab-bar"]
+    RIGHT --> CONTENT["💬 Chat content area<br/>content-area + input-area"]
+
+    style LAYOUT fill:#f3e5f5,stroke:#7b1fa2,stroke-width:2px
+    style LEFT fill:#e3f2fd,stroke:#1565c0,stroke-width:2px
+    style RIGHT fill:#e8f5e9,stroke:#388e3c,stroke-width:2px
+```
+
+**Attributes**:
+
+| Attribute | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `sessionTreeVisible` | `boolean` | `true` | Whether to show the left session tree |
+| `theme` | `'light' \| 'dark' \| 'system'` | `'system'` | Theme mode |
+
+**Usage Example**:
+
+```html
+<!-- Default: show session tree -->
+<rtc-chat-layout></rtc-chat-layout>
+
+<!-- Hide session tree (show tab bar only) -->
+<rtc-chat-layout session-tree-visible="false"></rtc-chat-layout>
+```
+
+### Controller Collaboration
+
+Session tree and tabs are managed by two independent Controllers that collaborate through events:
+
+```mermaid
+sequenceDiagram
+    participant Tree as 📂 SessionTreeController
+    participant Agent as 🏠 rtc-agent
+    participant Tab as 📑 SessionTabController
+    
+    Tree->>Tree: User clicks session node
+    Tree->>Agent: rtc-session-tree-select event
+    Agent->>Tab: openOrActivate(sessionId)
+    Tab->>Tab: Open or activate tab
+    Tab->>Agent: Update tab state
+    Agent->>Agent: Switch chat content
+```
+
+- **SessionTreeController**: Manages tree structure and expand state
+- **SessionTabController**: Manages tab state and persistence
+- **Collaboration**: Event-driven, with root component `<rtc-agent>` as the central orchestrator
+
 ## Token Usage & Cost Tracking
 
 Each Session automatically accumulates LLM token consumption and cost, pushed to the frontend in real-time via `session.updated` events.

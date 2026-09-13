@@ -84,6 +84,88 @@ agent.agentConfig = {
 
 > 💡 每个参数由 `name`（参数名）、`schema`（OpenAPI Schema 格式的参数定义）和 `required`（是否必填）组成。
 
+### 使用 Zod 定义参数（推荐）
+
+除了手动编写 OpenAPI Schema，你还可以使用 **Zod schema** 定义函数参数——更简洁、类型安全，且自动获得运行时校验。
+
+```ts
+import { z } from 'zod';
+
+{
+  name: 'createOrder',
+  description: '创建新订单',
+  zodSchema: z.object({
+    productId: z.string().describe('商品 ID'),
+    quantity: z.number().int().min(1).default(1).describe('数量'),
+  }),
+  handler: async ({ productId, quantity }) => {
+    return await api.createOrder(productId, quantity);
+  }
+}
+```
+
+> 💡 `zodSchema` 和 `parameters` 二选一。如果同时提供，`zodSchema` 优先。
+
+**Zod 与 OpenAPI Schema 对比**：
+
+| | Zod Schema | OpenAPI Schema (`parameters`) |
+|---|---|---|
+| **定义方式** | `z.object({...})`，链式 API | `ParameterDef[]` 数组，手动写 JSON Schema |
+| **类型安全** | TypeScript 自动推断 handler 参数类型 | 需要手动确保类型一致 |
+| **运行时校验** | 自动校验（类型、范围、格式等） | 通过内部转换为 Zod 实现校验 |
+| **文档生成** | 自动转换为 OpenAPI 格式生成文档 | 直接使用 |
+| **约束表达** | `.min()/.max()/.regex()/.enum()` 等 | `minimum/maximum/pattern/enum` 等字段 |
+| **适用场景** | 推荐大多数场景 | 已有 OpenAPI 定义时可直接复用 |
+
+**支持的 Zod 功能**：
+
+| Zod 功能 | 转换结果 |
+|---|---|
+| `.describe('...')` | 参数描述 |
+| `.optional()` | `required: false` |
+| `.default(value)` | `default` 值 + `required: false` |
+| `.min()` / `.max()` | `minimum` / `maximum` |
+| `.minLength()` / `.maxLength()` | `minLength` / `maxLength` |
+| `.regex()` | `pattern` |
+| `.enum([...])` | `enum` |
+| `z.array()` | `type: 'array'` + `items` |
+| `z.number().int()` | `type: 'integer'` |
+
+**添加示例值**：使用 `withMeta` 为 Zod schema 添加 OpenAPI 特有的示例值：
+
+```ts
+import { z } from 'zod';
+import { withMeta } from '@rtc-agent/component';
+
+zodSchema: z.object({
+  name: withMeta(z.string(), { example: 'John Doe' }),
+  age: withMeta(z.number().int(), { example: 30 }),
+})
+```
+
+### 运行时参数校验
+
+`FunctionRegistry.execute()` 在调用 handler 之前自动进行参数校验：
+
+```mermaid
+flowchart TD
+    A["调用 execute(path, params)"] --> B{"有 zodSchema？"}
+    B -->|"✅ 是"| C["使用 zodSchema 校验"]
+    B -->|"❌ 否"| D{"有 parameters？"}
+    D -->|"✅ 是"| E["从 OpenAPI 转换为 Zod 校验"]
+    D -->|"❌ 否"| F["跳过校验"]
+    C --> G{"校验通过？"}
+    E --> G
+    G -->|"✅ 是"| H["执行 handler"]
+    G -->|"❌ 否"| I["抛出校验错误<br/>引导 AI 读取文档"]
+
+    style C fill:#e8f5e9,stroke:#388e3c,stroke-width:2px
+    style E fill:#e3f2fd,stroke:#1565c0,stroke-width:2px
+    style I fill:#ffcdd2,stroke:#c62828,stroke-width:2px
+```
+
+校验失败时，错误信息会引导 AI 读取 `/functions/INDEX.md` 获取正确的参数格式，提高自愈能力。
+
 ## 函数分组
 
 函数通过 **分组（group）** 组织，分组名 + 函数名 = 完整调用路径：

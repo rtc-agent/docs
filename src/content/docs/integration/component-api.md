@@ -306,6 +306,70 @@ flowchart TD
 
 > 💡 **设计原则**：Controller 之间解耦，所有跨 Controller 通信都经过根组件中转。子组件通过 `@lit/context` 获取状态，不直接持有 Controller 引用。
 
+## 国际化（i18n）
+
+RTC Agent 内置完整的国际化支持，基于 `@lit/localize` 实现运行时语言切换。
+
+### 支持的语言
+
+| 语言代码 | 语言 | 说明 |
+|:--------:|:----:|:----:|
+| `zh-CN` | 简体中文 | 默认语言（源语言） |
+| `en-US` | English | 目标语言 |
+
+### 切换语言
+
+通过 `switchLocale()` API 切换界面语言：
+
+```ts
+import { switchLocale } from '@rtc-agent/component/core/i18n.js';
+
+// 切换到英文
+await switchLocale('en-US');
+
+// 切换到中文
+await switchLocale('zh-CN');
+```
+
+### 语言持久化
+
+语言选择自动保存到 `localStorage`（键：`rtc-agent-locale`），刷新页面后保持不变。
+
+### 在组件中使用
+
+组件中使用 `@localized()` 装饰器和 `msg()` 函数：
+
+```ts
+import { localized, msg } from '@lit/localize';
+import { consume } from '@lit/context';
+import { localeContext } from '@rtc-agent/component/core/i18n.js';
+
+@localized()
+@customElement('my-component')
+export class MyComponent extends LitElement {
+  @consume({ context: localeContext, subscribe: true })
+  private _localeCtx!: LocaleContextValue;
+
+  render() {
+    // 响应 locale 变化
+    void this._localeCtx.locale;
+    
+    return html`
+      <div>${msg('欢迎使用 RTC Agent')}</div>
+    `;
+  }
+}
+```
+
+### 添加翻译
+
+1. **标记文本**：在组件中使用 `msg()` 包裹需要翻译的文本
+2. **提取翻译**：运行 `npm run localize:extract` 生成 XLIFF 文件
+3. **翻译文本**：编辑 `xliff/en-US.xlf` 文件
+4. **构建翻译**：运行 `npm run localize:build` 生成语言包
+
+详细指南见 [国际化集成指南](/docs/integration/i18n)。
+
 ## CSS 变量
 
 通过 CSS 变量可以定制组件的外观尺寸，无需修改源码：
@@ -318,6 +382,13 @@ rtc-agent {
 
   /* 最小化气泡大小 */
   --rtc-bubble-size: 40px;
+
+  /* 用户自定义字号（影响所有文本） */
+  --rtc-font-size-user: 16px;
+
+  /* 品牌色 */
+  --rtc-color-primary-rgb: 39 65 254;  /* Light: #2741FE */
+  --rtc-color-accent: #2741FE;
 }
 ```
 
@@ -326,6 +397,149 @@ rtc-agent {
 | `--rtc-window-default-width` | `420px` | 浮动窗口默认宽度 |
 | `--rtc-window-default-height` | `640px` | 浮动窗口默认高度 |
 | `--rtc-bubble-size` | `40px` | 最小化气泡的直径 |
+| `--rtc-font-size-user` | `14px` | 用户自定义基础字号（12-24px） |
+| `--rtc-color-primary-rgb` | Light: `39 65 254`<br/>Dark: `26 122 176` | 主色 RGB 值（用于透明度计算） |
+| `--rtc-color-accent` | Light: `#2741FE`<br/>Dark: `#1A7AB0` | 强调色（链接、按钮等） |
+
+### 字号体系
+
+设置 `--rtc-font-size-user` 后，所有字号按等比缩放：
+
+| Token | 计算公式 | 示例（base=14px） |
+|:-----:|:--------:|:-----------------:|
+| `--rtc-font-size-xs` | `base * 0.857` | 12px |
+| `--rtc-font-size-sm` | `base * 0.929` | 13px |
+| `--rtc-font-size-base` | `base` | 14px |
+| `--rtc-font-size-md` | `base * 1.143` | 16px |
+| `--rtc-font-size-lg` | `base * 1.286` | 18px |
+| `--rtc-font-size-xl` | `base * 1.429` | 20px |
+| `--rtc-font-size-2xl` | `base * 1.714` | 24px |
+
+## Logo 定制
+
+RTC Agent 提供品牌 Logo 的 Lit 渲染辅助，支持亮色和暗色两个版本。
+
+### 使用 renderLogo()
+
+```ts
+import { renderLogo, renderBubbleLogo } from '@rtc-agent/component/icons/logo.js';
+
+@customElement('my-component')
+export class MyComponent extends LitElement {
+  @property({ type: String })
+  theme: 'light' | 'dark' | 'system' = 'system';
+
+  render() {
+    const isDark = this.theme === 'dark';
+    
+    return html`
+      <div class="header">
+        <!-- 完整 Logo（用于登录页、空状态等） -->
+        <div class="logo">${renderLogo(isDark)}</div>
+        
+        <!-- 气泡 Logo（用于最小化气泡） -->
+        <div class="bubble-logo">${renderBubbleLogo(isDark)}</div>
+      </div>
+    `;
+  }
+}
+```
+
+### Logo 文件
+
+| 文件 | 说明 | 使用场景 |
+|:----:|:----:|:--------:|
+| `logo.svg` | 蓝天版 Logo | 亮色主题 |
+| `logo-dark.svg` | 夜空版 Logo | 暗色主题 |
+
+### 定制 Logo
+
+如需替换品牌 Logo，可以：
+
+1. **替换 SVG 文件**：修改 `src/assets/logo.svg` 和 `src/assets/logo-dark.svg`
+2. **使用自定义渲染**：在组件中直接渲染自定义 Logo
+
+## 连接重试
+
+RTC Agent 内置智能连接重试机制，在网络不稳定时自动尝试重新连接。
+
+### 重试策略
+
+系统采用**两层线性退避重试**：
+
+```mermaid
+flowchart TD
+    A["🔌 开始连接"] --> B{"第 1 次尝试"}
+    B -->|"失败"| C["等待 2s"]
+    C --> D{"第 2 次尝试"}
+    D -->|"失败"| E["等待 4s"]
+    E --> F{"第 3 次尝试"}
+    F -->|"失败"| G["❌ 连接失败<br/>显示重试按钮"]
+    F -->|"成功"| H["✅ 连接成功"]
+    B -->|"成功"| H
+    D -->|"成功"| H
+
+    style G fill:#ffcdd2,stroke:#c62828,stroke-width:2px
+    style H fill:#c8e6c9,stroke:#2e7d32,stroke-width:2px
+```
+
+**重试参数**：
+
+| 参数 | 值 | 说明 |
+|:----:|:--:|:----:|
+| 最大重试次数 | 3 次 | 总共尝试 3 次连接 |
+| 第 1 次延迟 | 0s | 立即重试 |
+| 第 2 次延迟 | 2s | 线性退避 |
+| 第 3 次延迟 | 4s | 线性退避 |
+
+### 手动重连
+
+连接失败时，用户可以通过以下方式手动重连：
+
+**方式 1：点击标题栏重试按钮**
+
+连接失败后，标题栏会显示红色重试按钮，点击即可触发重连。
+
+**方式 2：调用 reconnect() 方法**
+
+```ts
+const agent = document.querySelector('rtc-agent');
+
+// 手动触发重连
+await agent.reconnect();
+```
+
+### 连接状态
+
+通过 `connectionState` 属性可以获取当前连接状态：
+
+| 状态 | 说明 |
+|:----:|:----:|
+| `disconnected` | 未连接 |
+| `connecting` | 正在连接 |
+| `connected` | 已连接 |
+| `reconnecting` | 正在重新连接 |
+
+```ts
+// 监听连接状态变化
+agent.addEventListener('rtc-agent-ready', () => {
+  console.log('Connection state:', agent.connectionState);
+  console.log('Connection failed:', agent.connectionFailed);
+  console.log('Connection error:', agent.connectionError);
+});
+```
+
+### 标题栏状态显示
+
+标题栏根据连接状态显示不同的视觉反馈：
+
+| 状态 | 状态点颜色 | 文字 | 重试按钮 |
+|:----:|:----------:|:----:|:--------:|
+| `connected` | 🟢 绿色 | "已连接" | ❌ 隐藏 |
+| `connecting` | 🟡 黄色脉冲 | "连接中" | ❌ 隐藏 |
+| `reconnecting` | 🟡 黄色脉冲 | "重新连接中" | ❌ 隐藏 |
+| `disconnected` | 🔴 红色 | "未连接" | ❌ 隐藏 |
+| 连接失败 | 🔴 红色闪烁 | "连接失败: ..." | ✅ 显示 |
 
 ## 样式系统
 

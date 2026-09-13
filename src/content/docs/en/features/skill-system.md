@@ -84,6 +84,88 @@ Each function consists of the following fields:
 
 > 💡 Each parameter consists of `name` (parameter name), `schema` (parameter definition in OpenAPI Schema format), and `required` (whether it is required).
 
+### Using Zod Schema for Parameters (Recommended)
+
+Instead of manually writing OpenAPI Schema, you can use **Zod schema** to define function parameters — more concise, type-safe, and with automatic runtime validation.
+
+```ts
+import { z } from 'zod';
+
+{
+  name: 'createOrder',
+  description: 'Create a new order',
+  zodSchema: z.object({
+    productId: z.string().describe('Product ID'),
+    quantity: z.number().int().min(1).default(1).describe('Quantity'),
+  }),
+  handler: async ({ productId, quantity }) => {
+    return await api.createOrder(productId, quantity);
+  }
+}
+```
+
+> 💡 `zodSchema` and `parameters` are mutually exclusive. If both are provided, `zodSchema` takes priority.
+
+**Zod vs OpenAPI Schema Comparison**:
+
+| | Zod Schema | OpenAPI Schema (`parameters`) |
+|---|---|---|
+| **Definition Style** | `z.object({...})`, chain API | `ParameterDef[]` array, manual JSON Schema |
+| **Type Safety** | TypeScript auto-infers handler parameter types | Requires manual type consistency |
+| **Runtime Validation** | Automatic validation (type, range, format, etc.) | Validation via internal conversion to Zod |
+| **Doc Generation** | Auto-converted to OpenAPI format for docs | Used directly |
+| **Constraint Expression** | `.min()/.max()/.regex()/.enum()` etc. | `minimum/maximum/pattern/enum` fields |
+| **Use Case** | Recommended for most scenarios | Useful when existing OpenAPI definitions can be reused |
+
+**Supported Zod Features**:
+
+| Zod Feature | Conversion Result |
+|---|---|
+| `.describe('...')` | Parameter description |
+| `.optional()` | `required: false` |
+| `.default(value)` | `default` value + `required: false` |
+| `.min()` / `.max()` | `minimum` / `maximum` |
+| `.minLength()` / `.maxLength()` | `minLength` / `maxLength` |
+| `.regex()` | `pattern` |
+| `.enum([...])` | `enum` |
+| `z.array()` | `type: 'array'` + `items` |
+| `z.number().int()` | `type: 'integer'` |
+
+**Adding Example Values**: Use `withMeta` to add OpenAPI-specific example values to Zod schema:
+
+```ts
+import { z } from 'zod';
+import { withMeta } from '@rtc-agent/component';
+
+zodSchema: z.object({
+  name: withMeta(z.string(), { example: 'John Doe' }),
+  age: withMeta(z.number().int(), { example: 30 }),
+})
+```
+
+### Runtime Parameter Validation
+
+`FunctionRegistry.execute()` automatically validates parameters before calling the handler:
+
+```mermaid
+flowchart TD
+    A["Call execute(path, params)"] --> B{"Has zodSchema?"}
+    B -->|"✅ Yes"| C["Validate with zodSchema"]
+    B -->|"❌ No"| D{"Has parameters?"}
+    D -->|"✅ Yes"| E["Convert OpenAPI to Zod for validation"]
+    D -->|"❌ No"| F["Skip validation"]
+    C --> G{"Validation passed?"}
+    E --> G
+    G -->|"✅ Yes"| H["Execute handler"]
+    G -->|"❌ No"| I["Throw validation error<br/>Guide AI to read docs"]
+
+    style C fill:#e8f5e9,stroke:#388e3c,stroke-width:2px
+    style E fill:#e3f2fd,stroke:#1565c0,stroke-width:2px
+    style I fill:#ffcdd2,stroke:#c62828,stroke-width:2px
+```
+
+On validation failure, the error message guides the AI to read `/functions/INDEX.md` for correct parameter formats, improving self-healing capability.
+
 ## Function Groups
 
 Functions are organized through **groups**; group name + function name = full invocation path:

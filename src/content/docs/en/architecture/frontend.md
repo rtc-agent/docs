@@ -1,9 +1,9 @@
 ---
 title: Frontend Architecture
-description: RTC Agent frontend architecture — a Lit-based Web Components library with 16 sub-components, 9 Controllers, and @lit/context state distribution.
+description: RTC Agent frontend architecture — a Lit-based Web Components library with 21 sub-components, 12 Controllers, and @lit/context state distribution.
 ---
 
-The RTC Agent frontend is a component library built on **Lit Web Components**. It exposes only a single `<rtc-agent>` component to the outside world, containing **16 sub-components** internally, managed by **9 Controllers**, with data distributed to child components via `@lit/context`.
+The RTC Agent frontend is a component library built on **Lit Web Components**. It exposes only a single `<rtc-agent>` component to the outside world, containing **21 sub-components** internally, managed by **12 Controllers**, with data distributed to child components via `@lit/context`.
 
 ## Component Architecture
 
@@ -11,11 +11,20 @@ The RTC Agent frontend is a component library built on **Lit Web Components**. I
 flowchart TD
     ROOT["🏠 &lt;rtc-agent&gt;<br/>Root Component · Central Orchestrator"]
 
-    ROOT --> HEADER["📌 header-bar<br/>Title bar · Window controls"]
-    ROOT --> MSG["💬 message-list<br/>Message list"]
-    ROOT --> INPUT["⌨️ input-area<br/>Input area"]
-    ROOT --> WIN["🪟 Window Management<br/>normal/maximized/minimized"]
+    ROOT --> HEADER["📌 title-bar<br/>Title bar · Window controls · Connection status"]
+    ROOT --> LAYOUT["📐 chat-layout<br/>Two-column chat layout"]
 
+    LAYOUT --> TREE["📂 session-tree<br/>Session tree sidebar"]
+    TREE --> TREEITEM["📄 session-tree-item<br/>Tree node (recursive)"]
+
+    LAYOUT --> TABBAR["📑 session-tab-bar<br/>Tab bar"]
+    TABBAR --> TAB["📑 session-tab<br/>Individual tab"]
+
+    LAYOUT --> CONTENT["💬 content-area<br/>Chat content area"]
+    LAYOUT --> NOTICE["📢 notice-bar<br/>Notice bar"]
+    LAYOUT --> INPUT["⌨️ input-area<br/>Input area"]
+
+    CONTENT --> MSG["💬 message-list<br/>Message list"]
     MSG --> MSGITEM["📝 message-item<br/>Single message"]
     MSGITEM --> MD["📄 markdown-render<br/>Markdown rendering"]
     MSGITEM --> CODE["💻 code-block<br/>Code highlighting"]
@@ -27,12 +36,15 @@ flowchart TD
 
     ROOT --> CONFIRM["⚠️ tool-confirm<br/>Tool confirmation dialog"]
     ROOT --> BUBBLE["🫧 bubble-icon<br/>Minimized bubble"]
+    ROOT --> SETTINGS_PANEL["⚙️ settings-panel<br/>Settings panel"]
 
     style ROOT fill:#fff9c4,stroke:#f9a825,stroke-width:3px
+    style LAYOUT fill:#f3e5f5,stroke:#7b1fa2,stroke-width:2px
+    style TREE fill:#e3f2fd,stroke:#1565c0,stroke-width:2px
+    style TABBAR fill:#e8f5e9,stroke:#388e3c,stroke-width:2px
     style MSG fill:#e3f2fd,stroke:#1565c0,stroke-width:2px
     style INPUT fill:#e8f5e9,stroke:#388e3c,stroke-width:2px
-    style WIN fill:#f3e5f5,stroke:#7b1fa2,stroke-width:2px
-    style CONFIRM fill:#fce4ec,stroke:#c62828,stroke-width:2px
+    style SETTINGS_PANEL fill:#fce4ec,stroke:#c62828,stroke-width:2px
 ```
 
 ![File Explorer](/docs/demo-screenshot/file-explorer.png)
@@ -42,8 +54,19 @@ flowchart TD
 ![Settings UI](/docs/demo-screenshot/settings.png)
 
 > **Settings UI**: Supports theme switching, language selection, font size adjustment, and other personalization options.
->
-> **Window management is not a standalone component**: `Window Management` is a functional module of the root component (implemented by the collaboration of WindowState Controller and WindowInteraction Controller), not an independent UI component. It controls three window states: normal (floating), maximized (full-screen), minimized (bubble).
+
+### New Components Overview
+
+| Component | Purpose | Replacement |
+|:---------:|:-------:|:-----------:|
+| `rtc-chat-layout` | Two-column chat layout (session tree + content) | Replaces legacy `rtc-content-wrapper` |
+| `rtc-session-tree` | VS Code-style session tree sidebar | New |
+| `rtc-session-tree-item` | Tree node (recursive rendering) | New |
+| `rtc-session-tab-bar` | Browser-style tab bar | New |
+| `rtc-session-tab` | Individual tab | New |
+| `rtc-settings-panel` | Settings side drawer panel | New |
+| `rtc-settings-layout` | Settings two-column layout | New |
+| `rtc-settings-nav` | Settings category navigation | New |
 
 ## Public Component
 
@@ -87,17 +110,20 @@ For detailed API documentation, see [Component API](/docs/en/integration/compone
 
 ```mermaid
 flowchart TD
-    subgraph CONTROLLERS["🎮 9 Controllers"]
+    subgraph CONTROLLERS["🎮 12 Controllers"]
         direction TB
         C1["🪟 WindowState<br/>Window position / size"]
         C2["🔐 Auth<br/>Login state"]
         C3["📦 Session<br/>Session list"]
         C4["💬 Message<br/>Message list"]
         C5["🔧 Mode<br/>Work mode"]
-        C6["⚠️ ToolCall<br/>Tool confirmation"]
+        C6["⚡ ToolCall<br/>Tool confirmation"]
         C7["💾 Persistence<br/>Data layer"]
         C8["📚 Skill<br/>Function registration"]
         C9["🖱️ WindowInteraction<br/>Drag interaction"]
+        C10["📂 SessionTree<br/>Session tree structure"]
+        C11["🔔 Notification<br/>Notification system"]
+        C12["⚙️ Settings<br/>Global settings"]
     end
 
     ROOT["🏠 &lt;rtc-agent&gt;<br/>Central Orchestrator"] --> C1
@@ -109,6 +135,9 @@ flowchart TD
     ROOT --> C7
     ROOT --> C8
     ROOT --> C9
+    ROOT --> C10
+    ROOT --> C11
+    ROOT --> C12
 
     ROOT -->|"@lit/context"| CHILDREN["🧩 Child Components<br/>Consume state as needed"]
 
@@ -116,6 +145,22 @@ flowchart TD
     style CONTROLLERS fill:#e3f2fd,stroke:#1565c0,stroke-width:2px
     style CHILDREN fill:#e8f5e9,stroke:#388e3c,stroke-width:2px
 ```
+
+### New Controllers
+
+| Controller | Context | Description |
+|:----------:|:-------:|:-----------:|
+| `SessionTreeController` | `SessionTreeContext` | Manages session tree structure, expand/collapse state |
+| `NotificationController` | `NotificationContext` | Manages notification state, sounds, focus detection |
+| `SettingsController` | `SettingsContext` | Manages global settings, localStorage persistence |
+
+Additionally, the following auxiliary modules exist:
+
+| Module | Description |
+|:------:|:-----------:|
+| `LocaleController` / `i18n` | Internationalization support, runtime language switching |
+| `SessionTabController` | Manages tab state (`SessionTabContext`) |
+| `ToastController` | Manages Toast notification display |
 
 ### Design Principles
 

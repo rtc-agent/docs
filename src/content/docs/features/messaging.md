@@ -323,18 +323,26 @@ flowchart TD
 前端通过 `rtc-token-usage` Web Component 在输入区域工具栏实时展示 Token 消耗和成本信息。
 
 ```mermaid
-flowchart LR
+flowchart TD
     subgraph DISPLAY["📊 Token 用量显示"]
         RING["🔵 圆环进度<br/>压缩阈值可视化"]
-        INFO["📋 统计信息<br/>总 Token / 成本"]
+        TOOLTIP["📋 Hover 详情面板<br/>分项统计 + 成本"]
     end
 
-    Server["⚙️ session.updated 事件"] -->|"推送 token 字段"| DISPLAY
+    subgraph DATAFLOW["数据流"]
+        Server["⚙️ session.updated 事件"] -->|"推送 token 字段"| Mapping["映射层<br/>snake_case → camelCase"]
+        Mapping --> Layout["chat-layout<br/>编排层"]
+        Layout -->|"setTokenUsage()"| InputArea["input-area<br/>中间宿主"]
+        InputArea -->|"属性绑定"| DISPLAY
+    end
 
     style DISPLAY fill:#e3f2fd,stroke:#1565c0,stroke-width:2px
     style RING fill:#e8f5e9,stroke:#388e3c
-    style INFO fill:#fff9c4,stroke:#f9a825
+    style TOOLTIP fill:#fff9c4,stroke:#f9a825
+    style DATAFLOW fill:#f3e5f5,stroke:#7b1fa2,stroke-width:2px
 ```
+
+### 显示内容
 
 | 显示项 | 数据来源 | 说明 |
 |--------|----------|------|
@@ -342,9 +350,35 @@ flowchart LR
 | 总 Token | `total_tokens` | 累计消耗的总 Token 数 |
 | 总成本 | `total_cost_usd` | 累计成本（美元） |
 | 输入/输出 | `total_input_tokens` / `total_output_tokens` | 分类 Token 统计 |
+| 缓存命中率 | `cached_read` / `input` | 缓存读取占总输入的比例（上限 99%） |
 | 预估下轮 | `estimated_next_round_tokens` | 基于 EWMA 的下一轮 Token 预估 |
+| 压缩倒计时 | `rounds_until_compression` | 距离下次自动压缩的轮次数 |
 
-> 💡 圆环进度帮助用户直观感知上下文窗口使用程度，提前预判何时会触发自动压缩。
+### 协议字段映射
+
+后端推送的 `session.updated` 事件中的 snake_case 字段会映射为前端 camelCase 属性：
+
+| 协议字段（snake_case） | 前端属性（camelCase） | 说明 |
+|------------------------|----------------------|------|
+| `current_context_tokens` | `currentContextTokens` | 当前上下文 Token 数 |
+| `estimated_next_round_tokens` | `estimatedNextRoundTokens` | 预估下轮 Token 数（圆环进度分子） |
+| `compression_threshold` | `compressionThreshold` | 压缩触发阈值（圆环进度分母） |
+| `compression_progress` | `compressionProgress` | 压缩进度（0-100） |
+| `rounds_until_compression` | `roundsUntilCompression` | 距压缩轮次数 |
+| `total_tokens` | `totalTokens` | 累计总 Token |
+| `total_cost_usd` | `totalCostUsd` | 累计成本 |
+
+### 圆环进度与颜色阈值
+
+圆环进度计算公式：`estimatedNext / compressionThreshold * 100%`
+
+| 进度范围 | 颜色 | 含义 |
+|:--------:|:----:|------|
+| < 50% | 🔵 蓝色 | 上下文充裕 |
+| 50% - 70% | 🟡 黄色 | 接近压缩阈值 |
+| > 70% | 🔴 红色 | 即将触发压缩 |
+
+> 💡 当 `roundsUntilCompression` 在 0-3 轮时，tooltip 底部显示 "X 轮后压缩 (Y%)" 提示；小于等于 1 轮时升级为警告色。
 
 ## 下一步
 

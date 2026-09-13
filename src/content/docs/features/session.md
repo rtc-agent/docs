@@ -201,6 +201,132 @@ sequenceDiagram
 | 更新 | 会话标题修改、状态变更 |
 | 关闭 | 会话被关闭 |
 
+## 会话树与会话导航
+
+RTC Agent 提供两种会话导航方式：**会话树**（侧边栏）和**会话标签页**（顶部标签栏），分别适用于不同的使用场景。
+
+### 会话树（Session Tree）
+
+会话树是一个 VS Code 风格的树形结构，适合管理大量会话和查看会话层级关系。
+
+```mermaid
+flowchart LR
+    subgraph TREE["📂 会话树"]
+        direction TB
+        ROOT1["📁 根会话 1"]
+        ROOT1 --> CHILD1["💬 子会话 1.1"]
+        ROOT1 --> CHILD2["💬 子会话 1.2"]
+        ROOT2["📁 根会话 2"]
+        ROOT2 --> CHILD3["💬 子会话 2.1"]
+    end
+
+    style TREE fill:#e3f2fd,stroke:#1565c0,stroke-width:2px
+```
+
+**组件**：
+- `<rtc-session-tree>` — 会话树容器，提供刷新、新建、删除按钮
+- `<rtc-session-tree-item>` — 单个树节点，支持递归渲染子节点
+
+**特性**：
+- 📂 **层级结构**：支持父子会话关系（通过 `rootClientSessionId` 关联）
+- 🔽 **展开/折叠**：点击箭头图标展开或折叠子会话
+- ⌨️ **键盘导航**：完整的 ARIA `role="tree"` 支持（方向键、Home、End、Enter）
+- 🎯 **选中高亮**：当前选中的会话高亮显示
+
+**事件**：
+
+| 事件 | 说明 |
+|------|------|
+| `rtc-session-tree-select` | 用户点击或键盘激活会话节点 |
+| `rtc-session-tree-toggle` | 用户点击展开/折叠箭头 |
+| `rtc-session-tree-new` | 用户点击新建会话按钮 |
+| `rtc-session-delete-requested` | 用户点击删除按钮 |
+
+> ⚠️ **破坏性变更**：新会话创建事件从 `rtc-new-session` 更名为 `rtc-session-tree-new`，命名更符合组件规范。
+
+### 会话标签页（Session Tab）
+
+会话标签页是浏览器风格的标签栏，适合在多会话间快速切换。
+
+```mermaid
+flowchart LR
+    subgraph TABS["📑 标签栏"]
+        direction LR
+        TAB1["💬 会话 1 ●"]
+        TAB2["💬 会话 2 ○"]
+        TAB3["💬 会话 3 ○"]
+        TAB1 -.->|"激活"| TAB2
+    end
+
+    style TABS fill:#e8f5e9,stroke:#388e3c,stroke-width:2px
+```
+
+**组件**：
+- `<rtc-session-tab-bar>` — 标签栏容器
+- `<rtc-session-tab>` — 单个标签页
+
+**特性**：
+- 🔄 **快速切换**：点击标签即可切换会话
+- ❌ **关闭标签**：点击标签上的关闭按钮
+- 💾 **状态持久化**：标签顺序和激活状态保存到 localStorage
+- 📝 **未保存草稿**：支持未持久化的临时会话标签
+
+### Chat Layout（聊天布局）
+
+`<rtc-chat-layout>` 是新的主聊天界面布局组件，整合了会话树和标签栏：
+
+```mermaid
+flowchart TD
+    LAYOUT["📐 rtc-chat-layout<br/>两栏布局"] --> LEFT["📂 左栏：会话树<br/>rtc-session-tree"]
+    LAYOUT --> RIGHT["📑 右栏：标签栏 + 聊天内容"]
+    
+    RIGHT --> TABBAR["📑 rtc-session-tab-bar"]
+    RIGHT --> CONTENT["💬 聊天内容区<br/>content-area + input-area"]
+
+    style LAYOUT fill:#f3e5f5,stroke:#7b1fa2,stroke-width:2px
+    style LEFT fill:#e3f2fd,stroke:#1565c0,stroke-width:2px
+    style RIGHT fill:#e8f5e9,stroke:#388e3c,stroke-width:2px
+```
+
+**属性**：
+
+| 属性 | 类型 | 默认值 | 说明 |
+|------|------|--------|------|
+| `sessionTreeVisible` | `boolean` | `true` | 是否显示左侧会话树 |
+| `theme` | `'light' \| 'dark' \| 'system'` | `'system'` | 主题模式 |
+
+**使用示例**：
+
+```html
+<!-- 默认显示会话树 -->
+<rtc-chat-layout></rtc-chat-layout>
+
+<!-- 隐藏会话树（仅显示标签栏） -->
+<rtc-chat-layout session-tree-visible="false"></rtc-chat-layout>
+```
+
+### Controller 协作
+
+会话树和标签页由两个独立的 Controller 管理，通过事件协作：
+
+```mermaid
+sequenceDiagram
+    participant Tree as 📂 SessionTreeController
+    participant Agent as 🏠 rtc-agent
+    participant Tab as 📑 SessionTabController
+    
+    Tree->>Tree: 用户点击会话节点
+    Tree->>Agent: rtc-session-tree-select 事件
+    Agent->>Tab: openOrActivate(sessionId)
+    Tab->>Tab: 打开或激活标签
+    Tab->>Agent: 更新标签状态
+    Agent->>Agent: 切换聊天内容
+```
+
+- **SessionTreeController**：管理树形结构和展开状态
+- **SessionTabController**：管理标签页状态和持久化
+- **协作方式**：事件驱动，根组件 `<rtc-agent>` 作为中枢编排
+
 ## Token 用量与成本统计
 
 每个 Session 自动累计 LLM Token 消耗与成本，通过 `session.updated` 事件实时推送到前端。

@@ -111,6 +111,8 @@ Server 跑起来后，在你的网页中添加 `<rtc-agent>` 组件即可获得 
 
 完整配置项参见 [etc/config.example.yaml](https://github.com/rtc-agent/server/blob/main/etc/config.example.yaml)。
 
+### 必填配置
+
 | 配置 | 说明 | 必填 |
 | --- | --- | --- |
 | `database.dsn` | PostgreSQL 连接字符串 | ✅ |
@@ -119,9 +121,43 @@ Server 跑起来后，在你的网页中添加 `<rtc-agent>` 组件即可获得 
 | `llm.provider` | 模型提供商：`claude` 或 `openai` | ✅ |
 | `llm.api_key` | LLM API 密钥 | ✅ |
 | `llm.model` | 模型名称 | ✅ |
-| `tracing.enabled` | 启用 OpenTelemetry 追踪 | 可选 |
-| `embedding.enabled` | 启用向量检索（User Memory） | 可选 |
 
+### 可选配置
+
+| 配置 | 说明 | 默认值 |
+| --- | --- | --- |
+| `tracing.enabled` | 启用 OpenTelemetry 追踪 | `false` |
+| `embedding.enabled` | 启用向量检索（User Memory） | `false` |
+| `log.level` | 日志级别：`debug` / `info` / `warn` / `error` | `info` |
+| `log.server_log_file` | 服务器日志文件路径（JSON 格式，用于 promtail 采集）。留空则不写文件。日志使用 lumberjack 自动轮转（100MB/文件，保留 3 个，7 天，gzip 压缩） | 空 |
+| `worker.cache_hit_rate_warn_threshold` | 缓存命中率告警阈值（0.0-1.0）。Session 累计缓存命中率低于此值时输出 warn 日志。负数表示禁用告警 | `0.88` |
+| `llm.retry_max_attempts` | 模型调用失败时的最大重试次数。0 表示不重试 | `0` |
+| `llm.retry_base_delay` | 重试的基础退避时间（指数退避：`base_delay * 2^(attempt-1)`） | `1s` |
+
+### 模型定价配置
+
+`llm.pricing` 配置段用于自定义模型价格，以便系统计算每次调用的成本（`total_cost_usd`）。所有价格单位为 **USD / 百万 tokens**。未配置时使用 Claude 3.5 Sonnet 的默认价格。
+
+```yaml
+llm:
+  pricing:
+    input_per_million: 3.0        # 正常 input token 价格
+    output_per_million: 15.0      # output token 价格
+    cached_read_per_million: 0.3  # cache read（cache hit）价格，通常为 input 的 10%
+    cached_write_per_million: 3.75 # cache write（cache creation）价格，通常为 input 的 125%
+    reasoning_per_million: 0.0    # reasoning（thinking）token 价格
+```
+
+| 字段 | 说明 | 默认值（Claude 3.5 Sonnet） |
+| --- | --- | --- |
+| `input_per_million` | 正常 input token 价格（USD/百万 tokens） | `3.0` |
+| `output_per_million` | output token 价格（USD/百万 tokens） | `15.0` |
+| `cached_read_per_million` | cache read（cache hit）价格（USD/百万 tokens） | `0.3` |
+| `cached_write_per_million` | cache write（cache creation）价格（USD/百万 tokens） | `3.75` |
+| `reasoning_per_million` | reasoning（thinking）token 价格（USD/百万 tokens） | `0.0` |
+
+> 💡 使用其他模型时，请参考模型提供商的定价页面，将 `llm.pricing` 配置为对应价格。成本计算会在每次 LLM 调用后累加到 Session 的 `total_cost_usd` 字段，通过 `session.updated` 事件推送给前端。
+>
 > 🔐 **生产环境安全提示**：部署到生产环境前，请确保启用 HTTPS、配置正确的 OAuth2 提供商（非 Mock）、使用强随机 `jwt_secret`、设置 CORS 白名单。
 
 ## 常见问题

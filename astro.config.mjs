@@ -49,6 +49,7 @@ export default defineConfig({
 						{ label: 'Quick Start', link: '/getting-started/', translations: { 'zh-CN': '快速开始' } },
 						{ label: 'Build from Source', link: '/deployment/source-build/', translations: { 'zh-CN': '源码构建' } },
 						{ label: 'Distributed Cluster', link: '/deployment/distributed-deploy/', translations: { 'zh-CN': '分布式集群' } },
+						{ label: 'CDN Deployment', link: '/deployment/cdn/', translations: { 'zh-CN': 'CDN 部署' } },
 					],
 				},
 				{
@@ -69,6 +70,7 @@ export default defineConfig({
 						{ label: 'Messaging', link: '/features/messaging/', translations: { 'zh-CN': '消息与对话' } },
 						{ label: 'Skill System', link: '/features/skill-system/', translations: { 'zh-CN': 'Skill 系统' } },
 						{ label: 'Commands', link: '/features/commands/', translations: { 'zh-CN': '命令系统' } },
+						{ label: 'LLM Tools', link: '/features/llm-tools/', translations: { 'zh-CN': 'LLM 内置工具' } },
 						{ label: 'Memory', link: '/features/memory/', translations: { 'zh-CN': '记忆系统' } },
 						{ label: 'Context Management', link: '/features/context-management/', translations: { 'zh-CN': '上下文管理' } },
 						{ label: 'Real-time Communication', link: '/features/realtime/', translations: { 'zh-CN': '实时通信' } },
@@ -101,6 +103,13 @@ export default defineConfig({
 						{ label: 'Overview', link: '/architecture/', translations: { 'zh-CN': '架构总览' } },
 						{ label: 'Frontend', link: '/architecture/frontend/', translations: { 'zh-CN': '前端架构' } },
 						{ label: 'Backend', link: '/architecture/backend/', translations: { 'zh-CN': '后端架构' } },
+					],
+				},
+				{
+					label: 'Operations',
+					translations: { 'zh-CN': '运维' },
+					items: [
+						{ label: 'Script Observability', link: '/operations/script-observability/', translations: { 'zh-CN': 'Script 可观测性' } },
 					],
 				},
 				{

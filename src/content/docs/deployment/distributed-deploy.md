@@ -139,6 +139,47 @@ docker compose -f docker-compose.full.yml down      # 停止容器
 docker compose -f docker-compose.full.yml down -v   # 同时删除数据卷
 ```
 
+## 6. 重启恢复机制
+
+Server 在启动时会自动执行 **stale turns 恢复**，确保因崩溃或重启而中断的工作能够继续。
+
+### 恢复流程
+
+```mermaid
+flowchart TD
+    A["🔄 Server 启动"] --> B["扫描 stale turns"]
+    B --> C{"发现 stale turns？"}
+    C -->|"❌ 无"| D["正常启动"]
+    C -->|"✅ 有"| E["标记为 interrupted"]
+    E --> F["重新排队 ghost work"]
+    F --> G["发布 resume work item"]
+    G --> H["释放 stale session 锁"]
+    H --> I["Worker 自动恢复处理"]
+
+    style A fill:#e3f2fd,stroke:#1565c0,stroke-width:2px
+    style E fill:#fff9c4,stroke:#f9a825,stroke-width:2px
+    style I fill:#e8f5e9,stroke:#388e3c,stroke-width:2px
+```
+
+### 关键概念
+
+| 概念 | 说明 |
+| --- | --- |
+| **Stale Turn** | 处于非终态（`running` / `pending` / `interrupted`）的 Turn，由上次崩溃或重启遗留 |
+| **Ghost Work** | 处于 `processing` 状态的 work item，但 session 锁已过期（Worker 崩溃遗留） |
+| **recoverStaleTurns** | Server 启动时的恢复入口，扫描并处理所有 stale turns |
+| **RequeueGhostWork** | 将 ghost work item 重新放回队列，以便 Worker 重新领取 |
+
+### 恢复行为
+
+1. **查找 stale turns**：扫描数据库中所有 `running`、`pending`、`interrupted` 状态的 Turn
+2. **标记中断**：将 `running` / `pending` 的 Turn 标记为 `interrupted`
+3. **重排队 ghost work**：批量检查并重新排队因崩溃遗留的 work item
+4. **发布 resume**：为每个 stale Turn 发布 resume work item，触发 Worker 恢复处理
+5. **释放 session 锁**：清理过期的 session 分布式锁，使 Worker 可以重新竞争
+
+> 💡 恢复过程对前端用户透明。被中断的 Turn 会通过 `turn.updated` 事件通知前端状态变为 `interrupted`，随后恢复处理时自动继续。RTC Checkpoint 也在此过程中发挥作用——等待前端工具结果的 Turn 可以从 Redis Checkpoint 恢复，无需用户重新操作。
+
 ## 下一步
 
 - [快速开始](/docs/getting-started/) — 返回总览

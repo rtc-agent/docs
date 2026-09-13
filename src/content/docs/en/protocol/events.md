@@ -137,10 +137,13 @@ The `session.updated` event includes **token statistics** and **compression stat
 
 | Field | Type | Description |
 |-------|:----:|------|
+| `current_context_tokens` | int64 | Current actual context token count (written back by the server's cumulativeTokenCounter, updated to the real value after compression) |
 | `estimated_next_round_tokens` | int64 | EWMA-based prediction for next round tokens |
-| `compression_progress` | float64 | Compression progress (0-100), computed in real-time |
+| `compression_progress` | float64 | Compression progress (0-100), computed based on `current_context_tokens` vs `compression_threshold` |
 | `compression_threshold` | int64 | Compression trigger threshold (contextTokensLimit - autoCompactBufferTokens) |
 | `rounds_until_compression` | int | Rounds until compression (-1 means threshold exceeded) |
+
+> 💡 `current_context_tokens` replaces the old `total_tokens` as the baseline for compression progress display. After compression completes, this value is written back to the actual context size, and the frontend progress bar reflects the real state immediately. For older Sessions that haven't initialized this field, the frontend falls back to `total_tokens`.
 
 ### Other New Fields
 

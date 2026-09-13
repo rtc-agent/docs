@@ -1,9 +1,9 @@
 ---
 title: 前端架构
-description: RTC Agent 的前端架构——基于 Lit 的 Web Components 组件库，16 个子组件、9 个 Controller、@lit/context 状态分发。
+description: RTC Agent 的前端架构——基于 Lit 的 Web Components 组件库，21 个子组件、12 个 Controller、@lit/context 状态分发。
 ---
 
-RTC Agent 的前端是一个基于 **Lit Web Components** 构建的组件库。对外只暴露一个 `<rtc-agent>` 组件，内部包含 **16 个子组件**，使用 **9 个 Controller** 管理状态，通过 `@lit/context` 向子组件分发数据。
+RTC Agent 的前端是一个基于 **Lit Web Components** 构建的组件库。对外只暴露一个 `<rtc-agent>` 组件，内部包含 **21 个子组件**，使用 **12 个 Controller** 管理状态，通过 `@lit/context` 向子组件分发数据。
 
 ## 组件架构
 
@@ -11,11 +11,20 @@ RTC Agent 的前端是一个基于 **Lit Web Components** 构建的组件库。�
 flowchart TD
     ROOT["🏠 &lt;rtc-agent&gt;<br/>根组件 · 中枢编排"]
 
-    ROOT --> HEADER["📌 header-bar<br/>标题栏 · 窗口控制"]
-    ROOT --> MSG["💬 message-list<br/>消息列表"]
-    ROOT --> INPUT["⌨️ input-area<br/>输入区域"]
-    ROOT --> WIN["🪟 窗口管理<br/>normal/maximized/minimized"]
+    ROOT --> HEADER["📌 title-bar<br/>标题栏 · 窗口控制 · 连接状态"]
+    ROOT --> LAYOUT["📐 chat-layout<br/>两栏聊天布局"]
 
+    LAYOUT --> TREE["📂 session-tree<br/>会话树侧栏"]
+    TREE --> TREEITEM["📄 session-tree-item<br/>树节点（递归）"]
+
+    LAYOUT --> TABBAR["📑 session-tab-bar<br/>标签栏"]
+    TABBAR --> TAB["📑 session-tab<br/>单个标签"]
+
+    LAYOUT --> CONTENT["💬 content-area<br/>聊天内容区"]
+    LAYOUT --> NOTICE["📢 notice-bar<br/>通知栏"]
+    LAYOUT --> INPUT["⌨️ input-area<br/>输入区域"]
+
+    CONTENT --> MSG["💬 message-list<br/>消息列表"]
     MSG --> MSGITEM["📝 message-item<br/>单条消息"]
     MSGITEM --> MD["📄 markdown-render<br/>Markdown 渲染"]
     MSGITEM --> CODE["💻 code-block<br/>代码高亮"]
@@ -27,12 +36,15 @@ flowchart TD
 
     ROOT --> CONFIRM["⚠️ tool-confirm<br/>工具确认弹窗"]
     ROOT --> BUBBLE["🫧 bubble-icon<br/>最小化气泡"]
+    ROOT --> SETTINGS_PANEL["⚙️ settings-panel<br/>设置面板"]
 
     style ROOT fill:#fff9c4,stroke:#f9a825,stroke-width:3px
+    style LAYOUT fill:#f3e5f5,stroke:#7b1fa2,stroke-width:2px
+    style TREE fill:#e3f2fd,stroke:#1565c0,stroke-width:2px
+    style TABBAR fill:#e8f5e9,stroke:#388e3c,stroke-width:2px
     style MSG fill:#e3f2fd,stroke:#1565c0,stroke-width:2px
     style INPUT fill:#e8f5e9,stroke:#388e3c,stroke-width:2px
-    style WIN fill:#f3e5f5,stroke:#7b1fa2,stroke-width:2px
-    style CONFIRM fill:#fce4ec,stroke:#c62828,stroke-width:2px
+    style SETTINGS_PANEL fill:#fce4ec,stroke:#c62828,stroke-width:2px
 ```
 
 ![文件浏览器](/docs/demo-screenshot/file-explorer.png)
@@ -42,8 +54,19 @@ flowchart TD
 ![设置界面](/docs/demo-screenshot/settings.png)
 
 > **设置界面**：支持主题切换、语言选择、字体大小调整等个性化配置。
->
-> **窗口管理不是独立组件**：`窗口管理` 是根组件的一个功能模块（由 WindowState Controller 和 WindowInteraction Controller 协同实现），不是一个独立的 UI 组件。它控制窗口的三种状态：normal（浮动）、maximized（全屏）、minimized（气泡）。
+
+### 新增组件一览
+
+| 组件 | 用途 | 替换关系 |
+|:----:|:----:|:--------:|
+| `rtc-chat-layout` | 两栏聊天布局（会话树 + 内容区） | 替代旧版 `rtc-content-wrapper` |
+| `rtc-session-tree` | VS Code 风格会话树侧栏 | 新增 |
+| `rtc-session-tree-item` | 树节点（递归渲染） | 新增 |
+| `rtc-session-tab-bar` | 浏览器风格标签栏 | 新增 |
+| `rtc-session-tab` | 单个标签页 | 新增 |
+| `rtc-settings-panel` | 设置侧抽屉面板 | 新增 |
+| `rtc-settings-layout` | 设置两栏布局 | 新增 |
+| `rtc-settings-nav` | 设置分类导航 | 新增 |
 
 ## 公开组件
 
@@ -87,17 +110,20 @@ flowchart TD
 
 ```mermaid
 flowchart TD
-    subgraph CONTROLLERS["🎮 9 个 Controller"]
+    subgraph CONTROLLERS["🎮 12 个 Controller"]
         direction TB
         C1["🪟 WindowState<br/>窗口位置 / 尺寸"]
         C2["🔐 Auth<br/>登录状态"]
         C3["📦 Session<br/>会话列表"]
         C4["💬 Message<br/>消息列表"]
         C5["🔧 Mode<br/>工作模式"]
-        C6["⚠️ ToolCall<br/>工具确认"]
+        C6["⚡ ToolCall<br/>工具确认"]
         C7["💾 Persistence<br/>数据层"]
         C8["📚 Skill<br/>函数注册"]
         C9["🖱️ WindowInteraction<br/>拖拽交互"]
+        C10["📂 SessionTree<br/>会话树结构"]
+        C11["🔔 Notification<br/>通知系统"]
+        C12["⚙️ Settings<br/>全局设置"]
     end
 
     ROOT["🏠 &lt;rtc-agent&gt;<br/>中枢编排"] --> C1
@@ -109,6 +135,9 @@ flowchart TD
     ROOT --> C7
     ROOT --> C8
     ROOT --> C9
+    ROOT --> C10
+    ROOT --> C11
+    ROOT --> C12
 
     ROOT -->|"@lit/context"| CHILDREN["🧩 子组件<br/>按需消费状态"]
 
@@ -116,6 +145,22 @@ flowchart TD
     style CONTROLLERS fill:#e3f2fd,stroke:#1565c0,stroke-width:2px
     style CHILDREN fill:#e8f5e9,stroke:#388e3c,stroke-width:2px
 ```
+
+### 新增 Controller
+
+| Controller | Context | 说明 |
+|:----------:|:-------:|:----:|
+| `SessionTreeController` | `SessionTreeContext` | 管理会话树结构、展开/折叠状态 |
+| `NotificationController` | `NotificationContext` | 管理通知状态、音效、焦点检测 |
+| `SettingsController` | `SettingsContext` | 管理全局设置、localStorage 持久化 |
+
+此外，还有以下辅助模块：
+
+| 模块 | 说明 |
+|:----:|:----:|
+| `LocaleController` / `i18n` | 国际化支持，运行时语言切换 |
+| `SessionTabController` | 管理标签页状态（`SessionTabContext`） |
+| `ToastController` | 管理 Toast 通知展示 |
 
 ### 设计原则
 

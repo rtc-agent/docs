@@ -34,6 +34,68 @@ flowchart TD
 
 > 💡 **Design Principle**: The login flow is fully delegated to the OAuth2 Provider — RTC Agent never handles user passwords; security is guaranteed by the Provider.
 
+### Provider Selection UI
+
+When the Server is configured with multiple OAuth2 providers, the frontend login page automatically displays all enabled providers for users to choose from:
+
+```mermaid
+flowchart TD
+    A["🖥️ User opens the app"] --> B["📋 Request available provider list"]
+    B --> C["GET /oauth2/providers"]
+    C --> D{"Number of providers?"}
+    D -->|"1"| E["Show single login button<br/>(e.g., 'Sign in with GitHub')"]
+    D -->|"Multiple"| F["Show provider button list<br/>(GitHub, Google, etc.)"]
+    E --> G["👆 User clicks"]
+    F --> G
+    G --> H["🪟 Open authorization dialog"]
+
+    style E fill:#e8f5e9,stroke:#388e3c,stroke-width:2px
+    style F fill:#e3f2fd,stroke:#1565c0,stroke-width:2px
+    style H fill:#fff9c4,stroke:#f9a825,stroke-width:2px
+```
+
+| Feature | Description |
+|:-------:|-------------|
+| 🔍 Dynamic Discovery | Frontend fetches available providers via `GET /oauth2/providers` — no hardcoded count |
+| 🎨 Branded Styles | Known providers (GitHub, Google) have dedicated icons and brand colors |
+| 📱 Adaptive Layout | Single provider shows a large primary button; multiple providers show a button list |
+| 🔄 Fallback | If the provider list fails to load, falls back to showing a Mock Provider button |
+
+### Popup Authorization Flow
+
+After the user selects a provider, the authorization flow completes in a popup window:
+
+```mermaid
+sequenceDiagram
+    actor User as 👤 User
+    participant Page as 🖥️ Login Page
+    participant Dialog as 🪟 Auth Dialog
+    participant Popup as 🌐 OAuth Provider Popup
+    participant Server as ⚙️ RTC Server
+
+    User->>Page: Click provider button
+    Page->>Dialog: Mount dialog (with provider name)
+    Dialog->>Server: Get authorization URL
+    Server-->>Dialog: Return redirect_url + state
+    Dialog->>Popup: window.open() to open auth page
+    Dialog-->>User: "Please complete authorization in the popup"
+    User->>Popup: Complete authorization
+    Popup->>Dialog: postMessage({code, state})
+    Dialog->>Server: Exchange authorization code for token
+    Server-->>Dialog: Return access_token + refresh_token
+    Dialog-->>Page: Login successful, auto-close
+```
+
+| State | User-Visible Behavior |
+|:-----:|----------------------|
+| Preparing | Loading animation + "Preparing authorization..." |
+| Waiting | "Please complete authorization in the popup" + "Reopen authorization window" button |
+| Verifying | Loading animation + "Verifying identity..." |
+| Success | "Closing automatically...", auto-closes after 800ms |
+| Error | Error message + "Retry" button |
+
+> 💡 If the user manually closes the popup before completing authorization, the dialog shows "Authorization cancelled" and allows retry.
+
 ## Dual-Token Mechanism
 
 ```mermaid

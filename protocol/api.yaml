@@ -308,6 +308,10 @@ components:
           type: integer
           format: int64
           description: 累计总 token 数（包含所有类型）
+        current_context_tokens:
+          type: integer
+          format: int64
+          description: 当前上下文实际 token 数（压缩后由 cumulativeTokenCounter 回写，用于前端压缩进度计算）
         total_cached_read_tokens:
           type: integer
           format: int64

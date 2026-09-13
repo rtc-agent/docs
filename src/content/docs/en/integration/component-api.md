@@ -306,6 +306,70 @@ flowchart TD
 
 > 💡 **Design Principle**: Controllers are decoupled from each other; all cross-Controller communication goes through the root component. Sub-components obtain state via `@lit/context` and do not hold direct Controller references.
 
+## Internationalization (i18n)
+
+RTC Agent includes complete internationalization support, implemented with `@lit/localize` for runtime language switching.
+
+### Supported Languages
+
+| Language Code | Language | Description |
+|:-------------:|:--------:|:-----------:|
+| `zh-CN` | Simplified Chinese | Default language (source) |
+| `en-US` | English | Target language |
+
+### Switching Languages
+
+Switch the interface language using the `switchLocale()` API:
+
+```ts
+import { switchLocale } from '@rtc-agent/component/core/i18n.js';
+
+// Switch to English
+await switchLocale('en-US');
+
+// Switch to Chinese
+await switchLocale('zh-CN');
+```
+
+### Language Persistence
+
+Language selection is automatically saved to `localStorage` (key: `rtc-agent-locale`) and persists across page refreshes.
+
+### Using in Components
+
+Use the `@localized()` decorator and `msg()` function in components:
+
+```ts
+import { localized, msg } from '@lit/localize';
+import { consume } from '@lit/context';
+import { localeContext } from '@rtc-agent/component/core/i18n.js';
+
+@localized()
+@customElement('my-component')
+export class MyComponent extends LitElement {
+  @consume({ context: localeContext, subscribe: true })
+  private _localeCtx!: LocaleContextValue;
+
+  render() {
+    // React to locale changes
+    void this._localeCtx.locale;
+    
+    return html`
+      <div>${msg('Welcome to RTC Agent')}</div>
+    `;
+  }
+}
+```
+
+### Adding Translations
+
+1. **Mark text**: Wrap translatable text with `msg()` in components
+2. **Extract translations**: Run `npm run localize:extract` to generate XLIFF files
+3. **Translate text**: Edit `xliff/en-US.xlf` file
+4. **Build translations**: Run `npm run localize:build` to generate language packs
+
+For detailed guidance, see [Internationalization Integration Guide](/docs/en/integration/i18n).
+
 ## CSS Variables
 
 CSS variables allow you to customize the component's appearance and dimensions without modifying source code:
@@ -318,14 +382,164 @@ rtc-agent {
 
   /* Minimized bubble size */
   --rtc-bubble-size: 40px;
+
+  /* User-defined font size (affects all text) */
+  --rtc-font-size-user: 16px;
+
+  /* Brand colors */
+  --rtc-color-primary-rgb: 39 65 254;  /* Light: #2741FE */
+  --rtc-color-accent: #2741FE;
 }
 ```
 
 | Variable | Default | Description |
-|:----:|:------:|:----:|
+|:--------:|:-------:|:-----------:|
 | `--rtc-window-default-width` | `420px` | Default width of the floating window |
 | `--rtc-window-default-height` | `640px` | Default height of the floating window |
 | `--rtc-bubble-size` | `40px` | Diameter of the minimized bubble |
+| `--rtc-font-size-user` | `14px` | User-defined base font size (12-24px) |
+| `--rtc-color-primary-rgb` | Light: `39 65 254`<br/>Dark: `26 122 176` | Primary color RGB value (for opacity calculations) |
+| `--rtc-color-accent` | Light: `#2741FE`<br/>Dark: `#1A7AB0` | Accent color (links, buttons, etc.) |
+
+### Font Size Scale
+
+Setting `--rtc-font-size-user` proportionally scales all font sizes:
+
+| Token | Formula | Example (base=14px) |
+|:-----:|:-------:|:-------------------:|
+| `--rtc-font-size-xs` | `base * 0.857` | 12px |
+| `--rtc-font-size-sm` | `base * 0.929` | 13px |
+| `--rtc-font-size-base` | `base` | 14px |
+| `--rtc-font-size-md` | `base * 1.143` | 16px |
+| `--rtc-font-size-lg` | `base * 1.286` | 18px |
+| `--rtc-font-size-xl` | `base * 1.429` | 20px |
+| `--rtc-font-size-2xl` | `base * 1.714` | 24px |
+
+## Logo Customization
+
+RTC Agent provides Lit rendering helpers for brand logos, supporting both light and dark variants.
+
+### Using renderLogo()
+
+```ts
+import { renderLogo, renderBubbleLogo } from '@rtc-agent/component/icons/logo.js';
+
+@customElement('my-component')
+export class MyComponent extends LitElement {
+  @property({ type: String })
+  theme: 'light' | 'dark' | 'system' = 'system';
+
+  render() {
+    const isDark = this.theme === 'dark';
+    
+    return html`
+      <div class="header">
+        <!-- Full Logo (for login page, empty state, etc.) -->
+        <div class="logo">${renderLogo(isDark)}</div>
+        
+        <!-- Bubble Logo (for minimized bubble) -->
+        <div class="bubble-logo">${renderBubbleLogo(isDark)}</div>
+      </div>
+    `;
+  }
+}
+```
+
+### Logo Files
+
+| File | Description | Usage |
+|:----:|:-----------:|:-----:|
+| `logo.svg` | Blue sky logo | Light theme |
+| `logo-dark.svg` | Night sky logo | Dark theme |
+
+### Customizing the Logo
+
+To replace the brand logo, you can:
+
+1. **Replace SVG files**: Modify `src/assets/logo.svg` and `src/assets/logo-dark.svg`
+2. **Use custom rendering**: Render your own logo directly in components
+
+## Connection Retry
+
+RTC Agent includes a smart connection retry mechanism that automatically attempts to reconnect when the network is unstable.
+
+### Retry Strategy
+
+The system uses **two-layer linear backoff retry**:
+
+```mermaid
+flowchart TD
+    A["🔌 Start connection"] --> B{"Attempt 1"}
+    B -->|"Failed"| C["Wait 2s"]
+    C --> D{"Attempt 2"}
+    D -->|"Failed"| E["Wait 4s"]
+    E --> F{"Attempt 3"}
+    F -->|"Failed"| G["❌ Connection failed<br/>Show retry button"]
+    F -->|"Success"| H["✅ Connected"]
+    B -->|"Success"| H
+    D -->|"Success"| H
+
+    style G fill:#ffcdd2,stroke:#c62828,stroke-width:2px
+    style H fill:#c8e6c9,stroke:#2e7d32,stroke-width:2px
+```
+
+**Retry Parameters**:
+
+| Parameter | Value | Description |
+|:---------:|:-----:|:-----------:|
+| Max retries | 3 | Total of 3 connection attempts |
+| 1st delay | 0s | Immediate retry |
+| 2nd delay | 2s | Linear backoff |
+| 3rd delay | 4s | Linear backoff |
+
+### Manual Reconnection
+
+When connection fails, users can manually reconnect in the following ways:
+
+**Method 1: Click the title bar retry button**
+
+After connection fails, a red retry button appears in the title bar. Click to trigger reconnection.
+
+**Method 2: Call the reconnect() method**
+
+```ts
+const agent = document.querySelector('rtc-agent');
+
+// Manually trigger reconnection
+await agent.reconnect();
+```
+
+### Connection State
+
+You can get the current connection state through the `connectionState` property:
+
+| State | Description |
+|:-----:|:-----------:|
+| `disconnected` | Not connected |
+| `connecting` | Connecting |
+| `connected` | Connected |
+| `reconnecting` | Reconnecting |
+
+```ts
+// Listen for connection state changes
+agent.addEventListener('rtc-agent-ready', () => {
+  console.log('Connection state:', agent.connectionState);
+  console.log('Connection failed:', agent.connectionFailed);
+  console.log('Connection error:', agent.connectionError);
+});
+```
+
+### Title Bar Status Display
+
+The title bar shows different visual feedback based on connection state:
+
+| State | Status Dot Color | Text | Retry Button |
+|:-----:|:----------------:|:----:|:------------:|
+| `connected` | 🟢 Green | "Connected" | ❌ Hidden |
+| `connecting` | 🟡 Yellow pulse | "Connecting" | ❌ Hidden |
+| `reconnecting` | 🟡 Yellow pulse | "Reconnecting" | ❌ Hidden |
+| `disconnected` | 🔴 Red | "Disconnected" | ❌ Hidden |
+| Connection failed | 🔴 Red blinking | "Connection failed: ..." | ✅ Shown |
 
 ## Style System
 
