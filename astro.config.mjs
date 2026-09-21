@@ -15,9 +15,6 @@ export default defineConfig({
 		starlight({
 			title: 'RTC Agent',
 			defaultLocale: 'root',
-			components: {
-				PageFrame: './src/components/PageFrame.astro',
-			},
 			locales: {
 				root: {
 					label: '简体中文',
@@ -29,7 +26,7 @@ export default defineConfig({
 				},
 			},
 			head: [
-				{ tag: 'script', attrs: { type: 'module', src: 'https://cdn.jsdelivr.net/npm/@rtc-agent/component@0.1.9-rc.0/dist/index.js' } },
+				{ tag: 'script', attrs: { type: 'module', src: 'https://cdn.jsdelivr.net/npm/@rtc-agent/component@0.1.9-rc.2/dist/index.js' } },
 				{ tag: 'script', attrs: { type: 'module' }, content: `
 					let DOCS_INDEX = null;
 					const loadIndex = () => DOCS_INDEX || fetch('/docs/docs-index.json').then(r => r.json()).then(d => DOCS_INDEX = d);
@@ -84,14 +81,18 @@ export default defineConfig({
 					new MutationObserver(syncTheme).observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] });
 
 					const initRtcAgent = () => {
-						const agent = document.querySelector('#rtc-agent-global rtc-agent');
-						if (!agent) return;
+						// 如果已经初始化过，直接返回
+						if (document.querySelector('#rtc-agent-global')) return;
 
-						// 设置 locale 相关的属性
+						const agent = document.createElement('rtc-agent');
 						const loc = locale();
-						agent.setAttribute('app-label', loc === 'en' ? 'RTC Agent Assistant' : 'RTC Agent 助手');
+						Object.entries({ 'server-url': 'https://rtc-agent.cherish.chat', 'app-label': loc === 'en' ? 'RTC Agent Assistant' : 'RTC Agent 助手', theme: 'system', 'redirect-uri': '/docs/auth/callback.html' }).forEach(([k, v]) => agent.setAttribute(k, v));
 
-						// 监听 ready 事件（只触发一次）
+						const container = document.createElement('div');
+						container.id = 'rtc-agent-global';
+						container.appendChild(agent);
+						document.body.appendChild(container);
+
 						agent.addEventListener('rtc-agent-ready', async () => {
 							agent.windowConfig = { defaultMode: 'minimized', draggable: true, resizable: true, bubblePosition: { corner: 'bottom-right', offset: { x: -24, y: 24 } } };
 							// 加载文档索引，注入到 persona
@@ -111,22 +112,14 @@ export default defineConfig({
 							};
 							syncTheme();
 						}, { once: true });
+
+						const style = document.createElement('style');
+						style.textContent = '#rtc-agent-global{position:fixed;bottom:0;right:0;z-index:9999;pointer-events:none}#rtc-agent-global rtc-agent{pointer-events:auto}';
+						document.head.appendChild(style);
 					};
 
 					// 初始页面加载
 					document.addEventListener('DOMContentLoaded', initRtcAgent);
-
-					// ClientRouter 页面切换事件
-					document.addEventListener('astro:page-load', () => {
-						// rtc-agent 通过 transition:persist 自动保持，只需初始化配置
-						initRtcAgent();
-						syncTheme();
-					});
-
-					// 页面切换完成后同步主题
-					document.addEventListener('astro:after-swap', () => {
-						syncTheme();
-					});
 				` },
 			],
 			logo: {
