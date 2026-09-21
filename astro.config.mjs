@@ -26,7 +26,7 @@ export default defineConfig({
 				},
 			},
 			head: [
-				{ tag: 'script', attrs: { type: 'module', src: 'https://cdn.jsdelivr.net/npm/@rtc-agent/component@0.1.10-rc.0/dist/index.js' } },
+				{ tag: 'script', attrs: { type: 'module', src: 'https://cdn.jsdelivr.net/npm/@rtc-agent/component@0.1.10-rc.1/dist/index.js' } },
 				{ tag: 'script', attrs: { type: 'module' }, content: `
 					let DOCS_INDEX = null;
 					const loadIndex = () => DOCS_INDEX || fetch('/docs/docs-index.json').then(r => r.json()).then(d => DOCS_INDEX = d);
@@ -83,7 +83,8 @@ export default defineConfig({
 
 						const agent = document.createElement('rtc-agent');
 						const loc = locale();
-						Object.entries({ 'server-url': 'https://rtc-agent.cherish.chat', 'app-label': loc === 'en' ? 'RTC Agent Assistant' : 'RTC Agent 助手', theme: 'system', 'redirect-uri': '/docs/auth/callback.html', 'database-name': 'docs-rtc-agent' }).forEach(([k, v]) => agent.setAttribute(k, v));
+						const rtcLang = loc === 'en' ? 'en-US' : 'zh-CN';
+						Object.entries({ 'server-url': 'https://rtc-agent.cherish.chat', 'app-label': loc === 'en' ? 'RTC Agent Assistant' : 'RTC Agent 助手', theme: 'system', lang: rtcLang, 'redirect-uri': '/docs/auth/callback.html', 'database-name': 'docs-rtc-agent' }).forEach(([k, v]) => agent.setAttribute(k, v));
 
 						const container = document.createElement('div');
 						container.id = 'rtc-agent-global';
