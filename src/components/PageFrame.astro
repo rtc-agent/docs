@@ -1,0 +1,22 @@
+---
+import Default from '@astrojs/starlight/components/PageFrame.astro';
+import { ClientRouter } from 'astro:transitions';
+---
+
+<ClientRouter />
+<Default {...Astro.props}>
+	<slot name="header" slot="header" />
+	<slot name="sidebar" slot="sidebar" />
+	<slot />
+</Default>
+
+<!-- rtc-agent 容器 - 使用 transition:persist 在页面导航时保持 -->
+<div id="rtc-agent-global" transition:persist style="position:fixed;bottom:0;right:0;z-index:9999;pointer-events:none">
+	<rtc-agent
+		server-url="https://rtc-agent.cherish.chat"
+		app-label="RTC Agent 助手"
+		theme="system"
+		redirect-uri="/docs/auth/callback.html"
+		style="pointer-events:auto"
+	></rtc-agent>
+</div>

@@ -15,6 +15,9 @@ export default defineConfig({
 		starlight({
 			title: 'RTC Agent',
 			defaultLocale: 'root',
+			components: {
+				PageFrame: './src/components/PageFrame.astro',
+			},
 			locales: {
 				root: {
 					label: '简体中文',
@@ -80,16 +83,15 @@ export default defineConfig({
 					const syncTheme = () => { const a = document.querySelector('rtc-agent'); if (a) a.theme = document.documentElement.getAttribute('data-theme') || 'system'; };
 					new MutationObserver(syncTheme).observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] });
 
-					document.addEventListener('DOMContentLoaded', () => {
-						const agent = document.createElement('rtc-agent');
+					const initRtcAgent = () => {
+						const agent = document.querySelector('#rtc-agent-global rtc-agent');
+						if (!agent) return;
+
+						// 设置 locale 相关的属性
 						const loc = locale();
-						Object.entries({ 'server-url': 'https://rtc-agent.cherish.chat', 'app-label': loc === 'en' ? 'RTC Agent Assistant' : 'RTC Agent 助手', theme: 'system', 'redirect-uri': '/docs/auth/callback.html' }).forEach(([k, v]) => agent.setAttribute(k, v));
+						agent.setAttribute('app-label', loc === 'en' ? 'RTC Agent Assistant' : 'RTC Agent 助手');
 
-						const container = document.createElement('div');
-						container.id = 'rtc-agent-global';
-						container.appendChild(agent);
-						document.body.appendChild(container);
-
+						// 监听 ready 事件（只触发一次）
 						agent.addEventListener('rtc-agent-ready', async () => {
 							agent.windowConfig = { defaultMode: 'minimized', draggable: true, resizable: true, bubblePosition: { corner: 'bottom-right', offset: { x: -24, y: 24 } } };
 							// 加载文档索引，注入到 persona
@@ -109,10 +111,21 @@ export default defineConfig({
 							};
 							syncTheme();
 						}, { once: true });
+					};
 
-						const style = document.createElement('style');
-						style.textContent = '#rtc-agent-global{position:fixed;bottom:0;right:0;z-index:9999;pointer-events:none}#rtc-agent-global rtc-agent{pointer-events:auto}';
-						document.head.appendChild(style);
+					// 初始页面加载
+					document.addEventListener('DOMContentLoaded', initRtcAgent);
+
+					// ClientRouter 页面切换事件
+					document.addEventListener('astro:page-load', () => {
+						// rtc-agent 通过 transition:persist 自动保持，只需初始化配置
+						initRtcAgent();
+						syncTheme();
+					});
+
+					// 页面切换完成后同步主题
+					document.addEventListener('astro:after-swap', () => {
+						syncTheme();
 					});
 				` },
 			],
