@@ -177,6 +177,8 @@ export default defineConfig({
 						{ label: 'Web Component API', link: '/integration/component-api/', translations: { 'zh-CN': 'Web Component API' } },
 						{ label: 'Function Registration', link: '/integration/function-registration/', translations: { 'zh-CN': 'Function 注册指南' } },
 						{ label: 'Scenario Authoring', link: '/integration/scenario-authoring/', translations: { 'zh-CN': 'Scenario 编写指南' } },
+						{ label: 'Integration Tutorial', link: '/integration/integration-tutorial/', translations: { 'zh-CN': '接入实战' } },
+						{ label: 'FAQ', link: '/integration/faq/', translations: { 'zh-CN': '常见问题' } },
 					],
 				},
 				{

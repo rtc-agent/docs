@@ -12,12 +12,14 @@ flowchart TD
     A --> D["🎨 CSS 变量"]
 
     B --> B1["theme: light / dark / system"]
-    B --> B2["app-label: 标题文字"]
-    B --> B3["bubble-icon: 气泡图标"]
-    B --> B4["scenarios-url: 场景文档"]
-    B --> B5["server-url: 服务端地址"]
-    B --> B6["redirect-uri: OAuth 回调地址"]
-    B --> B7["agentConfig: 声明式配置 (JS)"]
+    B --> B2["lang: zh-CN / en-US"]
+    B --> B3["database-name: IndexedDB 前缀"]
+    B --> B4["app-label: 标题文字"]
+    B --> B5["bubble-icon: 气泡图标"]
+    B --> B6["scenarios-url: 场景文档"]
+    B --> B7["server-url: 服务端地址"]
+    B --> B8["redirect-uri: OAuth 回调地址"]
+    B --> B9["agentConfig: 声明式配置 (JS)"]
 
     C --> C1["rtc-agent-ready"]
 
@@ -35,7 +37,9 @@ flowchart TD
 
 | 属性 | 类型 | 默认值 | 说明 |
 |:----:|:----:|:------:|:----:|
-| 🎨 `theme` | `"light"` \| `"dark"` \| `"system"` | `"system"` | 主题模式。`system` 跟随操作系统设置 |
+| 🎨 `theme` | `"light"` \| `"dark"` \| `"system"` | `"system"` | 主题模式。`system` 跟随操作系统设置。可通过 JS 动态设置：`agent.theme = 'dark'` |
+| 🌐 `lang` | `"zh-CN"` \| `"en-US"` | `"zh-CN"` | 界面语言。优先级：HTML attribute > localStorage > 浏览器语言 > 默认值 (zh-CN)。可通过 JS 动态设置：`agent.lang = 'en-US'` |
+| 💾 `database-name` | `string` | `"rtc-agent"` | IndexedDB 名称前缀。最终 DB 名为 `{prefix}-{userId}`。例如 `<rtc-agent database-name="my-app-rtc">` 生成 `my-app-rtc-{userId}` |
 | 📛 `app-label` | `string` | `"RTC Agent"` | 标题栏文字 + 最小化气泡的 tooltip |
 | 🖼️ `bubble-icon` | `string` | 默认图标 | 最小化气泡内显示的 SVG / HTML 内容 |
 | 📄 `scenarios-url` | `string` | — | 场景文档的 URL，指向 `manifest.json` |
@@ -59,6 +63,9 @@ flowchart TD
 
 <!-- 自定义主题和标题 -->
 <rtc-agent theme="dark" app-label="我的 AI 助手"></rtc-agent>
+
+<!-- 自定义数据库名前缀和语言 -->
+<rtc-agent database-name="my-app-rtc" lang="en-US"></rtc-agent>
 
 <!-- 带场景文档和函数注册 -->
 <rtc-agent
@@ -99,6 +106,7 @@ const agent = document.querySelector('rtc-agent');
 agent.addEventListener('rtc-agent-ready', () => {
   // 组件已就绪，可以安全操作
   agent.theme = 'dark';
+  agent.lang = 'en-US';
   agent.appLabel = '自定义标题';
 });
 ```

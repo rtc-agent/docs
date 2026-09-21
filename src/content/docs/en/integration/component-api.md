@@ -12,12 +12,14 @@ flowchart TD
     A --> D["🎨 CSS Variables"]
 
     B --> B1["theme: light / dark / system"]
-    B --> B2["app-label: title text"]
-    B --> B3["bubble-icon: bubble icon"]
-    B --> B4["scenarios-url: scenario docs"]
-    B --> B5["server-url: server address"]
-    B --> B6["redirect-uri: OAuth callback URL"]
-    B --> B7["agentConfig: declarative config (JS)"]
+    B --> B2["lang: zh-CN / en-US"]
+    B --> B3["database-name: IndexedDB prefix"]
+    B --> B4["app-label: title text"]
+    B --> B5["bubble-icon: bubble icon"]
+    B --> B6["scenarios-url: scenario docs"]
+    B --> B7["server-url: server address"]
+    B --> B8["redirect-uri: OAuth callback URL"]
+    B --> B9["agentConfig: declarative config (JS)"]
 
     C --> C1["rtc-agent-ready"]
 
@@ -35,7 +37,9 @@ flowchart TD
 
 | Attribute | Type | Default | Description |
 |:----:|:----:|:------:|:----:|
-| 🎨 `theme` | `"light"` \| `"dark"` \| `"system"` | `"system"` | Theme mode. `system` follows the OS setting |
+| 🎨 `theme` | `"light"` \| `"dark"` \| `"system"` | `"system"` | Theme mode. `system` follows the OS setting. Can be set dynamically via JS: `agent.theme = 'dark'` |
+| 🌐 `lang` | `"zh-CN"` \| `"en-US"` | `"zh-CN"` | UI language. Priority: HTML attribute > localStorage > browser language > default (zh-CN). Can be set dynamically via JS: `agent.lang = 'en-US'` |
+| 💾 `database-name` | `string` | `"rtc-agent"` | IndexedDB name prefix. The final DB name is `{prefix}-{userId}`. For example, `<rtc-agent database-name="my-app-rtc">` produces `my-app-rtc-{userId}` |
 | 📛 `app-label` | `string` | `"RTC Agent"` | Title bar text + minimized bubble tooltip |
 | 🖼️ `bubble-icon` | `string` | Default icon | SVG / HTML content displayed inside the minimized bubble |
 | 📄 `scenarios-url` | `string` | — | URL of the scenario manifest, pointing to `manifest.json` |
@@ -59,6 +63,9 @@ flowchart TD
 
 <!-- Custom theme and title -->
 <rtc-agent theme="dark" app-label="My AI Assistant"></rtc-agent>
+
+<!-- Custom database name prefix and language -->
+<rtc-agent database-name="my-app-rtc" lang="en-US"></rtc-agent>
 
 <!-- With scenario docs and function registration -->
 <rtc-agent
@@ -99,6 +106,7 @@ const agent = document.querySelector('rtc-agent');
 agent.addEventListener('rtc-agent-ready', () => {
   // Component is ready, safe to operate
   agent.theme = 'dark';
+  agent.lang = 'en-US';
   agent.appLabel = 'Custom Title';
 });
 ```
