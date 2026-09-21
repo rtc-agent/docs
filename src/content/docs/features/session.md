@@ -19,7 +19,7 @@ stateDiagram-v2
     Idle --> Closed: 关闭会话
     Active --> Closed: 关闭会话
 
-    Closed --> [*]
+    Closed --> Idle: 重新打开会话
 
     state Active {
         [*] --> 正在执行
@@ -34,7 +34,7 @@ stateDiagram-v2
 |:----:|------|-----------|
 | 🟢 `Idle` | 空闲，可发送新消息 | 发送消息、关闭 |
 | 🔵 `Active` | 正在执行 Turn | 停止 Turn、关闭 |
-| ⚫ `Closed` | 已关闭，不可再写入 | 查看历史、分叉 |
+| ⚫ `Closed` | 已关闭（归档），可查看历史或重新打开 | 查看历史、分叉、重新打开 |
 
 ## 会话操作
 
@@ -54,6 +54,7 @@ flowchart TD
     subgraph ADVANCED["🔀 高级"]
         A1["🌿 分叉<br/>基于某条消息创建分支"]
         A2["🔒 关闭<br/>冻结会话，停止执行"]
+        A3["🔓 打开<br/>恢复已关闭的会话"]
     end
 
     style CREATE fill:#e8f5e9,stroke:#2e7d32,stroke-width:2px
@@ -69,6 +70,7 @@ flowchart TD
 | **重命名** | 修改会话标题 |
 | **分叉** | 基于某条消息复制历史，替换该消息内容，触发新的 AI 流程 |
 | **关闭** | 标记为 `Closed`，停止正在执行的 Turn |
+| **打开** | 将 `Closed` 会话恢复为 `Idle`，可继续发送消息（幂等操作） |
 
 ## 会话标题
 
@@ -200,6 +202,7 @@ sequenceDiagram
 | 创建 | 新会话被创建（如自动创建） |
 | 更新 | 会话标题修改、状态变更 |
 | 关闭 | 会话被关闭 |
+| 打开 | 已关闭的会话被重新打开 |
 
 ## 会话树与会话导航
 

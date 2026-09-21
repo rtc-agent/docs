@@ -9,7 +9,7 @@ Getting RTC Agent up and running takes two steps: **deploy the Server** → **em
 
 | Deployment | Use Case | Dependencies |
 | --- | --- | --- |
-| **Docker Single Instance** (recommended) | Quick demo, small-scale deployment | Docker |
+| **Docker Deployment** (recommended) | Quick demo, full deployment | Docker |
 | [Build from Source](/docs/en/deployment/source-build/) | Local development & debugging | Go 1.27, PostgreSQL, Redis |
 | [Docker Distributed Cluster](/docs/en/deployment/distributed-deploy/) | Multi-Worker testing, production validation | Docker |
 
@@ -29,10 +29,9 @@ Getting RTC Agent up and running takes two steps: **deploy the Server** → **em
 ```bash
 git clone https://github.com/rtc-agent/server.git
 cd server
-cp etc/config.example.yaml etc/config.docker.yaml
 ```
 
-Edit `etc/config.docker.yaml` and fill in your LLM API Key:
+Edit `etc/config.docker.yaml` and verify the following configuration:
 
 ```yaml
 database:
@@ -44,13 +43,23 @@ redis:
 
 llm:
   provider: "claude"           # or "openai"
-  api_key: "${LLM_API_KEY}"   # Injected via env var — set LLM_API_KEY before starting
+  # api_key configured via LLM__API_KEY environment variable, not in YAML
   model: "claude-sonnet-4-20250514"
 ```
 
-> **Docker config loading**: Compose mounts `etc/config.docker.yaml` directly as `/app/etc/config.yaml` inside the container, so this file must be a **complete configuration** (copy from `config.example.yaml` and modify).
+Configure LLM API Key (via environment variable):
+
+```bash
+# Copy .env template
+cp .env.example .env
+
+# Edit .env and fill in your API Key
+echo "LLM__API_KEY=your-api-key-here" >> .env
+```
+
+> 💡 **Environment variable naming**: Uppercase letters + double underscore `__` to separate hierarchy levels, matching YAML config structure. For example, `llm.api_key` → `LLM__API_KEY`.
 >
-> 🔐 **API Key security**: `api_key` supports `${ENV_VAR}` syntax to reference environment variables, avoiding plaintext keys in config files. Set `export LLM_API_KEY="your-key"` before starting — Docker Compose automatically passes the variable into the container.
+> ⚠️ **Sensitive field handling**: If a field (like `api_key`) is explicitly written in the YAML config file, environment variables **will not override** it. Therefore, sensitive fields should not be written in plaintext in YAML; instead, configure them via environment variables.
 
 ### 2. Start
 
@@ -62,12 +71,13 @@ Compose will automatically:
 
 1. Start PostgreSQL and Redis
 2. Run database migration (init container)
-3. Start the Server container (port 8888)
+3. Start 2 Server containers + Nginx load balancing + observability stack
 
 ### 3. Verify
 
 ```bash
-curl http://localhost:8888/healthz
+# Access via Nginx load balancer entry point
+curl http://localhost:28080/healthz
 # {"status":"ok"}
 ```
 
@@ -89,7 +99,7 @@ Customize theme and title:
 <rtc-agent theme="dark" app-label="My AI Assistant"></rtc-agent>
 ```
 
-The component automatically connects to the Server on the current page's domain (defaults to `localhost:8888`).
+The component automatically connects to the Server on the current page's domain (defaults to `localhost:28080`).
 
 > Full attribute, event, and CSS variable reference: [Web Component API](/docs/en/integration/component-api/).
 
@@ -103,13 +113,13 @@ For scenarios where you need to develop and debug on the Server side. Requires G
 
 ### Docker Distributed Cluster
 
-2 Server containers + Nginx load balancing + full observability stack (Jaeger, Prometheus, Grafana) for validating multi-Worker distributed capabilities.
+Uses the same `docker-compose.yml` as the Docker deployment above, with additional guidance on distributed behavior validation (Session Affinity, RTC Checkpoint) and restart recovery mechanisms.
 
 → See [Distributed Cluster Deployment](/docs/en/deployment/distributed-deploy/)
 
 ## Configuration Reference
 
-For the full configuration options, see [etc/config.example.yaml](https://github.com/rtc-agent/server/blob/main/etc/config.example.yaml).
+For the full configuration options, see [etc/config.docker.yaml](https://github.com/rtc-agent/server/blob/main/etc/config.docker.yaml).
 
 ### Required Configuration
 
@@ -165,8 +175,8 @@ llm:
 **`curl healthz` not responding?**
 
 - Docker deployment: Check container status with `docker compose ps`, confirm all containers are `healthy`
-- Check Server logs: `docker compose logs server`
-- Confirm port 8888 is not in use: `lsof -i :8888`
+- Check Server logs: `docker compose logs server-1 server-2`
+- Confirm port 28080 is not in use: `lsof -i :28080`
 
 **LLM call errors?**
 

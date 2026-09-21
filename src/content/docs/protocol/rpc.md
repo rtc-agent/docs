@@ -1,15 +1,15 @@
 ---
 title: WebSocket RPC
-description: RTC Agent 的 WebSocket RPC 接口——16 个方法覆盖会话管理、消息收发、Turn 控制和 RTC 工具调用。
+description: RTC Agent 的 WebSocket RPC 接口——17 个方法覆盖会话管理、消息收发、Turn 控制和 RTC 工具调用。
 ---
 
-认证完成后，前端通过一条 **WebSocket 持久连接** 完成所有业务操作。RPC 共定义 **16 个方法**，分为 **Action（操作类）** 和 **Query（查询类）** 两种类型。
+认证完成后，前端通过一条 **WebSocket 持久连接** 完成所有业务操作。RPC 共定义 **17 个方法**，分为 **Action（操作类）** 和 **Query（查询类）** 两种类型。
 
 ## RPC 分类
 
 ```mermaid
 flowchart TD
-    subgraph ACTION["⚡ Action RPC（8 个）"]
+    subgraph ACTION["⚡ Action RPC（9 个）"]
         direction TB
         A1["创建 / 修改 / 删除操作"]
         A2["响应附带 updates 事件"]
@@ -40,11 +40,11 @@ flowchart TD
 
 ## 方法一览
 
-16 个方法按 **4 个业务域** 组织：
+17 个方法按 **4 个业务域** 组织：
 
 | 域 | Action | Query |
 |:--:|:------:|:-----:|
-| **Session** | `v1.session.close` · `v1.session.update` · `v1.session.fork` · `v1.session.compact` | `v1.session.list` · `v1.session.get` |
+| **Session** | `v1.session.open` · `v1.session.close` · `v1.session.update` · `v1.session.fork` · `v1.session.compact` | `v1.session.list` · `v1.session.get` |
 | **Message** | `v1.message.send` | `v1.message.list` · `v1.message.get` |
 | **Turn** | `v1.turn.stop` | `v1.turn.list` · `v1.turn.get` |
 | **RTC** | `v1.rtc.update_status` · `v1.rtc.submit_result` | `v1.rtc.list` · `v1.rtc.get` |
@@ -61,10 +61,11 @@ flowchart LR
         direction TB
         S1["v1.session.list"]
         S2["v1.session.get"]
-        S3["v1.session.close"]
-        S4["v1.session.update"]
-        S5["v1.session.fork"]
-        S6["v1.session.compact"]
+        S3["v1.session.open"]
+        S4["v1.session.close"]
+        S5["v1.session.update"]
+        S6["v1.session.fork"]
+        S7["v1.session.compact"]
     end
 
     subgraph STATUS["会话状态"]
@@ -82,10 +83,36 @@ flowchart LR
 |------|:----:|------|----------|
 | `v1.session.list` | 🔍 Query | 获取会话列表 | `cursor`（分页），`limit`（默认 20） |
 | `v1.session.get` | 🔍 Query | 获取单个会话 | `session_id` |
+| `v1.session.open` | ⚡ Action | 重新打开已关闭的会话（`closed` → `idle`） | `session_id` |
 | `v1.session.close` | ⚡ Action | 关闭会话 | `session_id` |
 | `v1.session.update` | ⚡ Action | 更新会话标题 / 软删除 | `session_id`，`title`，`deleted_at` |
 | `v1.session.fork` | ⚡ Action | 分叉对话（基于历史消息创建新会话） | `old_server_session_id`，`new_client_session_id`，`new_client_message_id`，`old_server_message_id`，`content_data`，`limit`（默认 200，最多 1000） |
 | `v1.session.compact` | ⚡ Action | 手动触发上下文压缩（不返回 updates） | `session_id`，`custom_instruction` |
+
+### Open 重新打开会话
+
+`v1.session.open` 用于重新打开已关闭的会话，将会话状态从 `closed` 切换回 `idle`，同时清除 `closed_at` 时间戳。
+
+**幂等行为**：如果会话不是 `closed` 状态，直接返回 `{success: true}` 而不做任何修改。
+
+**请求**：
+
+```json
+{
+  "session_id": "uuid"
+}
+```
+
+**响应**：
+
+```json
+{
+  "result": { "success": true },
+  "updates": [{ "...session.updated 事件..." }]
+}
+```
+
+> 💡 **与 close 的关系**：`v1.session.close` 将会话标记为 `closed` 并设置 `closed_at`；`v1.session.open` 则会话恢复为 `idle` 并清除 `closed_at`。两者配合实现会话的"归档 / 恢复"功能。
 
 ### Fork 分叉对话
 
@@ -160,6 +187,45 @@ sequenceDiagram
 | `toolcall_input` | 工具调用请求 | `ToolCall` 对象 |
 | `toolcall_output` | 工具调用结果 | `ToolCall` 对象 |
 | `user_message` | 用户消息（含场景注入） | `UserMessageContent` 对象 |
+| `error` | 结构化错误消息 | `ErrorContent` 对象 |
+
+### ErrorContent 错误消息
+
+当 Turn 失败时，服务端会插入一条 `error` 类型的消息，前端可渲染为带重试按钮的错误提示。
+
+```json
+{
+  "type": "error",
+  "data": {
+    "category": "network",
+    "title": "连接超时",
+    "message": "与 AI 模型的连接超时，请检查网络后重试",
+    "retryable": true,
+    "raw_error": "context deadline exceeded"
+  }
+}
+```
+
+| 字段 | 类型 | 说明 |
+|------|:----:|------|
+| `category` | `ErrorCategory` | 错误分类，前端据此选择图标和样式 |
+| `title` | string | 简短错误标题 |
+| `message` | string | 详细描述（可包含建议操作） |
+| `retryable` | bool | 是否可重试，前端据此决定是否显示重试按钮 |
+| `raw_error` | string? | 原始错误信息（仅当服务端 `debug.show_raw_errors` 为 true 时包含） |
+
+**ErrorCategory 枚举**：
+
+| 分类 | 说明 | 典型场景 |
+|:----:|------|----------|
+| `api` | API 调用错误 | 模型返回错误、速率限制 |
+| `context` | 上下文相关 | 上下文超长、压缩失败 |
+| `network` | 网络错误 | 连接超时、DNS 失败 |
+| `permission` | 权限错误 | 认证失败、会话不属于当前用户 |
+| `stream` | 流式处理错误 | SSE 中断、stream 解析失败 |
+| `system` | 系统错误 | 内部异常、数据库错误 |
+| `timeout` | 超时错误 | 推理超时、工具执行超时 |
+| `tool` | 工具调用错误 | 工具不存在、参数校验失败 |
 
 ---
 
@@ -252,6 +318,7 @@ sequenceDiagram
 | `message.send` | ✅ 必填 | 重复 client_id 返回 `client_id_conflict` 错误 |
 | `rtc.submit_result` | ✅ 可选 | 终态 + 相同 client_id → 返回缓存结果（幂等）；终态 + 不同 client_id → 返回已有数据 |
 | `rtc.update_status` | ✅ 可选 | 用于所有权验证 + 状态机转换检查，非简单去重 |
+| `session.open` | ❌ 无此字段 | 幂等基于 session 状态：非 `closed` 状态直接返回 success |
 | `session.close` | ✅ 可选 | 字段接受但不做去重 |
 | `turn.stop` | ✅ 可选 | 字段接受但不做去重 |
 | `session.update` | ❌ 无此字段 | — |
@@ -264,7 +331,7 @@ sequenceDiagram
 
 ## Update 模型
 
-大部分 Action RPC 的响应包含 **`result`** 和 **`updates`** 两部分（`session.compact` 和 `turn.stop` 除外，它们的 `updates` 为空）：
+大部分 Action RPC 的响应包含 **`result`** 和 **`updates`** 两部分（`turn.stop` 除外，它的 `updates` 为空）：
 
 ```json
 {
@@ -291,7 +358,7 @@ flowchart LR
     C --> E["data_list<br/>实体数据"]
     C --> F["offset<br/>顺序标识"]
 
-    D --> G["entity: session / turn / message / rtc"]
+    D --> G["entity: session / turn / message / rtc / file"]
     D --> H["action: created / updated / deleted"]
 
     style A fill:#fff9c4,stroke:#f9a825,stroke-width:2px

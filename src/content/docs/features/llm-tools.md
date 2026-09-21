@@ -14,6 +14,14 @@ AI 在推理过程中可以调用一组**内置工具**来扩展自身能力。�
 | `get_sub_agent_message` | 获取指定子 Agent 的最新消息 | 否 |
 | `stop_sub_agent` | 停止指定子 Agent 及其所有后代会话 | 否 |
 | `ask_user` | 向用户提出 1-4 个选择题，等待用户回答 | 是 |
+| `create_goal` | 创建自主目标，自动驱动后续轮次直到完成 | 否 |
+| `complete_goal` | 标记目标为已完成 | 否 |
+| `cancel_goal` | 取消目标 | 否 |
+| `create_loop` | 创建定时循环任务，按固定间隔自动执行 | 否 |
+| `cancel_loop` | 取消循环任务 | 否 |
+| `list_loop` | 列出当前会话的所有循环任务 | 否 |
+| `pause_loop` | 暂停循环任务 | 否 |
+| `resume_loop` | 恢复暂停的循环任务 | 否 |
 
 ---
 
@@ -255,6 +263,102 @@ sequenceDiagram
 ```text
 User has answered your questions: "使用哪个日期格式化库？"="date-fns". You can now continue with the user's answers in mind.
 ```
+
+---
+
+## Goal 工具 — 自主目标驱动
+
+Goal 系统允许 AI 创建自主目标，并在后续轮次中自动推进目标完成。每个 Goal 有独立的状态生命周期和 turn 边界检查点。
+
+### Goal 状态
+
+```mermaid
+stateDiagram-v2
+    direction LR
+
+    [*] --> Active: create_goal
+    Active --> Completed: complete_goal ✅
+    Active --> Cancelled: cancel_goal 🚫
+    Active --> Exhausted: 超过 max_turns ⏰
+
+    Completed --> [*]
+    Cancelled --> [*]
+    Exhausted --> [*]
+```
+
+| 状态 | 说明 |
+|:----:|------|
+| `active` | 目标活跃中，每轮自动检查进度 |
+| `completed` | 目标已完成 |
+| `cancelled` | 目标被取消 |
+| `exhausted` | 达到最大轮次限制，自动终止 |
+
+### create_goal — 创建目标
+
+| 参数 | 类型 | 必填 | 说明 |
+|------|------|:----:|------|
+| `condition` | string | 是 | 目标完成条件描述 |
+| `max_turns` | int | 否 | 最大轮次限制（默认 50） |
+
+**执行机制**：每轮 Turn 完成后，系统自动检查活跃 Goal，递增 `completed_turns` 计数器。如果条件满足则自动标记为 `completed`；如果达到 `max_turns` 则标记为 `exhausted`。
+
+### complete_goal / cancel_goal
+
+| 参数 | 类型 | 必填 | 说明 |
+|------|------|:----:|------|
+| `goal_id` | string | 是 | 目标 ID |
+
+---
+
+## Loop 工具 — 定时循环任务
+
+Loop 系统允许 AI 创建定时执行的循环任务。基于 asynq 后台任务队列，支持暂停、恢复和自动过期。
+
+### Loop 状态
+
+```mermaid
+stateDiagram-v2
+    direction LR
+
+    [*] --> Active: create_loop
+    Active --> Paused: pause_loop ⏸️
+    Paused --> Active: resume_loop ▶️
+    Active --> Completed: 条件满足 ✅
+    Active --> Cancelled: cancel_loop 🚫
+    Active --> Exhausted: 超过 max_turns 或过期 ⏰
+
+    Completed --> [*]
+    Cancelled --> [*]
+    Paused --> [*]
+    Exhausted --> [*]
+```
+
+| 状态 | 说明 |
+|:----:|------|
+| `active` | 循环活跃中，按间隔自动触发 |
+| `paused` | 循环暂停，不触发新轮次 |
+| `completed` | 循环完成 |
+| `cancelled` | 循环被取消 |
+| `exhausted` | 达到最大轮次或过期时间 |
+
+### create_loop — 创建循环
+
+| 参数 | 类型 | 必填 | 说明 |
+|------|------|:----:|------|
+| `prompt` | string | 是 | 每次循环执行的提示词 |
+| `interval_seconds` | int | 是 | 执行间隔（秒） |
+| `max_turns` | int | 否 | 最大执行次数（默认 10） |
+
+### 其他 Loop 操作
+
+| 工具 | 参数 | 说明 |
+|------|------|------|
+| `cancel_loop` | `loop_id` | 取消循环 |
+| `list_loop` | 无 | 列出当前会话的所有循环 |
+| `pause_loop` | `loop_id` | 暂停循环 |
+| `resume_loop` | `loop_id` | 恢复暂停的循环 |
+
+> 💡 **Loop vs Goal**：Goal 是"完成某个条件就停"，Loop 是"每隔 N 秒执行一次"。两者可以组合使用——在 Loop 中创建 Goal，让 AI 定期检查某个条件是否满足。
 
 ---
 

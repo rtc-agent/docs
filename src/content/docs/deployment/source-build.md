@@ -21,17 +21,11 @@ cd server
 
 ## 2. 启动基础设施
 
-使用开发 Docker Compose 启动 PostgreSQL、Redis 等：
+使用根目录的 `docker-compose.yml` 启动 PostgreSQL、Redis 等依赖服务：
 
 ```bash
-# 启动开发依赖（PostgreSQL:15432, Redis:16379, Jaeger, Mock OAuth2 等）
-go run main.go dev dependencies start
-```
-
-或手动启动 Docker：
-
-```bash
-docker compose -f etc/dev/docker-compose.yml up -d
+# 只启动开发所需的基础设施（PostgreSQL:25432, Redis:26379 等）
+docker compose up -d postgres redis
 ```
 
 ## 3. 配置
@@ -39,27 +33,36 @@ docker compose -f etc/dev/docker-compose.yml up -d
 复制配置模板并编辑：
 
 ```bash
-cp etc/config.example.yaml etc/config.local.yaml
+cp etc/config.docker.yaml etc/config.local.yaml
 ```
 
 编辑 `etc/config.local.yaml`，至少修改以下字段：
 
 ```yaml
 database:
-  dsn: "postgres://rtc_agent:rtc_agent@localhost:15432/rtc_agent?sslmode=disable"
+  dsn: "postgres://rtc_agent:rtc_agent@localhost:25432/rtc_agent?sslmode=disable"
 
 redis:
-  addr: "localhost:16379"
+  addr: "localhost:26379"
 
 llm:
   provider: "claude"           # 或 "openai"
-  api_key: "${LLM_API_KEY}"   # 通过环境变量注入，启动前 export LLM_API_KEY="your-key"
+  # api_key 通过环境变量 LLM__API_KEY 配置，不在 YAML 中写明文
   model: "claude-sonnet-4-20250514"
 ```
 
-> **配置合并机制**：Server 启动时自动加载 `etc/config.yaml`（基线）+ `etc/config.local.yaml`（覆盖）。`config.local.yaml` 已在 `.gitignore` 中，不会被提交。只需写差异项。
+配置 LLM API Key（环境变量方式）：
+
+```bash
+# 设置环境变量（本地运行不会自动读取 .env 文件）
+export LLM__API_KEY=your-api-key-here
+```
+
+> 💡 也可以复制 `.env.example` 为 `.env` 后 `source .env` 加载，然后 `export` 所需变量。Docker 部署中 docker-compose 会自动读取 `.env`（通过 `env_file`），但本地 Go 运行需要手动导出。
 >
-> 🔐 **API Key 安全**：`api_key` 支持 `${ENV_VAR}` 形式引用环境变量，避免明文写入配置文件。启动前通过 `export LLM_API_KEY="your-key"` 设置即可。
+> 💡 **环境变量命名规则**：大写字母 + 双下划线 `__` 分隔层级，对应 YAML 配置的层级结构。例如 `llm.api_key` → `LLM__API_KEY`。这种映射由 Viper 的 `SetEnvKeyReplacer(".", "__")` 实现。
+>
+> ⚠️ **敏感字段处理**：如果 YAML 配置文件中明确写了某个字段（如 `api_key`），环境变量**不会覆盖**它。因此敏感字段建议不在 YAML 中写明文，而是通过环境变量配置。
 
 ## 4. 构建 & 运行
 

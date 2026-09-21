@@ -582,6 +582,92 @@ flowchart TD
 | 🌓 颜色主题 | light / dark（VS Code 风格） | 两套完整色彩方案，自动适配 |
 | 🔧 CSS 变量 | 组件级自定义（窗口尺寸、气泡大小） | 宿主应用可覆盖，实现个性化 |
 
+## Debug API
+
+`<rtc-agent>` 在所有构建（dev + prod）中暴露 `window.rtcAgentDebug` 对象，提供 27+ 个方法用于 E2E 测试、调试和自动化操作。
+
+```ts
+const debug = window.rtcAgentDebug;
+```
+
+### 方法分类
+
+| 域 | 方法 | 说明 |
+|:--:|------|------|
+| **State** | `getState()`, `clearData()`, `seedData()` | 状态访问和数据管理 |
+| **Auth** | `loginAs(userId, tokens?)`, `logout()` | 认证模拟 |
+| **VirtualFS** | `listFiles(path?)`, `readFile(path)`, `writeFile(path, content)`, `deleteFile(path)` | 虚拟文件系统操作 |
+| **Session** | `createSession()`, `switchSession(id)`, `deleteSession(id)`, `renameSession(id, title)`, `getSessions()`, `getCurrentSessionId()` | 会话管理 |
+| **Message** | `sendMessage(content)`, `getMessages()`, `addDemoMessage(content, role?)`, `clearMessages()` | 消息操作 |
+| **Tool Call** | `getToolCalls()`, `addPendingToolCall(call)`, `approveToolCall(id)`, `denyToolCall(id)`, `approveAllToolCalls(toolName)` | 工具调用模拟 |
+| **UI Control** | `click(selector)`, `scrollIntoView(selector)`, `typeText(selector, text)` | UI 交互模拟 |
+| **Toast** | `showToast(message, type?)`, `getToasts()` | Toast 通知 |
+| **Settings** | `getSettings()`, `updateSettings(section, patch)` | 设置管理 |
+| **Activity** | `setActivity(activity)`, `getActivity()` | Activity Bar 控制 |
+| **Network** | `simulateOffline()`, `restoreNetwork()`, `isOffline` | 网络状态模拟 |
+| **Component** | `element`, `waitForReady(timeout?)`, `waitForConnected(timeout?)` | 组件引用和等待 |
+| **Logs** | `logs`, `clearLogs()` | 日志访问 |
+
+### 使用示例
+
+```ts
+const debug = window.rtcAgentDebug;
+
+// 等待组件就绪
+const agent = await debug.waitForReady(5000);
+
+// 等待连接建立
+await debug.waitForConnected(10000);
+
+// 创建会话并发送消息
+const sessionId = debug.createSession();
+debug.switchSession(sessionId);
+await debug.sendMessage('你好，帮我写一个 Hello World');
+
+// 模拟离线状态
+debug.simulateOffline();
+console.log('Is offline:', debug.isOffline);
+
+// 恢复网络
+debug.restoreNetwork();
+
+// 获取所有消息
+const messages = debug.getMessages();
+console.log('Message count:', messages.length);
+
+// 获取当前状态
+const state = debug.getState();
+console.log('Current session:', debug.getCurrentSessionId());
+```
+
+### E2E 测试最佳实践
+
+```ts
+// Playwright 示例
+test('send message and get response', async ({ page }) => {
+  await page.goto('/');
+  
+  // 等待组件就绪
+  await page.waitForFunction(() => window.rtcAgentDebug?.waitForReady);
+  await page.evaluate(() => window.rtcAgentDebug.waitForReady(5000));
+  
+  // 发送消息
+  await page.evaluate(() => window.rtcAgentDebug.sendMessage('Hello'));
+  
+  // 等待 AI 响应
+  await page.waitForFunction(() => {
+    const msgs = window.rtcAgentDebug.getMessages();
+    return msgs.some(m => m.role === 'assistant');
+  }, { timeout: 30000 });
+  
+  // 验证响应
+  const messages = await page.evaluate(() => window.rtcAgentDebug.getMessages());
+  expect(messages.length).toBeGreaterThan(1);
+});
+```
+
+> 💡 Debug API 在生产环境中同样可用，方便线上问题排查。但建议仅在开发和测试环境中使用 `seedData()` 和 `clearData()` 等数据修改方法。
+
 ## 关键交互
 
 | 区域 | 行为 |

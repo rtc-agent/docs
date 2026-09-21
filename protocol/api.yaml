@@ -216,7 +216,7 @@ components:
 
     ContentType:
       type: string
-      enum: [ markdown, summary, text, thinking, toolcall_input, toolcall_output, user_message]
+      enum: [ markdown, summary, text, thinking, toolcall_input, toolcall_output, user_message, error ]
       x-enum-varnames:
         - ContentTypeMarkdown
         - ContentTypeSummary
@@ -225,6 +225,42 @@ components:
         - ContentTypeToolCallInput
         - ContentTypeToolCallOutput
         - ContentTypeUserMessage
+        - ContentTypeError
+
+    ErrorCategory:
+      type: string
+      enum: [ api, stream, tool, context, system, network, timeout, permission ]
+      x-enum-varnames:
+        - ErrorCategoryAPI
+        - ErrorCategoryStream
+        - ErrorCategoryTool
+        - ErrorCategoryContext
+        - ErrorCategorySystem
+        - ErrorCategoryNetwork
+        - ErrorCategoryTimeout
+        - ErrorCategoryPermission
+
+    ErrorContent:
+      type: object
+      required: [ category, title, message, retryable ]
+      properties:
+        category:
+          $ref: '#/components/schemas/ErrorCategory'
+        title:
+          type: string
+          description: 简短错误标题
+        message:
+          type: string
+          description: 详细描述（可包含建议操作）
+        retryable:
+          type: boolean
+          description: 是否可重试
+        raw_error:
+          type: string
+          description: 原始错误信息（仅当 show_raw_error 为 true 时前端展示）
+        show_raw_error:
+          type: boolean
+          description: 服务端控制的 RawError 可见性标志（debug 模式下为 true）
 
     RtcStatus:
       type: string
@@ -473,6 +509,7 @@ components:
         - `toolcall_input`: Data 为 ToolCall 对象
         - `toolcall_output`: Data 为 ToolCall 对象
         - `user_message`: Data 为 UserMessageContent 对象
+        - `error`: Data 为 ErrorContent 对象
       properties:
         type:
           $ref: '#/components/schemas/ContentType'
@@ -692,6 +729,34 @@ components:
       properties:
         result:
           $ref: '#/components/schemas/CloseSessionResult'
+        updates:
+          type: array
+          items:
+            $ref: '#/components/schemas/Update'
+      required: [ result ]
+
+    # ---------- OpenSession ----------
+
+    OpenSessionRequest:
+      type: object
+      properties:
+        session_id:
+          $ref: '#/components/schemas/UUID'
+      required: [ session_id ]
+
+    OpenSessionResult:
+      type: object
+      properties:
+        success:
+          type: boolean
+      required: [ success ]
+
+    OpenSessionResponse:
+      type: object
+      description: Response for reopening a closed session
+      properties:
+        result:
+          $ref: '#/components/schemas/OpenSessionResult'
         updates:
           type: array
           items:
@@ -985,6 +1050,7 @@ components:
         - v1.session.list
         - v1.session.get
         - v1.session.close
+        - v1.session.open
         - v1.session.update
         - v1.session.fork
         - v1.session.compact
@@ -1005,6 +1071,7 @@ components:
         - MethodSessionList
         - MethodSessionGet
         - MethodSessionClose
+        - MethodSessionOpen
         - MethodSessionUpdate
         - MethodSessionFork
         - MethodSessionCompact

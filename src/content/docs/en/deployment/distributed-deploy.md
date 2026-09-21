@@ -66,15 +66,39 @@ flowchart TB
 | Alertmanager | 29093 | Alert routing |
 | Mock OAuth2 | 20060 | Development OAuth2 |
 
-> **Port design**: All ports do not conflict with the development environment (15432/16379/80), so both can run simultaneously.
+> **Port design**: All ports use the 2xxxx range to avoid conflicts with commonly used local service ports.
 
 ## 1. Prepare Configuration
 
+### Environment Variables
+
+Copy the `.env.example` template and fill in your actual values:
+
 ```bash
-cp etc/config.example.yaml etc/config.docker-full.yaml
+cp .env.example .env
 ```
 
-Edit `etc/config.docker-full.yaml`:
+Edit `.env` and fill in your LLM API Key:
+
+```bash
+LLM__API_KEY=your-api-key-here
+```
+
+> 💡 **Environment variable naming**: Uppercase letters + double underscore `__` to separate hierarchy levels, matching YAML config structure. For example, `llm.api_key` → `LLM__API_KEY`, `database.dsn` → `DATABASE__DSN`. This mapping is implemented by Viper's `SetEnvKeyReplacer(".", "__")`.
+
+**Configuration priority** (from highest to lowest):
+
+| Priority | Source | Description |
+|:--------:|--------|-------------|
+| 1 | Config file | `etc/config.yaml` or the file specified by `--config` |
+| 2 | Environment variables | e.g., `LLM__API_KEY` |
+| 3 | Defaults | Values set by `SetDefault` in code |
+
+> ⚠️ **Sensitive field handling**: If a field (like `api_key`) is explicitly written in the YAML config file, environment variables **will not override** it. Therefore, sensitive fields should not be written in plaintext in YAML; instead, configure them via environment variables.
+
+### YAML Configuration
+
+Edit `etc/config.docker.yaml` (docker-compose.yml mounts this file automatically):
 
 ```yaml
 database:
@@ -96,7 +120,7 @@ providers:
 
 llm:
   provider: "claude"
-  api_key: "${LLM_API_KEY}"   # Injected via env var — set LLM_API_KEY before starting
+  # api_key configured via LLM__API_KEY environment variable, not in YAML
   model: "claude-sonnet-4-20250514"
 ```
 
@@ -105,7 +129,7 @@ llm:
 ## 2. Start
 
 ```bash
-docker compose -f docker-compose.full.yml up -d
+docker compose up -d
 ```
 
 Startup order: PostgreSQL/Redis → migrate (one-time container) → Server-1 & Server-2 → Nginx
@@ -118,7 +142,7 @@ curl http://localhost:28080/healthz
 # {"status":"ok"}
 
 # Check container status — all containers should be healthy/running
-docker compose -f docker-compose.full.yml ps
+docker compose ps
 
 # Jaeger trace dashboard
 open http://localhost:26686
@@ -135,8 +159,8 @@ Both Servers share the same PostgreSQL and Redis. When user requests are distrib
 ## 5. Stop & Clean Up
 
 ```bash
-docker compose -f docker-compose.full.yml down      # Stop containers
-docker compose -f docker-compose.full.yml down -v   # Also delete data volumes
+docker compose down      # Stop containers
+docker compose down -v   # Also delete data volumes
 ```
 
 ## 6. Restart Recovery

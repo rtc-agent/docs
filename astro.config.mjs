@@ -25,6 +25,97 @@ export default defineConfig({
 					lang: 'en',
 				},
 			},
+			head: [
+				{ tag: 'script', attrs: { type: 'module', src: 'https://cdn.jsdelivr.net/npm/@rtc-agent/component@0.1.9-rc.0/dist/index.js' } },
+				{ tag: 'script', attrs: { type: 'module' }, content: `
+					let DOCS_INDEX = null;
+					const loadIndex = () => DOCS_INDEX || fetch('/docs/docs-index.json').then(r => r.json()).then(d => DOCS_INDEX = d);
+
+					const locale = () => location.pathname.startsWith('/docs/en/') ? 'en' : 'zh-CN';
+
+					const searchDocs = async ({ query } = {}) => {
+						if (!query || typeof query !== 'string') return [];
+						const idx = await loadIndex();
+						// 按空格分词，支持多关键词搜索（AND 逻辑）
+						const keywords = query.trim().split(/\s+/).filter(Boolean).map(k => k.toLowerCase());
+						if (keywords.length === 0) return [];
+						return Object.entries(idx)
+							.filter(([, p]) => {
+								const text = (p.title + ' ' + (p.description || '') + ' ' + p.body).toLowerCase();
+								// 所有关键词都必须匹配
+								return keywords.every(kw => text.includes(kw));
+							})
+							.slice(0, 10)
+							.map(([path, p]) => ({ path, title: p.title, description: p.description }));
+					};
+
+					const getPageMarkdown = async ({ path, silent = false } = {}) => {
+						if (!path || typeof path !== 'string') return null;
+						const page = (await loadIndex())[path] || null;
+						if (!silent && page) {
+							await navigateTo({ path });
+						}
+						return page;
+					};
+
+					const listPages = async ({ section } = {}) => {
+						const idx = await loadIndex();
+						// 去掉首尾斜杠
+						let sec = section || '';
+						while (sec.startsWith('/')) sec = sec.slice(1);
+						while (sec.endsWith('/')) sec = sec.slice(0, -1);
+						return Object.entries(idx).filter(([p]) => !sec || p.includes('/' + sec + '/')).map(([path, p]) => ({ path, title: p.title }));
+					};
+
+					const navigateTo = ({ path } = {}) => {
+						if (!path || typeof path !== 'string') return { success: false, error: 'path is required' };
+						location.href = '/docs' + path; return { success: true };
+					};
+					const getCurrentPageInfo = async () => {
+						const path = location.pathname.replace('/docs', '');
+						return (await loadIndex())[path] || { path, title: document.title };
+					};
+					const getCodeExamples = () => [...document.querySelectorAll('pre code')].map((b, i) => ({ index: i, language: b.className.replace('language-', ''), code: b.textContent }));
+
+					const syncTheme = () => { const a = document.querySelector('rtc-agent'); if (a) a.theme = document.documentElement.getAttribute('data-theme') || 'system'; };
+					new MutationObserver(syncTheme).observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] });
+
+					document.addEventListener('DOMContentLoaded', () => {
+						const agent = document.createElement('rtc-agent');
+						const loc = locale();
+						Object.entries({ 'server-url': 'https://rtc-agent.cherish.chat', 'app-label': loc === 'en' ? 'RTC Agent Assistant' : 'RTC Agent 助手', theme: 'system', 'redirect-uri': '/docs/auth/callback.html' }).forEach(([k, v]) => agent.setAttribute(k, v));
+
+						const container = document.createElement('div');
+						container.id = 'rtc-agent-global';
+						container.appendChild(agent);
+						document.body.appendChild(container);
+
+						agent.addEventListener('rtc-agent-ready', async () => {
+							agent.windowConfig = { defaultMode: 'minimized', draggable: true, resizable: true, bubblePosition: { corner: 'bottom-right', offset: { x: -24, y: 24 } } };
+							// 加载文档索引，注入到 persona
+							const idx = await loadIndex();
+							const docList = Object.entries(idx).map(([path, p]) => "- '" + path + "': " + p.title).join('\\n');
+							agent.agentConfig = {
+								name: 'DocsAssistant', description: 'RTC Agent Documentation Assistant',
+								persona: 'You are a patient and proactive RTC Agent documentation teacher. Your goal is to guide users through learning RTC Agent, not just answer questions.\\n\\nTeaching approach:\\n- Guide users through learning paths, suggest related topics after answering\\n- When explaining a concept, use getPageMarkdown({ path, silent: false }) to navigate to relevant docs so users can see full context\\n- Use getCurrentPageInfo to understand what the user is currently viewing and provide contextual guidance\\n- Break complex topics into digestible steps with examples\\n- Ask clarifying questions to understand the user\\'s goal before diving deep\\n- Start with \"why\" before \"how\" - explain purpose before implementation\\n\\nAvailable documentation pages:\\n' + docList,
+								groups: [{ name: 'docs', description: 'Documentation functions', functions: [
+									{ name: 'searchDocs', description: 'Search documentation by keywords. Parameter: query (string) - search keywords, space-separated for multiple terms', parameters: [{ name: 'query', schema: { type: 'string' } }], returns: { schema: { type: 'array', items: { type: 'object', properties: { path: { type: 'string' }, title: { type: 'string' }, description: { type: 'string' } } } } }, handler: searchDocs },
+									{ name: 'getPageMarkdown', description: 'Get full Markdown content of a documentation page and optionally navigate to it. Parameters: path (string) - the page path from the documentation index, e.g. /introduction/ or /getting-started/; silent (boolean, optional) - if true, skip page navigation (default: false)', parameters: [{ name: 'path', schema: { type: 'string' } }, { name: 'silent', schema: { type: 'boolean' } }], returns: { schema: { type: 'object' } }, handler: getPageMarkdown },
+									{ name: 'listPages', description: 'List pages in a documentation section. Parameter: section (string) - the section name from the path, e.g. "getting-started" for /getting-started/ pages, or empty to list all', parameters: [{ name: 'section', schema: { type: 'string' } }], returns: { schema: { type: 'array', items: { type: 'object', properties: { path: { type: 'string' }, title: { type: 'string' } } } } }, handler: listPages },
+									{ name: 'navigateTo', description: 'Navigate the browser to a documentation page. Parameter: path (string) - the page path, e.g. /introduction/', parameters: [{ name: 'path', schema: { type: 'string' } }], returns: { schema: { type: 'object' } }, handler: navigateTo },
+									{ name: 'getCurrentPageInfo', description: 'Get information about the current documentation page being viewed. No parameters required.', parameters: [], returns: { schema: { type: 'object' } }, handler: getCurrentPageInfo },
+									{ name: 'getCodeExamples', description: 'Extract all code examples from the current page. No parameters required. Returns array of code blocks with index, language, and code content.', parameters: [], returns: { schema: { type: 'array', items: { type: 'object', properties: { index: { type: 'number' }, language: { type: 'string' }, code: { type: 'string' } } } } }, handler: getCodeExamples },
+								] }]
+							};
+							syncTheme();
+						}, { once: true });
+
+						const style = document.createElement('style');
+						style.textContent = '#rtc-agent-global{position:fixed;bottom:0;right:0;z-index:9999;pointer-events:none}#rtc-agent-global rtc-agent{pointer-events:auto}';
+						document.head.appendChild(style);
+					});
+				` },
+			],
 			logo: {
 				light: './public/logo.svg',
 				dark: './public/logo-dark.svg',
@@ -49,7 +140,6 @@ export default defineConfig({
 						{ label: 'Quick Start', link: '/getting-started/', translations: { 'zh-CN': '快速开始' } },
 						{ label: 'Build from Source', link: '/deployment/source-build/', translations: { 'zh-CN': '源码构建' } },
 						{ label: 'Distributed Cluster', link: '/deployment/distributed-deploy/', translations: { 'zh-CN': '分布式集群' } },
-						{ label: 'CDN Deployment', link: '/deployment/cdn/', translations: { 'zh-CN': 'CDN 部署' } },
 					],
 				},
 				{
@@ -70,7 +160,6 @@ export default defineConfig({
 						{ label: 'Messaging', link: '/features/messaging/', translations: { 'zh-CN': '消息与对话' } },
 						{ label: 'Skill System', link: '/features/skill-system/', translations: { 'zh-CN': 'Skill 系统' } },
 						{ label: 'Commands', link: '/features/commands/', translations: { 'zh-CN': '命令系统' } },
-						{ label: 'LLM Tools', link: '/features/llm-tools/', translations: { 'zh-CN': 'LLM 内置工具' } },
 						{ label: 'Memory', link: '/features/memory/', translations: { 'zh-CN': '记忆系统' } },
 						{ label: 'Context Management', link: '/features/context-management/', translations: { 'zh-CN': '上下文管理' } },
 						{ label: 'Real-time Communication', link: '/features/realtime/', translations: { 'zh-CN': '实时通信' } },

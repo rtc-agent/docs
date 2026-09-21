@@ -1,3 +1,10 @@
 allowBuilds:
   esbuild: true
+  protobufjs: true
   sharp: true
+minimumReleaseAgeExclude:
+  - '@rtc-agent/client@0.1.9-rc.0'
+  - '@rtc-agent/component@0.1.9-rc.0'
+  - '@rtc-agent/persistence@0.1.9-rc.0'
+  - '@rtc-agent/protocol@0.1.9-rc.0'
+  - '@rtc-agent/worker@0.1.9-rc.0'

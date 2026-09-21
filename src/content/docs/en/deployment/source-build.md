@@ -21,17 +21,11 @@ cd server
 
 ## 2. Start Infrastructure
 
-Use the development Docker Compose to start PostgreSQL, Redis, etc.:
+Use the root `docker-compose.yml` to start PostgreSQL, Redis, and other dependencies:
 
 ```bash
-# Start dev dependencies (PostgreSQL:15432, Redis:16379, Jaeger, Mock OAuth2, etc.)
-go run main.go dev dependencies start
-```
-
-Or start Docker manually:
-
-```bash
-docker compose -f etc/dev/docker-compose.yml up -d
+# Start only the infrastructure needed for development (PostgreSQL:25432, Redis:26379, etc.)
+docker compose up -d postgres redis
 ```
 
 ## 3. Configuration
@@ -39,27 +33,36 @@ docker compose -f etc/dev/docker-compose.yml up -d
 Copy the config template and edit:
 
 ```bash
-cp etc/config.example.yaml etc/config.local.yaml
+cp etc/config.docker.yaml etc/config.local.yaml
 ```
 
 Edit `etc/config.local.yaml`, modifying at least the following fields:
 
 ```yaml
 database:
-  dsn: "postgres://rtc_agent:rtc_agent@localhost:15432/rtc_agent?sslmode=disable"
+  dsn: "postgres://rtc_agent:rtc_agent@localhost:25432/rtc_agent?sslmode=disable"
 
 redis:
-  addr: "localhost:16379"
+  addr: "localhost:26379"
 
 llm:
   provider: "claude"           # or "openai"
-  api_key: "${LLM_API_KEY}"   # Injected via env var — set LLM_API_KEY before starting
+  # api_key configured via LLM__API_KEY environment variable, not in YAML
   model: "claude-sonnet-4-20250514"
 ```
 
-> **Config merging**: On startup, the Server automatically loads `etc/config.yaml` (baseline) + `etc/config.local.yaml` (overrides). `config.local.yaml` is already in `.gitignore` and will not be committed. Only write the diff items.
+Configure LLM API Key (via environment variable):
+
+```bash
+# Set environment variable (local Go runtime does not auto-read .env files)
+export LLM__API_KEY=your-api-key-here
+```
+
+> 💡 You can also copy `.env.example` to `.env`, then `source .env` and `export` the needed variables. In Docker deployments, docker-compose reads `.env` automatically (via `env_file`), but local Go runtime requires manual export.
 >
-> 🔐 **API Key security**: `api_key` supports `${ENV_VAR}` syntax to reference environment variables, avoiding plaintext keys in config files. Set `export LLM_API_KEY="your-key"` before starting.
+> 💡 **Environment variable naming**: Uppercase letters + double underscore `__` to separate hierarchy levels, matching YAML config structure. For example, `llm.api_key` → `LLM__API_KEY`. This mapping is implemented by Viper's `SetEnvKeyReplacer(".", "__")`.
+>
+> ⚠️ **Sensitive field handling**: If a field (like `api_key`) is explicitly written in the YAML config file, environment variables **will not override** it. Therefore, sensitive fields should not be written in plaintext in YAML; instead, configure them via environment variables.
 
 ## 4. Build & Run
 

@@ -75,7 +75,7 @@ flowchart LR
 
 ## Update 模型
 
-每个事件都是一个 **Update**——描述实体（Session / Turn / Message / RTC）的变化：
+每个事件都是一个 **Update**——描述实体（Session / Turn / Message / RTC / File）的变化：
 
 ```json
 {
@@ -92,7 +92,7 @@ flowchart LR
 |------|:----:|------|
 | `id` | UUID | Update 唯一标识 |
 | `items` | array | 变化条目列表 |
-| `items[].entity` | string | 实体类型：`session` / `turn` / `message` / `rtc`（`file` 为预留，当前未使用） |
+| `items[].entity` | string | 实体类型：`session` / `turn` / `message` / `rtc` / `file` |
 | `items[].action` | string | 操作类型：`created` / `updated`（`deleted` 为预留，当前未使用；删除通过 `data_list` 中的 `deleted_at` 表达） |
 | `items[].entity_id` | UUID | 实体 ID |
 | `data_list` | array | 实体完整数据（可选，与 items 一一对应） |
@@ -151,6 +151,20 @@ flowchart TD
 |------|:----:|------|
 | `device_id` | string | 创建此 Session 的设备 ID（来自 JWT Token），用于前端判断 RTC 请求归属 |
 
+### Sub-agent 层级字段
+
+当 Session 由 Sub-agent 系统创建时，以下字段描述其在 Session 树中的位置：
+
+| 字段 | 类型 | 说明 |
+|------|:----:|------|
+| `parent_client_session_id` | string? | 父 Session 的 Client ID |
+| `parent_server_session_id` | UUID? | 父 Session 的 Server ID |
+| `root_client_session_id` | string? | 根 Session 的 Client ID（树的顶层） |
+| `root_server_session_id` | UUID? | 根 Session 的 Server ID（树的顶层） |
+| `sub_agent_parent_message_id` | UUID? | 父 Session 中触发 Sub-agent 的消息 ID |
+
+> 💡 **Session 树**：Sub-agent 创建的 Session 通过 `parent_*` 字段指向其父 Session，通过 `root_*` 字段指向整棵树的根 Session。前端可据此渲染层级导航（如 `rtc-session-tree` 组件）。顶层 Session 这些字段均为 `null`。
+>
 > 💡 Token 统计字段通过节流机制（Throttle）控制推送频率，避免高频事件风暴。前端通过 `rtc-token-usage` 组件展示这些数据，详见 [会话管理](/docs/features/session/) 和 [上下文管理](/docs/features/context-management/)。
 
 ---

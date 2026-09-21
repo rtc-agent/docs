@@ -75,15 +75,15 @@ Gateway 是前后端通信的入口，管理所有 WebSocket 连接和 RPC 路�
 | 职责 | 说明 |
 | --- | --- |
 | **连接管理** | 处理 WebSocket 建连、鉴权、心跳、断线 |
-| **RPC 路由** | 将 18 个 RPC 方法分发到对应的用例处理 |
+| **RPC 路由** | 将 17 个 RPC 方法分发到对应的用例处理 |
 | **事件推送** | 将 Agent 产生的事件通过 Centrifuge 推送到前端 |
 | **RTC 中转** | 将 AI 的工具调用请求转发到前端，接收执行结果 |
 
-**18 个 RPC 方法分类**：
+**17 个 RPC 方法分类**：
 
 | 类别 | 方法 |
 | --- | --- |
-| **Session** | `session.list`, `session.get`, `session.close`, `session.update`, `session.fork`, `session.compact` |
+| **Session** | `session.list`, `session.get`, `session.open`, `session.close`, `session.update`, `session.fork`, `session.compact` |
 | **Message** | `message.send`, `message.list`, `message.get` |
 | **Turn** | `turn.list`, `turn.get`, `turn.stop` |
 | **RTC** | `rtc.list`, `rtc.get`, `rtc.update_status`, `rtc.submit_result` |
@@ -134,9 +134,40 @@ flowchart TD
 | 能力 | 说明 |
 | --- | --- |
 | **推理循环** | 调用 LLM → 处理响应 → 工具调用 → 继续推理，直到生成最终回复 |
-| **工具调度** | 管理 6 个内置工具（ls / read / write / grep / find / script） |
+| **内置工具** | 文件操作（ls/read/write/grep/find/script）、子代理（sub_agent/list/stop）、用户交互（ask_user）、目标管理（goal）、循环任务（loop）等 |
 | **流式输出** | 实时将 LLM 输出推送到前端 |
+| **错误反馈** | Turn 失败时自动分类错误，生成结构化 ErrorContent 消息推送给前端（详见下文） |
 | **子代理** | 复杂任务自动拆解，多个专业子代理并行工作（详见下文） |
+
+#### 错误反馈 (Error Feedback)
+
+当 Turn 执行失败时，系统自动将错误分类并生成结构化错误消息，前端可渲染为带重试按钮的用户友好提示：
+
+```mermaid
+flowchart LR
+    A["❌ Turn 失败"] --> B["🏷️ 错误分类"]
+    B --> C["📝 生成 ErrorContent"]
+    C --> D["📤 推送到前端"]
+    D --> E["🖥️ 渲染错误 UI<br/>+ 重试按钮"]
+
+    style A fill:#ffcdd2,stroke:#c62828,stroke-width:2px
+    style E fill:#e8f5e9,stroke:#388e3c,stroke-width:2px
+```
+
+| 错误分类 | 说明 | 典型场景 |
+|:--------:|------|----------|
+| `api` | API 调用错误 | 模型返回错误、速率限制 |
+| `context` | 上下文相关 | 上下文超长、压缩失败 |
+| `network` | 网络错误 | 连接超时、DNS 失败 |
+| `permission` | 权限错误 | 认证失败、会话归属不匹配 |
+| `stream` | 流式处理错误 | SSE 中断、stream 解析失败 |
+| `system` | 系统错误 | 内部异常、数据库错误 |
+| `timeout` | 超时错误 | 推理超时、工具执行超时 |
+| `tool` | 工具调用错误 | 工具不存在、参数校验失败 |
+
+> 💡 **限流保护**：每个 session 每小时最多 20 条错误消息，防止错误风暴。`debug.show_raw_errors` 配置可控制是否向前端暴露原始错误详情。
+
+详见 [ErrorContent 协议定义](/docs/protocol/rpc/#errorcontent-错误消息)。
 
 #### 子代理机制
 
@@ -190,9 +221,9 @@ flowchart LR
     style H fill:#fff9c4,stroke:#f9a825,stroke-width:2px
 ```
 
-#### 三层压缩策略
+#### 压缩策略
 
-当对话长度接近 Token 限制时，系统采用三层递进式压缩：
+当对话长度接近 Token 限制时，系统采用递进式压缩：
 
 ```mermaid
 flowchart TD
@@ -204,21 +235,26 @@ flowchart TD
     E -->|是| F[Auto Compact<br/>摘要早期对话]
     F --> G{仍超限？}
     G -->|否| C
-    G -->|是| H[Session Memory Compact<br/>用 Session Memory 替代摘要]
-    H --> C
+    G -->|是| H[Reactive Compact<br/>渐进式多级压缩]
+    H --> I{仍超限？}
+    I -->|否| C
+    I -->|是| J[Session Memory Compact<br/>用 Session Memory 替代摘要]
+    J --> C
 
     style D fill:#e3f2fd,stroke:#1565c0,stroke-width:2px
     style F fill:#fff9c4,stroke:#f9a825,stroke-width:2px
-    style H fill:#f3e5f5,stroke:#7b1fa2,stroke-width:2px
+    style H fill:#ffcdd2,stroke:#c62828,stroke-width:2px
+    style J fill:#f3e5f5,stroke:#7b1fa2,stroke-width:2px
 ```
 
-| 策略 | 触发条件 | 压缩方式 | 保留内容 |
-| --- | --- | --- | --- |
-| **Microcompact** | 工具调用后 | 清理早期工具结果，只保留最近 5 个 | 时间间隔 > 60 分钟的消息 |
-| **Auto Compact** | Token 达到阈值 | LLM 摘要早期对话（9 部分结构化摘要） | 最近 10K token + 5 条消息 |
-| **Session Memory Compact** | Auto Compact 失败 3 次 | 直接用 Session Memory 作为摘要 | Session Memory 的 5 个分类 |
+| 策略 | 触发条件 | 压缩方式 | 成本 |
+| --- | --- | --- | :---: |
+| **Microcompact** | 工具调用后 | 清理早期工具结果，只保留最近 5 个 | 零 |
+| **Auto Compact** | Token 达到阈值 | LLM 摘要早期对话（9 部分结构化摘要） | 一次 LLM 调用 |
+| **Reactive Compact** | Auto Compact 后仍超标 | 渐进式多级压缩（3 级，从零成本到激进裁剪） | 零 ~ 一次 LLM |
+| **Session Memory Compact** | Auto Compact 触发时 | 直接用 Session Memory 作为摘要 | 零 |
 
-> **熔断机制**：如果 Auto Compact 连续失败 3 次，系统会停止自动压缩，避免无限循环消耗 Token。
+> 💡 **性能优化**：Strategic Cache Breakpoints 在消息列表关键位置设置缓存断点，压缩后 LLM prompt cache hit rate 从 0% 提升至 75%，input cost 降低约 69%。
 
 详见 [上下文管理](/docs/features/context-management)。
 
@@ -235,7 +271,7 @@ flowchart TD
     end
 
     SM -->|"当前会话的摘要<br/>每轮注入 5 条"| CTX["上下文"]
-    UM -->|"向量检索 + 关键词检索<br/>混合检索 top 5"| CTX
+    UM -->|"关键词检索 + 重要性加权<br/>top 5"| CTX
 
     style MEMORY fill:#f3e5f5,stroke:#7b1fa2,stroke-width:2px
     style SM fill:#e3f2fd,stroke:#1565c0,stroke-width:2px
@@ -272,7 +308,7 @@ flowchart TD
 - **重要性级别**：low / medium / high / critical
 - **容量**：最多 1000 条
 - **提取方式**：Agent 主动保存
-- **检索方式**：混合检索（向量余弦相似度 top-20 + 关键词全文检索 top-20 → RRF 融合 → 重要性加权 → top 5）
+- **检索方式**：关键词全文检索 + 重要性加权 → top 5
 
 详见 [记忆系统](/docs/features/memory)。
 

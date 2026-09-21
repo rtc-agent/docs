@@ -9,7 +9,7 @@ description: 5 分钟部署 RTC Agent Server 并嵌入前端组件，跑通完�
 
 | 部署方式 | 适用场景 | 依赖 |
 | --- | --- | --- |
-| **Docker 单实例**（推荐） | 快速体验、小规模部署 | Docker |
+| **Docker 部署**（推荐） | 快速体验、完整部署 | Docker |
 | [源码构建](/docs/deployment/source-build/) | 本地开发调试 | Go 1.27, PostgreSQL, Redis |
 | [Docker 分布式集群](/docs/deployment/distributed-deploy/) | 多 Worker 测试、生产验证 | Docker |
 
@@ -29,10 +29,9 @@ description: 5 分钟部署 RTC Agent Server 并嵌入前端组件，跑通完�
 ```bash
 git clone https://github.com/rtc-agent/server.git
 cd server
-cp etc/config.example.yaml etc/config.docker.yaml
 ```
 
-编辑 `etc/config.docker.yaml`，填入你的 LLM API Key：
+编辑 `etc/config.docker.yaml`，确认以下配置正确：
 
 ```yaml
 database:
@@ -44,13 +43,23 @@ redis:
 
 llm:
   provider: "claude"           # 或 "openai"
-  api_key: "${LLM_API_KEY}"   # 通过环境变量注入，启动前 export LLM_API_KEY="your-key"
+  # api_key 通过环境变量 LLM__API_KEY 配置，不在 YAML 中写明文
   model: "claude-sonnet-4-20250514"
 ```
 
-> **Docker 配置加载**：Compose 会将 `etc/config.docker.yaml` 直接挂载为容器内的 `/app/etc/config.yaml`，因此该文件需要是**完整配置**（从 `config.example.yaml` 复制后修改）。
+配置 LLM API Key（环境变量方式）：
+
+```bash
+# 复制 .env 模板
+cp .env.example .env
+
+# 编辑 .env，填入你的 API Key
+echo "LLM__API_KEY=your-api-key-here" >> .env
+```
+
+> 💡 **环境变量命名规则**：大写字母 + 双下划线 `__` 分隔层级，对应 YAML 配置的层级结构。例如 `llm.api_key` → `LLM__API_KEY`。
 >
-> 🔐 **API Key 安全**：`api_key` 支持 `${ENV_VAR}` 形式引用环境变量，避免明文写入配置文件。启动前通过 `export LLM_API_KEY="your-key"` 设置，Docker Compose 会自动传递该变量到容器中。
+> ⚠️ **敏感字段处理**：如果 YAML 配置文件中明确写了某个字段（如 `api_key`），环境变量**不会覆盖**它。因此敏感字段建议不在 YAML 中写明文，而是通过环境变量配置。
 
 ### 2. 启动
 
@@ -62,12 +71,13 @@ Compose 会自动：
 
 1. 启动 PostgreSQL 和 Redis
 2. 运行数据库迁移（init 容器）
-3. 启动 Server 容器（端口 8888）
+3. 启动 2 个 Server 容器 + Nginx 负载均衡 + 可观测性栈
 
 ### 3. 验证
 
 ```bash
-curl http://localhost:8888/healthz
+# 通过 Nginx 负载均衡入口访问
+curl http://localhost:28080/healthz
 # {"status":"ok"}
 ```
 
@@ -89,7 +99,7 @@ Server 跑起来后，在你的网页中添加 `<rtc-agent>` 组件即可获得 
 <rtc-agent theme="dark" app-label="我的 AI 助手"></rtc-agent>
 ```
 
-组件会自动连接当前页面所在域名的 Server（默认 `localhost:8888`）。
+组件会自动连接当前页面所在域名的 Server（默认 `localhost:28080`）。
 
 > 📖 完整的属性、事件、CSS 变量说明见 [Web Component API](/docs/integration/component-api/)。
 
@@ -103,13 +113,13 @@ Server 跑起来后，在你的网页中添加 `<rtc-agent>` 组件即可获得 
 
 ### Docker 分布式集群
 
-2 个 Server 容器 + Nginx 负载均衡 + 完整可观测性栈（Jaeger、Prometheus、Grafana），用于验证多 Worker 分布式能力。
+与上述 Docker 部署使用同一个 `docker-compose.yml`，额外包含分布式行为验证（Session Affinity、RTC Checkpoint）、重启恢复机制等深入说明。
 
 → 详见 [分布式集群部署](/docs/deployment/distributed-deploy/)
 
 ## 配置参考
 
-完整配置项参见 [etc/config.example.yaml](https://github.com/rtc-agent/server/blob/main/etc/config.example.yaml)。
+完整配置项参见 [etc/config.docker.yaml](https://github.com/rtc-agent/server/blob/main/etc/config.docker.yaml)。
 
 ### 必填配置
 
@@ -165,8 +175,8 @@ llm:
 **`curl healthz` 无响应？**
 
 - Docker 部署：检查容器状态 `docker compose ps`，确认所有容器为 `healthy`
-- 查看 Server 日志：`docker compose logs server`
-- 确认端口 8888 未被占用：`lsof -i :8888`
+- 查看 Server 日志：`docker compose logs server-1 server-2`
+- 确认端口 28080 未被占用：`lsof -i :28080`
 
 **LLM 调用报错？**
 

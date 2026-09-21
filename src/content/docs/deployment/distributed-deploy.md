@@ -66,15 +66,39 @@ flowchart TB
 | Alertmanager | 29093 | 告警路由 |
 | Mock OAuth2 | 20060 | 开发用 OAuth2 |
 
-> **端口设计**：所有端口与开发环境（15432/16379/80）不冲突，可同时运行。
+> **端口设计**：所有端口使用 2xxxx 段，避免与本地常用服务端口冲突。
 
 ## 1. 准备配置
 
+### 环境变量
+
+复制 `.env.example` 模板并填入实际值：
+
 ```bash
-cp etc/config.example.yaml etc/config.docker-full.yaml
+cp .env.example .env
 ```
 
-编辑 `etc/config.docker-full.yaml`：
+编辑 `.env`，填入你的 LLM API Key：
+
+```bash
+LLM__API_KEY=your-api-key-here
+```
+
+> 💡 **环境变量命名规则**：大写字母 + 双下划线 `__` 分隔层级，对应 YAML 配置的层级结构。例如 `llm.api_key` → `LLM__API_KEY`，`database.dsn` → `DATABASE__DSN`。这种映射由 Viper 的 `SetEnvKeyReplacer(".", "__")` 实现。
+
+**配置优先级**（从高到低）：
+
+| 优先级 | 来源 | 说明 |
+|:------:|------|------|
+| 1 | 配置文件 | `etc/config.yaml` 或 `--config` 指定的文件 |
+| 2 | 环境变量 | 如 `LLM__API_KEY` |
+| 3 | 默认值 | 代码中 `SetDefault` 设置 |
+
+> ⚠️ **敏感字段处理**：如果 YAML 配置文件中明确写了某个字段（如 `api_key`），环境变量**不会覆盖**它。因此敏感字段建议不在 YAML 中写明文，而是通过环境变量配置。
+
+### YAML 配置
+
+编辑 `etc/config.docker.yaml`（docker-compose.yml 会自动挂载此文件）：
 
 ```yaml
 database:
@@ -96,7 +120,7 @@ providers:
 
 llm:
   provider: "claude"
-  api_key: "${LLM_API_KEY}"   # 通过环境变量注入，启动前 export LLM_API_KEY="your-key"
+  # api_key 通过环境变量 LLM__API_KEY 配置，不在 YAML 中写明文
   model: "claude-sonnet-4-20250514"
 ```
 
@@ -105,7 +129,7 @@ llm:
 ## 2. 启动
 
 ```bash
-docker compose -f docker-compose.full.yml up -d
+docker compose up -d
 ```
 
 启动顺序：PostgreSQL/Redis → migrate（一次性容器）→ Server-1 & Server-2 → Nginx
@@ -118,7 +142,7 @@ curl http://localhost:28080/healthz
 # {"status":"ok"}
 
 # 查看容器状态 — 所有容器应为 healthy/running
-docker compose -f docker-compose.full.yml ps
+docker compose ps
 
 # Jaeger 追踪面板
 open http://localhost:26686
@@ -135,8 +159,8 @@ open http://localhost:26686
 ## 5. 停止 & 清理
 
 ```bash
-docker compose -f docker-compose.full.yml down      # 停止容器
-docker compose -f docker-compose.full.yml down -v   # 同时删除数据卷
+docker compose down      # 停止容器
+docker compose down -v   # 同时删除数据卷
 ```
 
 ## 6. 重启恢复机制

@@ -9,16 +9,20 @@ description: RTC Agent 的三层压缩机制——从工具结果清理到全量
 
 ```mermaid
 flowchart TD
-    subgraph LAYERS["📦 三层压缩机制"]
+    subgraph LAYERS["📦 压缩机制"]
         direction TB
-        L1["🔹 Layer 1: Microcompact<br/>工具结果清理"]
-        L2["🔸 Layer 2: Auto Compact<br/>自动摘要压缩"]
-        L3["🔹 Layer 3: Session Memory Compact<br/>会话记忆压缩"]
+        L0["🔹 Manual Compact<br/>用户手动触发"]
+        L1["🔸 Microcompact<br/>工具结果清理"]
+        L2["🔹 Auto Compact<br/>自动摘要压缩"]
+        L3["🔸 Reactive Compact<br/>渐进式紧急压缩"]
+        L4["🔹 Session Memory Compact<br/>会话记忆压缩"]
     end
 
+    L0 -->|"用户指令"| COMPACT["🗜️ 强制压缩"]
     L1 -->|"空间不足"| L2
-    L2 -->|"有 Session Memory"| L3
+    L2 -->|"有 Session Memory"| L4
     L2 -->|"无 Session Memory"| L2B["🧠 调用 LLM 生成摘要"]
+    L2 -->|"token 持续超标"| L3
 
     subgraph SCOPE["压缩粒度"]
         direction LR
@@ -29,20 +33,44 @@ flowchart TD
 
     L1 --> S1
     L2 --> S2
-    L3 --> S3
+    L4 --> S3
 
     style LAYERS fill:#e8eaf6,stroke:#3f51b5,stroke-width:2px
     style SCOPE fill:#f5f5f5,stroke:#9e9e9e,stroke-width:1px
+    style L0 fill:#f3e5f5,stroke:#7b1fa2,stroke-width:2px
     style L1 fill:#e3f2fd,stroke:#1565c0,stroke-width:2px
     style L2 fill:#fff9c4,stroke:#f9a825,stroke-width:2px
-    style L3 fill:#e8f5e9,stroke:#388e3c,stroke-width:2px
+    style L3 fill:#ffcdd2,stroke:#c62828,stroke-width:2px
+    style L4 fill:#e8f5e9,stroke:#388e3c,stroke-width:2px
 ```
 
 | 层级 | 名称 | 触发条件 | 压缩粒度 | 成本 |
 |:----:|------|----------|----------|:----:|
+| 0 | Manual Compact | 用户发送 `/compact` 命令 | 全量 → 摘要 | 一次 LLM 调用 |
 | 1 | Microcompact | 时间间隔 | 单个工具结果 | 零 |
 | 2 | Auto Compact | token 达到阈值 | 一批消息 → 摘要 | 一次 LLM 调用 |
-| 3 | Session Memory Compact | Auto Compact 触发时 | 会话记忆 → 摘要 | 零 |
+| 3 | Reactive Compact | Auto Compact 后仍超标 | 渐进式多级压缩 | 零 ~ 一次 LLM |
+| 4 | Session Memory Compact | Auto Compact 触发时 | 会话记忆 → 摘要 | 零 |
+
+## 手动压缩 (Manual Compact)
+
+用户可通过 `/compact` 命令手动触发上下文压缩，适用于主动清理上下文或调整摘要方向。
+
+**RPC**：`v1.session.compact`
+
+```json
+{
+  "session_id": "uuid",
+  "custom_instruction": "重点保留 API 设计决策和代码片段"
+}
+```
+
+| 参数 | 说明 |
+|------|------|
+| `session_id` | 目标会话 ID |
+| `custom_instruction` | 可选，自定义摘要指令，覆盖默认压缩提示词 |
+
+> 💡 手动压缩使用 `force` 模式，绕过 token 阈值检查，即使上下文未超标也会执行压缩。压缩 LLM 调用禁用 thinking/reasoning 以节省 token。
 
 ## Microcompact — 工具结果清理
 
@@ -172,6 +200,72 @@ flowchart TD
 ```
 
 这正是记忆系统与上下文管理的 **交汇点**——对话过程中持续积累的 Session Memory，在压缩时直接变成高质量摘要，无需额外调用 LLM。
+
+## Reactive Compact — 渐进式紧急压缩
+
+当 Auto Compact 执行后 token 数仍然超标时，系统启动 **Reactive Compact**——一套渐进式的多级压缩策略，在不增加 LLM 成本的前提下尽可能释放空间。
+
+```mermaid
+flowchart LR
+    A["📏 Auto Compact 后<br/>token 仍超标"] --> L1["Level 1<br/>轻量压缩"]
+    L1 -->|"仍超标"| L2["Level 2<br/>中度压缩"]
+    L2 -->|"仍超标"| L3["Level 3<br/>激进压缩"]
+
+    style A fill:#fff9c4,stroke:#f9a825,stroke-width:2px
+    style L1 fill:#e3f2fd,stroke:#1565c0,stroke-width:2px
+    style L2 fill:#ffcc80,stroke:#ef6c00,stroke-width:2px
+    style L3 fill:#ffcdd2,stroke:#c62828,stroke-width:2px
+```
+
+| 级别 | 策略 | 说明 |
+|:----:|------|------|
+| Level 1 | 轻量压缩 | 更激进的工具结果清理 + 减少消息保留量 |
+| Level 2 | 中度压缩 | 进一步裁剪消息 + 更短的附件注入 |
+| Level 3 | 激进压缩 | aggressive microcompact + 最小 retention 配置 |
+
+> 💡 Reactive Compact 跨进程重启仍然有效——即使 Server 重启，系统会检测当前 token 状态并继续执行需要的压缩级别。
+
+## 工具结果预算
+
+单个工具输出被限制在 **10K tokens** 以内，防止个别工具结果独占上下文窗口：
+
+| 策略 | 比例 | 说明 |
+|------|:----:|------|
+| 头部保留 | 60% | 保留输出的前 6,000 tokens |
+| 尾部保留 | 20% | 保留输出的后 2,000 tokens |
+| 中间截断 | 20% | 中间部分替换为 `[...truncated...]` |
+
+截断使用 **UTF-8 安全** 算法，确保不会在字符中间截断。
+
+## Strategic Cache Breakpoints
+
+在消息列表的关键位置设置 **缓存断点**，使得压缩后 LLM 的 prompt cache 仍能保持高命中率：
+
+```mermaid
+flowchart TD
+    subgraph MESSAGES["📝 消息列表"]
+        direction TB
+        BP1["🔵 Breakpoint 1<br/>Summary（1h TTL）"]
+        M1["...历史消息..."]
+        BP2["🟢 Breakpoint 2<br/>最近消息（5m TTL）"]
+        M2["...最近消息..."]
+    end
+
+    style BP1 fill:#e3f2fd,stroke:#1565c0,stroke-width:2px
+    style BP2 fill:#e8f5e9,stroke:#388e3c,stroke-width:2px
+```
+
+| 断点 | 位置 | TTL | 说明 |
+|:----:|------|:---:|------|
+| BP1 | Summary 消息后 | 1h | 压缩后的摘要很少变化，长 TTL |
+| BP2 | 最近消息后 | 5m | 活跃区域，短 TTL 保证新鲜度 |
+
+| 效果 | 数据 |
+|------|------|
+| Cache hit rate | 0% → **75%**（microcompact 后） |
+| Input cost 降低 | 约 **69%** |
+
+> 💡 通过 `worker.enable_strategic_cache_breakpoints` 配置（默认 `true`）。该功能与 Anthropic 的 prompt caching 机制配合，在上下文压缩后仍能复用之前的缓存。
 
 ## 压缩后的上下文恢复
 
