@@ -49,12 +49,9 @@ export default defineConfig({
 							.map(([path, p]) => ({ path, title: p.title, description: p.description }));
 					};
 
-					const getPageMarkdown = async ({ path, silent = false } = {}) => {
+					const getPageMarkdown = async ({ path } = {}) => {
 						if (!path || typeof path !== 'string') return null;
 						const page = (await loadIndex())[path] || null;
-						if (!silent && page) {
-							await navigateTo({ path });
-						}
 						return page;
 					};
 
@@ -100,10 +97,10 @@ export default defineConfig({
 							const docList = Object.entries(idx).map(([path, p]) => "- '" + path + "': " + p.title).join('\\n');
 							agent.agentConfig = {
 								name: 'DocsAssistant', description: 'RTC Agent Documentation Assistant',
-								persona: 'You are a patient and proactive RTC Agent documentation teacher. Your goal is to guide users through learning RTC Agent, not just answer questions.\\n\\nTeaching approach:\\n- Guide users through learning paths, suggest related topics after answering\\n- When explaining a concept, use getPageMarkdown({ path, silent: false }) to navigate to relevant docs so users can see full context\\n- Use getCurrentPageInfo to understand what the user is currently viewing and provide contextual guidance\\n- Break complex topics into digestible steps with examples\\n- Ask clarifying questions to understand the user\\'s goal before diving deep\\n- Start with \"why\" before \"how\" - explain purpose before implementation\\n\\nAvailable documentation pages:\\n' + docList,
+								persona: 'You are a patient and proactive RTC Agent documentation teacher. Your goal is to guide users through learning RTC Agent, not just answer questions.\\n\\nTeaching approach:\\n- Guide users through learning paths, suggest related topics after answering\\n- When explaining a concept, use getPageMarkdown({ path }) to navigate to relevant docs so users can see full context\\n- Use getCurrentPageInfo to understand what the user is currently viewing and provide contextual guidance\\n- Break complex topics into digestible steps with examples\\n- Ask clarifying questions to understand the user\\'s goal before diving deep\\n- Start with \"why\" before \"how\" - explain purpose before implementation\\n\\nAvailable documentation pages:\\n' + docList,
 								groups: [{ name: 'docs', description: 'Documentation functions', functions: [
 									{ name: 'searchDocs', description: 'Search documentation by keywords. Parameter: query (string) - search keywords, space-separated for multiple terms', parameters: [{ name: 'query', schema: { type: 'string' } }], returns: { schema: { type: 'array', items: { type: 'object', properties: { path: { type: 'string' }, title: { type: 'string' }, description: { type: 'string' } } } } }, handler: searchDocs },
-									{ name: 'getPageMarkdown', description: 'Get full Markdown content of a documentation page and optionally navigate to it. Parameters: path (string) - the page path from the documentation index, e.g. /introduction/ or /getting-started/; silent (boolean, optional) - if true, skip page navigation (default: false)', parameters: [{ name: 'path', schema: { type: 'string' } }, { name: 'silent', schema: { type: 'boolean' } }], returns: { schema: { type: 'object' } }, handler: getPageMarkdown },
+									{ name: 'getPageMarkdown', description: 'Get full Markdown content of a documentation page and optionally navigate to it. Parameters: path (string) - the page path from the documentation index, e.g. /introduction/ or /getting-started/;', parameters: [{ name: 'path', schema: { type: 'string' } }], returns: { schema: { type: 'object' } }, handler: getPageMarkdown },
 									{ name: 'listPages', description: 'List pages in a documentation section. Parameter: section (string) - the section name from the path, e.g. "getting-started" for /getting-started/ pages, or empty to list all', parameters: [{ name: 'section', schema: { type: 'string' } }], returns: { schema: { type: 'array', items: { type: 'object', properties: { path: { type: 'string' }, title: { type: 'string' } } } } }, handler: listPages },
 									{ name: 'navigateTo', description: 'Navigate the browser to a documentation page. Parameter: path (string) - the page path, e.g. /introduction/', parameters: [{ name: 'path', schema: { type: 'string' } }], returns: { schema: { type: 'object' } }, handler: navigateTo },
 									{ name: 'getCurrentPageInfo', description: 'Get information about the current documentation page being viewed. No parameters required.', parameters: [], returns: { schema: { type: 'object' } }, handler: getCurrentPageInfo },
