@@ -216,7 +216,7 @@ components:
 
     ContentType:
       type: string
-      enum: [ markdown, summary, text, thinking, toolcall_input, toolcall_output, user_message, error ]
+      enum: [ markdown, summary, text, thinking, toolcall_input, toolcall_output, user_message, error, prompt ]
       x-enum-varnames:
         - ContentTypeMarkdown
         - ContentTypeSummary
@@ -226,6 +226,7 @@ components:
         - ContentTypeToolCallOutput
         - ContentTypeUserMessage
         - ContentTypeError
+        - ContentTypePrompt
 
     ErrorCategory:
       type: string
@@ -510,6 +511,7 @@ components:
         - `toolcall_output`: Data 为 ToolCall 对象
         - `user_message`: Data 为 UserMessageContent 对象
         - `error`: Data 为 ErrorContent 对象
+        - `prompt`: Data 为 PromptContent 对象
       properties:
         type:
           $ref: '#/components/schemas/ContentType'
@@ -535,6 +537,25 @@ components:
           items:
             $ref: '#/components/schemas/ScenarioRef'
       required: [text]
+
+    PromptContent:
+      type: object
+      description: 系统提示词内容（用于持久化系统级指令）
+      properties:
+        name:
+          type: string
+          description: 提示词名称/命令名（如 "goal", "loop", "scenarios"）
+        title:
+          type: string
+          description: 提示词标题（可为空，用于前端显示）
+        prompt:
+          type: string
+          description: 提示词完整内容
+        role:
+          type: string
+          description: 覆盖 message role，控制 LLM 上下文注入角色。缺省为 "system"，可设为 "user"（连续 user messages 会被合并）
+          enum: ["system", "user"]
+      required: [name, prompt]
 
     FileAttachment:
       type: object
@@ -1010,7 +1031,9 @@ components:
           type: boolean
           description: 是否执行成功
         result:
-          description: 执行结果（成功时）
+          type: string
+          format: json
+          description: 执行结果（成功时）。保留原始 JSON 字段顺序，确保 LLM 缓存命中。
         error:
           type: string
           description: 错误信息（失败时）

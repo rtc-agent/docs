@@ -204,7 +204,14 @@ export default defineConfig({
 					label: 'Operations',
 					translations: { 'zh-CN': '运维' },
 					items: [
+						{ label: 'Cache Analyzer', link: '/operations/cache-analyzer/', translations: { 'zh-CN': 'LLM 缓存分析工具' } },
+						{ label: 'Common Query Patterns', link: '/operations/common-query-patterns/', translations: { 'zh-CN': '通用日志查询模式' } },
 						{ label: 'Script Observability', link: '/operations/script-observability/', translations: { 'zh-CN': 'Script 可观测性' } },
+						{ label: 'Session Logs', link: '/operations/session-logs/', translations: { 'zh-CN': '会话生命周期日志' } },
+						{ label: 'RTC & Turn Logs', link: '/operations/rtc-turn-logs/', translations: { 'zh-CN': 'RTC 与 Turn 执行日志' } },
+						{ label: 'Agent & LLM Observability', link: '/operations/agent-llm-observability/', translations: { 'zh-CN': 'Agent 与 LLM 可观测性' } },
+						{ label: 'Realtime Connection Logs', link: '/operations/realtime-connection-logs/', translations: { 'zh-CN': '实时通信日志' } },
+						{ label: 'Recovery & Workflow Logs', link: '/operations/recovery-workflow-logs/', translations: { 'zh-CN': '错误恢复与工作流日志' } },
 					],
 				},
 				{
