@@ -368,10 +368,13 @@ flowchart TD
 
 | Field | Type | Description |
 |-------|------|-------------|
+| `current_context_tokens` | int64 | Actual current context token count (written back by server cumulativeTokenCounter, updated with real value after compression) |
 | `estimated_next_round_tokens` | int64 | EWMA-based prediction for next round tokens |
-| `compression_progress` | float64 | Compression progress (0-100), computed in real-time |
-| `compression_threshold` | int64 | Compression trigger threshold |
+| `compression_progress` | float64 | Compression progress (0-100), computed from `current_context_tokens` and `compression_threshold` |
+| `compression_threshold` | int64 | Compression trigger threshold (contextTokensLimit - autoCompactBufferTokens) |
 | `rounds_until_compression` | int | Rounds until compression (-1 means threshold exceeded) |
+
+> 💡 `current_context_tokens` replaces the old `total_tokens` as the baseline for compression progress display. After compression completes, this value is written back with the actual post-compression context size. For older sessions where this field is not yet initialized, the frontend falls back to `total_tokens`.
 
 ### Cost Calculation
 

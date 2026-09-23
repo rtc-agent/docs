@@ -284,6 +284,8 @@ Prometheus metrics endpoint exposing runtime metrics for monitoring systems (Pro
 
 **Response**: Prometheus metrics in `text/plain` format.
 
+**Authentication**: Optional Basic Auth. Enabled via the `metrics.user` and `metrics.password` configuration options. Production deployments should configure authentication; the server logs a warning when the endpoint is unprotected.
+
 ---
 
 ## Business Endpoints

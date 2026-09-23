@@ -284,6 +284,8 @@ Prometheus 指标端点，暴露服务运行指标，供监控系统（Prometheu
 
 **响应**：`text/plain` 格式的 Prometheus 指标。
 
+**认证**：可选 Basic Auth。通过 `metrics.user` 和 `metrics.password` 配置项启用。生产环境建议配置认证，未配置时服务端会输出告警日志。
+
 ---
 
 ## 业务端点
