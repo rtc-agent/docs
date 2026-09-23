@@ -85,6 +85,8 @@ The RTC protocol defines **6 built-in tools** covering file system operations an
 
 These 6 tools give the AI a **complete file operation interface** — operating on the frontend virtual file system just like working with a local terminal.
 
+> 💡 In addition to the file tools above, `askUser` (prompt the user with questions) is also implemented over the RTC protocol — the server pauses the Turn, waits for the frontend to submit the user's choice, then resumes reasoning. See [LLM Built-in Tools](/docs/en/features/llm-tools/) for details.
+
 ## State Machine
 
 Each RTC call has a well-defined lifecycle state:
