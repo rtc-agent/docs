@@ -242,13 +242,41 @@ flowchart TD
 
 ### GET /readyz
 
-就绪检查端点，用于 Kubernetes readiness probe。仅当服务完全启动并可接收请求时返回 200。
+就绪检查端点，用于 Kubernetes readiness probe。仅当服务完全启动并可接收请求时返回 200。会检查数据库、Redis 和 Centrifuge 的连接状态。
 
-**响应**：
+**响应**（服务就绪时）：
 
 ```json
-{"status": "ok"}
+{
+  "status": "ready",
+  "checks": {
+    "db": "ok",
+    "redis": "ok",
+    "centrifuge": "ok"
+  }
+}
 ```
+
+**响应**（服务未就绪时，HTTP 503）：
+
+```json
+{
+  "status": "not ready",
+  "checks": {
+    "db": "ok",
+    "redis": "error",
+    "centrifuge": "not configured"
+  }
+}
+```
+
+| 字段                | 类型   | 说明                                                       |
+| ------------------- | ------ | ---------------------------------------------------------- |
+| `status`            | string | 整体状态：`"ready"` 或 `"not ready"`                       |
+| `checks`            | object | 各依赖组件的检查结果                                       |
+| `checks.db`         | string | 数据库连接状态：`"ok"` 或 `"error"`                        |
+| `checks.redis`      | string | Redis 连接状态：`"ok"` 或 `"error"`                        |
+| `checks.centrifuge` | string | Centrifuge 状态：`"ok"`、`"error"` 或 `"not configured"`   |
 
 ### GET /metrics
 

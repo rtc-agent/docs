@@ -42,11 +42,11 @@ flowchart LR
 在你的网页中添加以下代码：
 
 ```html
-<script type="module" src="https://cdn.example.com/rtc-agent/index.js"></script>
+<script type="module" src="https://cdn.jsdelivr.net/npm/@rtc-agent/component@0.2.2/dist/index.js"></script>
 <rtc-agent server-url="https://your-rtc-server.com"></rtc-agent>
 ```
 
-> 💡 将 `cdn.example.com` 替换为你实际使用的 CDN 地址，`your-rtc-server.com` 替换为 RTC Agent Server 地址。
+> 💡 将 `your-rtc-server.com` 替换为实际的 RTC Agent Server 地址。如需使用最新版本，可将 `@0.2.2` 替换为最新版本号或移除版本号以使用最新版。
 
 ## 跨域 SharedWorker 处理
 
@@ -102,7 +102,7 @@ Access-Control-Allow-Origin: *
 使用 `curl` 检查 CDN 是否正确返回 CORS 头：
 
 ```bash
-curl -I https://cdn.example.com/rtc-agent/assets/shared-worker-xxx.js
+curl -I https://cdn.jsdelivr.net/npm/@rtc-agent/component@0.2.2/dist/assets/shared-worker-xxx.js
 # 应包含: Access-Control-Allow-Origin: *
 ```
 

@@ -242,13 +242,41 @@ Health check endpoint for load balancer and Kubernetes liveness probes.
 
 ### GET /readyz
 
-Readiness check endpoint for Kubernetes readiness probes. Returns 200 only when the server is fully started and ready to accept requests.
+Readiness check endpoint for Kubernetes readiness probes. Returns 200 only when the server is fully started and ready to accept requests. Checks database, Redis, and Centrifuge connection status.
 
-**Response**:
+**Response** (when ready):
 
 ```json
-{"status": "ok"}
+{
+  "status": "ready",
+  "checks": {
+    "db": "ok",
+    "redis": "ok",
+    "centrifuge": "ok"
+  }
+}
 ```
+
+**Response** (when not ready, HTTP 503):
+
+```json
+{
+  "status": "not ready",
+  "checks": {
+    "db": "ok",
+    "redis": "error",
+    "centrifuge": "not configured"
+  }
+}
+```
+
+| Field               | Type   | Description                                                |
+| ------------------- | ------ | ---------------------------------------------------------- |
+| `status`            | string | Overall status: `"ready"` or `"not ready"`                 |
+| `checks`            | object | Check results for each dependency component                |
+| `checks.db`         | string | Database connection status: `"ok"` or `"error"`            |
+| `checks.redis`      | string | Redis connection status: `"ok"` or `"error"`               |
+| `checks.centrifuge` | string | Centrifuge status: `"ok"`, `"error"`, or `"not configured"`|
 
 ### GET /metrics
 
