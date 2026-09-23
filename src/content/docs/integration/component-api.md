@@ -467,48 +467,34 @@ export class MyComponent extends LitElement {
 1. **替换 SVG 文件**：修改 `src/assets/logo.svg` 和 `src/assets/logo-dark.svg`
 2. **使用自定义渲染**：在组件中直接渲染自定义 Logo
 
-## 连接重试
+## 连接与重试
 
-RTC Agent 内置智能连接重试机制，在网络不稳定时自动尝试重新连接。
+RTC Agent 在组件初始化时自动尝试建立连接。连接状态通过内部状态机管理，前端实时反映连接进展。
 
-### 重试策略
-
-系统采用**两层线性退避重试**：
+### 连接流程
 
 ```mermaid
 flowchart TD
-    A["🔌 开始连接"] --> B{"第 1 次尝试"}
-    B -->|"失败"| C["等待 2s"]
-    C --> D{"第 2 次尝试"}
-    D -->|"失败"| E["等待 4s"]
-    E --> F{"第 3 次尝试"}
-    F -->|"失败"| G["❌ 连接失败<br/>显示重试按钮"]
-    F -->|"成功"| H["✅ 连接成功"]
-    B -->|"成功"| H
-    D -->|"成功"| H
+    A["🔌 组件初始化"] --> B["📡 尝试连接"]
+    B --> C{"连接结果？"}
+    C -->|"✅ 成功"| D["✅ 连接成功"]
+    C -->|"❌ 失败"| E["❌ 连接失败<br/>显示重试按钮"]
 
-    style G fill:#ffcdd2,stroke:#c62828,stroke-width:2px
-    style H fill:#c8e6c9,stroke:#2e7d32,stroke-width:2px
+    style D fill:#c8e6c9,stroke:#2e7d32,stroke-width:2px
+    style E fill:#ffcdd2,stroke:#c62828,stroke-width:2px
 ```
 
-**重试参数**：
-
-| 参数 | 值 | 说明 |
-|:----:|:--:|:----:|
-| 最大重试次数 | 3 次 | 总共尝试 3 次连接 |
-| 第 1 次延迟 | 0s | 立即重试 |
-| 第 2 次延迟 | 2s | 线性退避 |
-| 第 3 次延迟 | 4s | 线性退避 |
+> 💡 **设计原则**：连接失败不会自动重试，而是将控制权交给用户。用户可以检查网络状况后手动触发重连，避免在网络故障时重复尝试消耗资源。
 
 ### 手动重连
 
 连接失败时，用户可以通过以下方式手动重连：
 
-**方式 1：点击标题栏重试按钮**
+#### 方式一：点击标题栏重试按钮
 
 连接失败后，标题栏会显示红色重试按钮，点击即可触发重连。
 
-**方式 2：调用 reconnect() 方法**
+#### 方式二：调用 reconnect() 方法
 
 ```ts
 const agent = document.querySelector('rtc-agent');
@@ -517,25 +503,28 @@ const agent = document.querySelector('rtc-agent');
 await agent.reconnect();
 ```
 
-### 连接状态
+### 连接状态查询
 
-通过 `connectionState` 属性可以获取当前连接状态：
+通过以下只读属性可以获取连接状态信息：
 
-| 状态 | 说明 |
-|:----:|:----:|
-| `disconnected` | 未连接 |
-| `connecting` | 正在连接 |
-| `connected` | 已连接 |
-| `reconnecting` | 正在重新连接 |
+| 属性 | 类型 | 说明 |
+|:-----|:-----|:-----|
+| `connectionFailed` | `boolean` | 连接是否失败 |
+| `connectionError` | `string` | 连接失败时的错误信息 |
 
 ```ts
-// 监听连接状态变化
+// 检查连接状态
 agent.addEventListener('rtc-agent-ready', () => {
-  console.log('Connection state:', agent.connectionState);
   console.log('Connection failed:', agent.connectionFailed);
   console.log('Connection error:', agent.connectionError);
+
+  if (agent.connectionFailed) {
+    console.error('连接失败:', agent.connectionError);
+  }
 });
 ```
+
+> **注意**：连接状态的详细信息（如 `disconnected`、`connecting`、`connected`、`reconnecting`）由组件内部管理，不对外暴露。外部只能通过 `connectionFailed` 和 `connectionError` 判断连接是否成功。
 
 ### 标题栏状态显示
 

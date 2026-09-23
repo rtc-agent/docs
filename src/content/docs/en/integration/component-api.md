@@ -467,48 +467,34 @@ To replace the brand logo, you can:
 1. **Replace SVG files**: Modify `src/assets/logo.svg` and `src/assets/logo-dark.svg`
 2. **Use custom rendering**: Render your own logo directly in components
 
-## Connection Retry
+## Connection & Retry
 
-RTC Agent includes a smart connection retry mechanism that automatically attempts to reconnect when the network is unstable.
+RTC Agent automatically attempts to establish a connection when the component initializes. Connection state is managed through an internal state machine, with the frontend reflecting connection progress in real-time.
 
-### Retry Strategy
-
-The system uses **two-layer linear backoff retry**:
+### Connection Flow
 
 ```mermaid
 flowchart TD
-    A["🔌 Start connection"] --> B{"Attempt 1"}
-    B -->|"Failed"| C["Wait 2s"]
-    C --> D{"Attempt 2"}
-    D -->|"Failed"| E["Wait 4s"]
-    E --> F{"Attempt 3"}
-    F -->|"Failed"| G["❌ Connection failed<br/>Show retry button"]
-    F -->|"Success"| H["✅ Connected"]
-    B -->|"Success"| H
-    D -->|"Success"| H
+    A["🔌 Component initialization"] --> B["📡 Attempt connection"]
+    B --> C{"Connection result?"}
+    C -->|"✅ Success"| D["✅ Connected"]
+    C -->|"❌ Failed"| E["❌ Connection failed<br/>Show retry button"]
 
-    style G fill:#ffcdd2,stroke:#c62828,stroke-width:2px
-    style H fill:#c8e6c9,stroke:#2e7d32,stroke-width:2px
+    style D fill:#c8e6c9,stroke:#2e7d32,stroke-width:2px
+    style E fill:#ffcdd2,stroke:#c62828,stroke-width:2px
 ```
 
-**Retry Parameters**:
-
-| Parameter | Value | Description |
-|:---------:|:-----:|:-----------:|
-| Max retries | 3 | Total of 3 connection attempts |
-| 1st delay | 0s | Immediate retry |
-| 2nd delay | 2s | Linear backoff |
-| 3rd delay | 4s | Linear backoff |
+> **Design Principle**: Connection failures do not trigger automatic retries. Instead, control is handed to the user, who can check network conditions before manually triggering a reconnection. This avoids wasting resources on repeated attempts during network outages.
 
 ### Manual Reconnection
 
 When connection fails, users can manually reconnect in the following ways:
 
-**Method 1: Click the title bar retry button**
+#### Method 1: Click the title bar retry button
 
 After connection fails, a red retry button appears in the title bar. Click to trigger reconnection.
 
-**Method 2: Call the reconnect() method**
+#### Method 2: Call the reconnect() method
 
 ```ts
 const agent = document.querySelector('rtc-agent');
@@ -517,25 +503,28 @@ const agent = document.querySelector('rtc-agent');
 await agent.reconnect();
 ```
 
-### Connection State
+### Connection State Query
 
-You can get the current connection state through the `connectionState` property:
+Connection state can be queried through the following read-only properties:
 
-| State | Description |
-|:-----:|:-----------:|
-| `disconnected` | Not connected |
-| `connecting` | Connecting |
-| `connected` | Connected |
-| `reconnecting` | Reconnecting |
+| Property | Type | Description |
+|:---------|:-----|:------------|
+| `connectionFailed` | `boolean` | Whether connection has failed |
+| `connectionError` | `string` | Error message when connection failed |
 
 ```ts
-// Listen for connection state changes
+// Check connection state
 agent.addEventListener('rtc-agent-ready', () => {
-  console.log('Connection state:', agent.connectionState);
   console.log('Connection failed:', agent.connectionFailed);
   console.log('Connection error:', agent.connectionError);
+
+  if (agent.connectionFailed) {
+    console.error('Connection failed:', agent.connectionError);
+  }
 });
 ```
+
+> **Note**: Detailed connection states (`disconnected`, `connecting`, `connected`, `reconnecting`) are managed internally by the component and not exposed externally. External code can only determine connection success via `connectionFailed` and `connectionError`.
 
 ### Title Bar Status Display
 
