@@ -46,7 +46,7 @@ flowchart TD
 | ℹ️ System Message | System notifications | Plain text |
 
 > **MessageRole** has 4 types: `user`, `assistant`, `system`, `tool`
-> **ContentType** has 7 types: `text`, `markdown`, `summary`, `thinking`, `toolcall_input`, `toolcall_output`, `user_message`
+> **ContentType** has 8 types: `text`, `markdown`, `summary`, `thinking`, `toolcall_input`, `toolcall_output`, `user_message`, `error`
 
 ## Message Sending Flow
 

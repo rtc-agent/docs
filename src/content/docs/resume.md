@@ -72,7 +72,7 @@ description: 自由职业 · AI Agent 基础设施设计与实现 · 全栈开�
 
 ### 协议与系统设计
 
-三层协议架构：认证层 (OAuth2/HTTP) → 操作层 (WebSocket RPC, 16 个方法) → 事件层 (双通道 Pub/Sub)。
+三层协议架构：认证层 (OAuth2/HTTP) → 操作层 (WebSocket RPC, 17 个方法) → 事件层 (双通道 Pub/Sub)。
 
 分布式部署方案：Nginx 负载均衡 + 有状态/无状态服务分离。
 

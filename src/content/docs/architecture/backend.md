@@ -134,7 +134,7 @@ flowchart TD
 | 能力 | 说明 |
 | --- | --- |
 | **推理循环** | 调用 LLM → 处理响应 → 工具调用 → 继续推理，直到生成最终回复 |
-| **内置工具** | 文件操作（ls/read/write/grep/find/script）、子代理（sub_agent/list/stop）、用户交互（ask_user）、目标管理（goal）、循环任务（loop）等 |
+| **内置工具** | 文件操作（ls/read/write/grep/find/script）、子代理（subAgent/listSubAgent/stopSubAgent）、用户交互（askUser）、目标管理（goal）、循环任务（loop）等 |
 | **流式输出** | 实时将 LLM 输出推送到前端 |
 | **错误反馈** | Turn 失败时自动分类错误，生成结构化 ErrorContent 消息推送给前端（详见下文） |
 | **子代理** | 复杂任务自动拆解，多个专业子代理并行工作（详见下文） |

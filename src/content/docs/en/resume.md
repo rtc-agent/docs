@@ -72,7 +72,7 @@ If you're also looking for a full-stack engineer who can **independently deliver
 
 ### Protocol & System Design
 
-Three-layer protocol architecture: authentication layer (OAuth2/HTTP) → operation layer (WebSocket RPC, 16 methods) → event layer (dual-channel Pub/Sub).
+Three-layer protocol architecture: authentication layer (OAuth2/HTTP) → operation layer (WebSocket RPC, 17 methods) → event layer (dual-channel Pub/Sub).
 
 Distributed deployment solution: Nginx load balancing + stateful/stateless service separation.
 

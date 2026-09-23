@@ -10,7 +10,7 @@ flowchart TD
     subgraph PROTOCOL["📡 RTC Agent Protocol"]
         direction TB
         HTTP["🔐 HTTP API<br/>OAuth2 Auth"]
-        RPC["💬 WebSocket RPC<br/>16 Methods"]
+        RPC["💬 WebSocket RPC<br/>17 Methods"]
         EVT["📢 Real-Time Events<br/>Dual-Channel Push"]
     end
 
@@ -34,7 +34,7 @@ flowchart TD
 | Layer | Protocol | Purpose | Features |
 |:--:|:----:|------|------|
 | 🔐 **Auth Layer** | HTTPS | OAuth2 authorization code flow | Standard HTTP, compatible with all OAuth2 Providers |
-| 💬 **Operation Layer** | WebSocket RPC | Session, Message, Turn, RTC operations | 16 methods, divided into Action and Query types |
+| 💬 **Operation Layer** | WebSocket RPC | Session, Message, Turn, RTC operations | 17 methods, divided into Action and Query types |
 | 📢 **Event Layer** | WebSocket Pub/Sub | Real-time state push | Dual-channel (Topic + Live), supports offline recovery |
 
 ## Auth Layer: HTTP API
@@ -75,7 +75,7 @@ All business operations are performed over WebSocket RPC — sending messages, q
 
 ```mermaid
 flowchart LR
-    subgraph ACTION["⚡ Action RPC (8)"]
+    subgraph ACTION["⚡ Action RPC (9)"]
         direction TB
         A1["Create / Modify operations"]
         A2["Response includes updates"]
@@ -93,11 +93,11 @@ flowchart LR
     style QUERY fill:#e3f2fd,stroke:#1565c0,stroke-width:2px
 ```
 
-**4 business domains, 16 methods**:
+**4 business domains, 17 methods**:
 
 | Domain | Action | Query |
 |:--:|:------:|:-----:|
-| **Session** | `close` · `update` · `fork` · `compact` | `list` · `get` |
+| **Session** | `open` · `close` · `update` · `fork` · `compact` | `list` · `get` |
 | **Message** | `send` | `list` · `get` |
 | **Turn** | `stop` | `list` · `get` |
 | **RTC** | `update_status` · `submit_result` | `list` · `get` |
@@ -171,6 +171,6 @@ flowchart LR
 ## Next Steps
 
 - [HTTP API](/docs/en/protocol/http-api/) — Detailed definition of OAuth2 authentication endpoints
-- [WebSocket RPC](/docs/en/protocol/rpc/) — Complete reference for all 16 RPC methods
+- [WebSocket RPC](/docs/en/protocol/rpc/) — Complete reference for all 17 RPC methods
 - [Real-Time Events](/docs/en/protocol/events/) — Dual-channel event push mechanism
 - [Architecture Overview](/docs/en/architecture/) — Learn about the overall architecture design of RTC Agent

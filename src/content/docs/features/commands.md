@@ -145,25 +145,37 @@ flowchart LR
 
 ---
 
-## /loop — 循环执行（规划中）
+## /loop — 循环执行
 
-> ⚠️ **此功能尚在规划中，代码未实现。** 以下描述为设计方案。
+用户用自然语言描述需要循环执行的任务，Agent 理解意图后创建定时循环任务，按固定间隔自动执行。
 
-用户用自然语言描述需要循环执行的任务，Agent 理解意图后选择合适的循环模式执行。
+### 用法
 
-### 设计目标
+```text
+/loop <任务描述>
+```
 
-| | 定时循环 | 动态循环 |
-|---|:------:|:------:|
-| **触发方式** | 固定时间间隔 | 目标驱动，轮次相关 |
-| **适用场景** | 监控部署、轮询状态 | 测试迭代、代码优化、批量处理 |
-| **设计思路** | 前端管理定时器 | 系统管理轮次状态 |
+| 参数 | 必填 | 说明 |
+|:----:|:----:|------|
+| 任务描述 | 是 | 自然语言描述的循环任务，如 `每 5 分钟检查一次部署状态` |
+
+### 工作机制
+
+`/loop` 通过 LLM 内置工具 `createLoop` 创建定时循环任务。任务创建后，系统按固定间隔自动触发新的 Turn 执行任务描述中的操作，直到用户取消。
+
+| 相关工具 | 说明 |
+|---------|------|
+| `createLoop` | 创建定时循环任务 |
+| `cancelLoop` | 取消循环任务 |
+| `listLoops` | 列出当前会话的所有循环任务 |
+| `pauseLoop` | 暂停循环任务 |
+| `resumeLoop` | 恢复暂停的循环任务 |
 
 ---
 
 ## /goal — 目标驱动
 
-用户设定一个**完成条件**，AI 持续工作直到条件满足。AI 在执行过程中自行判断目标是否达成，通过 `complete_goal` 工具声明目标已达成，或通过 `cancel_goal` 取消目标。
+用户设定一个**完成条件**，AI 持续工作直到条件满足。AI 在执行过程中自行判断目标是否达成，通过 `completeGoal` 工具声明目标已达成，或通过 `cancelGoal` 取消目标。
 
 ### 命令交互方式
 
@@ -185,7 +197,7 @@ flowchart TD
     B --> C["🧠 AI 执行工作"]
     C --> D{"🤔 AI 判断目标状态"}
     D -->|"❌ 未达成"| C
-    D -->|"✅ 已达成"| E["⚡ 调用 complete_goal"]
+    D -->|"✅ 已达成"| E["⚡ 调用 completeGoal"]
     E --> F["🛑 停止<br/>报告完成"]
     F --> G["🗑️ 清除目标"]
 
@@ -197,11 +209,11 @@ flowchart TD
 
 ### 核心机制
 
-AI 在执行过程中持续评估目标完成度。当 AI 认为目标已达成时，调用 `complete_goal` 工具声明完成；当 AI 认为目标无法完成或需要取消时，调用 `cancel_goal` 工具。
+AI 在执行过程中持续评估目标完成度。当 AI 认为目标已达成时，调用 `completeGoal` 工具声明完成；当 AI 认为目标无法完成或需要取消时，调用 `cancelGoal` 工具。
 
 | 组件 | 职责 |
 |------|------|
-| **AI** | 执行工作并自行判断目标是否达成，通过 `complete_goal`/`cancel_goal` 工具声明状态变化 |
+| **AI** | 执行工作并自行判断目标是否达成，通过 `completeGoal`/`cancelGoal` 工具声明状态变化 |
 
 ### 目标作为独立实体
 
@@ -213,7 +225,7 @@ stateDiagram-v2
 
     [*] --> Active: /goal <condition> 🎯
     Active --> Active: 轮次执行 🔄
-    Active --> Completed: AI 调用 complete_goal 达成 ✅
+    Active --> Completed: AI 调用 completeGoal 达成 ✅
     Active --> Cancelled: /goal clear ❌
     Active --> Exhausted: 超过最大轮次 ⚠️
     Completed --> [*]
@@ -224,7 +236,7 @@ stateDiagram-v2
 | 状态 | 说明 |
 |:----:|------|
 | `Active` | 目标激活中，AI 持续工作 |
-| `Completed` | AI 调用 `complete_goal` 声明条件达成 |
+| `Completed` | AI 调用 `completeGoal` 声明条件达成 |
 | `Cancelled` | 用户手动取消 |
 | `Exhausted` | 超过最大轮次上限（默认 50 轮） |
 

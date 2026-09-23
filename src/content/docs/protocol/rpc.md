@@ -331,7 +331,7 @@ sequenceDiagram
 
 ## Update 模型
 
-大部分 Action RPC 的响应包含 **`result`** 和 **`updates`** 两部分（`turn.stop` 除外，它的 `updates` 为空）：
+大部分 Action RPC 的响应包含 **`result`** 和 **`updates`** 两部分（`session.compact` 和 `turn.stop` 除外，它们的 `updates` 为空）：
 
 ```json
 {

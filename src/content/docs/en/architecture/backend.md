@@ -134,7 +134,7 @@ flowchart TD
 | Capability | Description |
 | --- | --- |
 | **Reasoning Loop** | Call LLM → Process response → Tool call → Continue reasoning, until the final reply is generated |
-| **Tool Scheduling** | Manages 6 built-in tools (ls / read / write / grep / find / script) |
+| **Built-in Tools** | File operations (ls/read/write/grep/find/script), sub-agent management (subAgent/listSubAgent/stopSubAgent), user interaction (askUser), goal management (goal), loop tasks (loop), etc. |
 | **Streaming Output** | Pushes LLM output to the frontend in real-time |
 | **Sub-Agents** | Complex tasks are automatically decomposed, with multiple specialized sub-agents working in parallel (see below) |
 

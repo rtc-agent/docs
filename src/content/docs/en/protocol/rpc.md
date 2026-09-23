@@ -1,15 +1,15 @@
 ---
 title: WebSocket RPC
-description: RTC Agent WebSocket RPC interface — 16 methods covering session management, messaging, Turn control, and RTC tool calling.
+description: RTC Agent WebSocket RPC interface — 17 methods covering session management, messaging, Turn control, and RTC tool calling.
 ---
 
-After authentication, the frontend performs all business operations over a **persistent WebSocket connection**. The RPC defines **16 methods** in total, divided into two types: **Action** and **Query**.
+After authentication, the frontend performs all business operations over a **persistent WebSocket connection**. The RPC defines **17 methods** in total, divided into two types: **Action** and **Query**.
 
 ## RPC Classification
 
 ```mermaid
 flowchart TD
-    subgraph ACTION["⚡ Action RPC (8)"]
+    subgraph ACTION["⚡ Action RPC (9)"]
         direction TB
         A1["Create / Modify / Delete operations"]
         A2["Response includes updates events"]
@@ -40,11 +40,11 @@ flowchart TD
 
 ## Method Summary
 
-The 16 methods are organized across **4 business domains**:
+The 17 methods are organized across **4 business domains**:
 
 | Domain | Action | Query |
 |:--:|:------:|:-----:|
-| **Session** | `v1.session.close` · `v1.session.update` · `v1.session.fork` · `v1.session.compact` | `v1.session.list` · `v1.session.get` |
+| **Session** | `v1.session.open` · `v1.session.close` · `v1.session.update` · `v1.session.fork` · `v1.session.compact` | `v1.session.list` · `v1.session.get` |
 | **Message** | `v1.message.send` | `v1.message.list` · `v1.message.get` |
 | **Turn** | `v1.turn.stop` | `v1.turn.list` · `v1.turn.get` |
 | **RTC** | `v1.rtc.update_status` · `v1.rtc.submit_result` | `v1.rtc.list` · `v1.rtc.get` |
@@ -61,10 +61,11 @@ flowchart LR
         direction TB
         S1["v1.session.list"]
         S2["v1.session.get"]
-        S3["v1.session.close"]
-        S4["v1.session.update"]
-        S5["v1.session.fork"]
-        S6["v1.session.compact"]
+        S3["v1.session.open"]
+        S4["v1.session.close"]
+        S5["v1.session.update"]
+        S6["v1.session.fork"]
+        S7["v1.session.compact"]
     end
 
     subgraph STATUS["Session States"]
@@ -82,10 +83,36 @@ flowchart LR
 |------|:----:|------|----------|
 | `v1.session.list` | 🔍 Query | Get session list | `cursor` (pagination), `limit` (default 20) |
 | `v1.session.get` | 🔍 Query | Get a single session | `session_id` |
+| `v1.session.open` | ⚡ Action | Reopen a closed session (`closed` → `idle`) | `session_id` |
 | `v1.session.close` | ⚡ Action | Close a session | `session_id` |
 | `v1.session.update` | ⚡ Action | Update session title / soft delete | `session_id`, `title`, `deleted_at` |
 | `v1.session.fork` | ⚡ Action | Fork a conversation (create a new session based on history) | `old_server_session_id`, `new_client_session_id`, `new_client_message_id`, `old_server_message_id`, `content_data`, `limit` (default 200, max 1000) |
 | `v1.session.compact` | ⚡ Action | Manually trigger context compression (no updates returned) | `session_id`, `custom_instruction` |
+
+### Open a Session
+
+`v1.session.open` reopens a closed session, transitioning its status from `closed` back to `idle` and clearing the `closed_at` timestamp.
+
+**Idempotent behavior**: If the session is not in `closed` status, it returns `{success: true}` immediately without making any changes.
+
+**Request**:
+
+```json
+{
+  "session_id": "uuid"
+}
+```
+
+**Response**:
+
+```json
+{
+  "result": { "success": true },
+  "updates": [{ "...session.updated event..." }]
+}
+```
+
+> 💡 **Relationship with close**: `v1.session.close` marks the session as `closed` and sets `closed_at`; `v1.session.open` restores it to `idle` and clears `closed_at`. Together they implement the "archive / restore" functionality for sessions.
 
 ### Fork a Conversation
 
@@ -160,6 +187,45 @@ sequenceDiagram
 | `toolcall_input` | Tool call request | `ToolCall` object |
 | `toolcall_output` | Tool call result | `ToolCall` object |
 | `user_message` | User message (with scenario injection) | `UserMessageContent` object |
+| `error` | Structured error message | `ErrorContent` object |
+
+### ErrorContent Error Messages
+
+When a Turn fails, the server inserts an `error`-type message, which the frontend can render as an error prompt with a retry button.
+
+```json
+{
+  "type": "error",
+  "data": {
+    "category": "network",
+    "title": "Connection timed out",
+    "message": "Connection to the AI model timed out, please check your network and retry",
+    "retryable": true,
+    "raw_error": "context deadline exceeded"
+  }
+}
+```
+
+| Field | Type | Description |
+|------|:----:|------|
+| `category` | `ErrorCategory` | Error classification; the frontend uses this to choose icon and style |
+| `title` | string | Short error title |
+| `message` | string | Detailed description (may include suggested actions) |
+| `retryable` | bool | Whether the error is retryable; the frontend uses this to decide whether to show a retry button |
+| `raw_error` | string? | Raw error information (only included when the server's `debug.show_raw_errors` is true) |
+
+**ErrorCategory Enum**:
+
+| Category | Description | Typical Scenario |
+|:----:|------|----------|
+| `api` | API call error | Model returned an error, rate limit |
+| `context` | Context-related | Context too long, compression failed |
+| `network` | Network error | Connection timed out, DNS failure |
+| `permission` | Permission error | Authentication failed, session does not belong to current user |
+| `stream` | Streaming error | SSE interrupted, stream parse failed |
+| `system` | System error | Internal exception, database error |
+| `timeout` | Timeout error | Reasoning timeout, tool execution timeout |
+| `tool` | Tool call error | Tool does not exist, parameter validation failed |
 
 ---
 
@@ -252,6 +318,7 @@ Some Action RPCs accept `client_id` for deduplication or ownership validation, b
 | `message.send` | ✅ Required | Duplicate client_id returns `client_id_conflict` error |
 | `rtc.submit_result` | ✅ Optional | Terminal state + same client_id → returns cached result (idempotent); terminal state + different client_id → returns existing data |
 | `rtc.update_status` | ✅ Optional | Used for ownership validation + state machine transition checks, not simple dedup |
+| `session.open` | ❌ No such field | Idempotent based on session state: returns success directly if not `closed` |
 | `session.close` | ✅ Optional | Field accepted but no dedup performed |
 | `turn.stop` | ✅ Optional | Field accepted but no dedup performed |
 | `session.update` | ❌ No such field | — |

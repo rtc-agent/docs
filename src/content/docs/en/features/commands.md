@@ -145,25 +145,37 @@ flowchart LR
 
 ---
 
-## /loop — Loop Execution (Planned)
+## /loop — Loop Execution
 
-> ⚠️ **This feature is still in the planning stage and has not been implemented.** The following describes the design proposal.
+Users describe tasks that need to be executed in a loop using natural language. The Agent understands the intent and creates a scheduled loop task that runs automatically at fixed intervals.
 
-Users describe tasks that need to be executed in a loop using natural language. The Agent understands the intent and selects the appropriate loop mode for execution.
+### Usage
 
-### Design Goals
+```text
+/loop <task description>
+```
 
-| | Scheduled Loop | Dynamic Loop |
-|---|:--------------:|:------------:|
-| **Trigger Method** | Fixed time interval | Goal-driven, round-based |
-| **Use Case** | Monitoring deployments, polling status | Test iteration, code optimization, batch processing |
-| **Design Approach** | Frontend manages timer | System manages round state |
+| Parameter | Required | Description |
+|:----:|:----:|------|
+| Task description | Yes | Natural language description of the loop task, e.g., `check deployment status every 5 minutes` |
+
+### How It Works
+
+`/loop` creates a scheduled loop task through the LLM built-in tool `createLoop`. Once created, the system automatically triggers new Turns at fixed intervals to perform the operations described in the task, until the user cancels.
+
+| Related Tool | Description |
+|---------|------|
+| `createLoop` | Create a scheduled loop task |
+| `cancelLoop` | Cancel a loop task |
+| `listLoops` | List all loop tasks in the current session |
+| `pauseLoop` | Pause a loop task |
+| `resumeLoop` | Resume a paused loop task |
 
 ---
 
 ## /goal — Goal-Driven
 
-The user sets a **completion condition**, and the AI works continuously until the condition is met. During execution, the AI self-assesses whether the goal has been achieved, declaring completion via the `complete_goal` tool, or cancelling via the `cancel_goal` tool.
+The user sets a **completion condition**, and the AI works continuously until the condition is met. During execution, the AI self-assesses whether the goal has been achieved, declaring completion via the `completeGoal` tool, or cancelling via the `cancelGoal` tool.
 
 ### Command Interaction Model
 
@@ -185,7 +197,7 @@ flowchart TD
     B --> C["🧠 AI performs work"]
     C --> D{"🤔 AI evaluates goal status"}
     D -->|"❌ Not achieved"| C
-    D -->|"✅ Achieved"| E["⚡ Call complete_goal"]
+    D -->|"✅ Achieved"| E["⚡ Call completeGoal"]
     E --> F["🛑 Stop<br/>Report completion"]
     F --> G["🗑️ Clear goal"]
 
@@ -197,11 +209,11 @@ flowchart TD
 
 ### Core Mechanism
 
-During execution, the AI continuously evaluates the goal's completion status. When the AI determines the goal has been achieved, it calls the `complete_goal` tool to declare completion; when the AI determines the goal cannot be achieved or needs to be cancelled, it calls the `cancel_goal` tool.
+During execution, the AI continuously evaluates the goal's completion status. When the AI determines the goal has been achieved, it calls the `completeGoal` tool to declare completion; when the AI determines the goal cannot be achieved or needs to be cancelled, it calls the `cancelGoal` tool.
 
 | Component | Responsibility |
 |------|------|
-| **AI** | Performs work and self-assesses whether the goal is achieved, declaring state changes via `complete_goal`/`cancel_goal` tools |
+| **AI** | Performs work and self-assesses whether the goal is achieved, declaring state changes via `completeGoal`/`cancelGoal` tools |
 
 ### Goal as an Independent Entity
 
@@ -213,7 +225,7 @@ stateDiagram-v2
 
     [*] --> Active: /goal <condition> 🎯
     Active --> Active: Round execution 🔄
-    Active --> Completed: AI calls complete_goal ✅
+    Active --> Completed: AI calls completeGoal ✅
     Active --> Cancelled: /goal clear ❌
     Active --> Exhausted: Exceeded max rounds ⚠️
     Completed --> [*]
@@ -224,7 +236,7 @@ stateDiagram-v2
 | State | Description |
 |:-----:|-------------|
 | `Active` | Goal is active, AI continues working |
-| `Completed` | AI declared condition achieved via `complete_goal` |
+| `Completed` | AI declared condition achieved via `completeGoal` |
 | `Cancelled` | User manually cancelled |
 | `Exhausted` | Exceeded maximum round limit (default: 50 rounds) |
 

@@ -9,11 +9,19 @@ During reasoning, the AI can call a set of **built-in tools** to extend its capa
 
 | Tool | Purpose | Interrupts Turn |
 |------|---------|:--------------:|
-| `sub_agent` | Create a sub-agent session for complex, multi-step tasks | Depends on mode |
-| `list_sub_agent` | List all active sub-agents in the current session tree | No |
-| `get_sub_agent_message` | Get the latest message from a specific sub-agent | No |
-| `stop_sub_agent` | Stop a specific sub-agent and all its descendant sessions | No |
-| `ask_user` | Ask the user 1-4 multiple-choice questions and wait for answers | Yes |
+| `subAgent` | Create a sub-agent session for complex, multi-step tasks | Depends on mode |
+| `listSubAgent` | List all active sub-agents in the current session tree | No |
+| `getSubAgentMessage` | Get the latest message from a specific sub-agent | No |
+| `stopSubAgent` | Stop a specific sub-agent and all its descendant sessions | No |
+| `askUser` | Ask the user 1-4 multiple-choice questions and wait for answers | Yes |
+| `createGoal` | Create an autonomous goal, automatically driving subsequent turns until completion | No |
+| `completeGoal` | Mark the goal as completed | No |
+| `cancelGoal` | Cancel the goal | No |
+| `createLoop` | Create a scheduled loop task that runs automatically at fixed intervals | No |
+| `cancelLoop` | Cancel a loop task | No |
+| `listLoops` | List all loop tasks in the current session | No |
+| `pauseLoop` | Pause a loop task | No |
+| `resumeLoop` | Resume a paused loop task | No |
 
 ---
 
@@ -49,7 +57,7 @@ flowchart TD
 
 ---
 
-### sub_agent — Create a Sub-Agent
+### subAgent — Create a Sub-Agent
 
 Create a new sub-agent session to handle a complex, multi-step task. The sub-agent starts with a blank context, so you need to provide complete background information -- like briefing a smart colleague who just walked into the room.
 
@@ -65,7 +73,7 @@ Create a new sub-agent session to handle a complex, multi-step task. The sub-age
 
 ```mermaid
 flowchart TD
-    A["LLM calls sub_agent"] --> B{"mode?"}
+    A["LLM calls subAgent"] --> B{"mode?"}
     B -->|"async (default)"| C["Return sub-session ID immediately"]
     C --> D["Parent session continues"]
     D --> E["Sub-agent completes<br/>notification pushed to parent"]
@@ -91,7 +99,7 @@ flowchart TD
 
 ---
 
-### list_sub_agent — List Sub-Agents
+### listSubAgent — List Sub-Agents
 
 List all active sub-agent sessions in the current session tree. Use this to check the status of spawned sub-agents.
 
@@ -113,7 +121,7 @@ Returns a JSON array, each element containing:
 
 ---
 
-### get_sub_agent_message — Get Sub-Agent Message
+### getSubAgentMessage — Get Sub-Agent Message
 
 Get the latest message from a specific sub-agent session. Use this to check a sub-agent's latest output or progress.
 
@@ -121,7 +129,7 @@ Get the latest message from a specific sub-agent session. Use this to check a su
 
 | Parameter | Type | Required | Description |
 |-----------|------|:--------:|-------------|
-| `sub_session_id` | string | Yes | Server-side UUID of the target sub-session. Use `list_sub_agent` to get available session IDs |
+| `sub_session_id` | string | Yes | Server-side UUID of the target sub-session. Use `listSubAgent` to get available session IDs |
 
 #### Return Value
 
@@ -144,7 +152,7 @@ Returns a JSON object:
 
 ---
 
-### stop_sub_agent — Stop a Sub-Agent
+### stopSubAgent — Stop a Sub-Agent
 
 Stop a specific sub-agent session and all its descendant sessions. Uses a **bottom-up** stopping order (leaf nodes first, then parents).
 
@@ -152,7 +160,7 @@ Stop a specific sub-agent session and all its descendant sessions. Uses a **bott
 
 | Parameter | Type | Required | Description |
 |-----------|------|:--------:|-------------|
-| `sub_session_id` | string | Yes | Server-side UUID of the target sub-session. Use `list_sub_agent` to get available session IDs |
+| `sub_session_id` | string | Yes | Server-side UUID of the target sub-session. Use `listSubAgent` to get available session IDs |
 
 #### Return Value
 
@@ -167,7 +175,7 @@ Returns a JSON object:
 
 ```mermaid
 flowchart TD
-    A["Call stop_sub_agent"] --> B["Verify permission<br/>target is a descendant of current session tree"]
+    A["Call stopSubAgent"] --> B["Verify permission<br/>target is a descendant of current session tree"]
     B --> C["Query all active descendants"]
     C --> D["DFS to collect target and its descendants"]
     D --> E["Reverse order<br/>(leaves first)"]
@@ -181,7 +189,7 @@ flowchart TD
 
 ---
 
-## ask_user — Ask the User
+## askUser — Ask the User
 
 The AI asks the user 1-4 multiple-choice questions to gather preferences, clarify ambiguity, understand requirements, or get decisions on implementation choices. Users can always pick "Other" to provide free-form text.
 
@@ -216,7 +224,7 @@ sequenceDiagram
     participant Server
     participant Client
 
-    AI->>Server: Call ask_user tool
+    AI->>Server: Call askUser tool
     Server->>Server: Create RTC record, pause turn
     Server->>Client: Push questions for rendering
     Client->>Client: User selects answers

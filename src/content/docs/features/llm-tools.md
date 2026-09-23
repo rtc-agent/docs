@@ -9,19 +9,19 @@ AI 在推理过程中可以调用一组**内置工具**来扩展自身能力。�
 
 | 工具 | 用途 | 是否中断轮次 |
 |------|------|:----------:|
-| `sub_agent` | 创建子 Agent 会话，执行复杂多步任务 | 取决于模式 |
-| `list_sub_agent` | 列出当前会话树中所有活跃的子 Agent | 否 |
-| `get_sub_agent_message` | 获取指定子 Agent 的最新消息 | 否 |
-| `stop_sub_agent` | 停止指定子 Agent 及其所有后代会话 | 否 |
-| `ask_user` | 向用户提出 1-4 个选择题，等待用户回答 | 是 |
-| `create_goal` | 创建自主目标，自动驱动后续轮次直到完成 | 否 |
-| `complete_goal` | 标记目标为已完成 | 否 |
-| `cancel_goal` | 取消目标 | 否 |
-| `create_loop` | 创建定时循环任务，按固定间隔自动执行 | 否 |
-| `cancel_loop` | 取消循环任务 | 否 |
-| `list_loop` | 列出当前会话的所有循环任务 | 否 |
-| `pause_loop` | 暂停循环任务 | 否 |
-| `resume_loop` | 恢复暂停的循环任务 | 否 |
+| `subAgent` | 创建子 Agent 会话，执行复杂多步任务 | 取决于模式 |
+| `listSubAgent` | 列出当前会话树中所有活跃的子 Agent | 否 |
+| `getSubAgentMessage` | 获取指定子 Agent 的最新消息 | 否 |
+| `stopSubAgent` | 停止指定子 Agent 及其所有后代会话 | 否 |
+| `askUser` | 向用户提出 1-4 个选择题，等待用户回答 | 是 |
+| `createGoal` | 创建自主目标，自动驱动后续轮次直到完成 | 否 |
+| `completeGoal` | 标记目标为已完成 | 否 |
+| `cancelGoal` | 取消目标 | 否 |
+| `createLoop` | 创建定时循环任务，按固定间隔自动执行 | 否 |
+| `cancelLoop` | 取消循环任务 | 否 |
+| `listLoops` | 列出当前会话的所有循环任务 | 否 |
+| `pauseLoop` | 暂停循环任务 | 否 |
+| `resumeLoop` | 恢复暂停的循环任务 | 否 |
 
 ---
 
@@ -57,7 +57,7 @@ flowchart TD
 
 ---
 
-### sub_agent — 创建子 Agent
+### subAgent — 创建子 Agent
 
 创建一个新的子 Agent 会话来执行复杂的多步任务。子 Agent 从空白上下文启动，需要像给新同事做交接一样提供完整的背景信息。
 
@@ -73,7 +73,7 @@ flowchart TD
 
 ```mermaid
 flowchart TD
-    A["LLM 调用 sub_agent"] --> B{"mode?"}
+    A["LLM 调用 subAgent"] --> B{"mode?"}
     B -->|"async（默认）"| C["立即返回子会话 ID"]
     C --> D["父会话继续运行"]
     D --> E["子 Agent 完成后<br/>通知推送到父会话"]
@@ -99,7 +99,7 @@ flowchart TD
 
 ---
 
-### list_sub_agent — 列出子 Agent
+### listSubAgent — 列出子 Agent
 
 列出当前会话树中所有活跃的子 Agent 会话。用于查看已创建的子 Agent 状态。
 
@@ -121,7 +121,7 @@ flowchart TD
 
 ---
 
-### get_sub_agent_message — 获取子 Agent 消息
+### getSubAgentMessage — 获取子 Agent 消息
 
 获取指定子 Agent 会话的最新消息内容。用于检查子 Agent 的最新输出或进度。
 
@@ -129,7 +129,7 @@ flowchart TD
 
 | 参数 | 类型 | 必填 | 说明 |
 |------|------|:----:|------|
-| `sub_session_id` | string | 是 | 目标子会话的服务端 UUID。使用 `list_sub_agent` 获取可用的会话 ID |
+| `sub_session_id` | string | 是 | 目标子会话的服务端 UUID。使用 `listSubAgent` 获取可用的会话 ID |
 
 #### 返回值
 
@@ -152,7 +152,7 @@ flowchart TD
 
 ---
 
-### stop_sub_agent — 停止子 Agent
+### stopSubAgent — 停止子 Agent
 
 停止指定的子 Agent 会话及其所有后代会话。采用**自底向上**的停止顺序（先停叶子节点，再停父节点）。
 
@@ -160,7 +160,7 @@ flowchart TD
 
 | 参数 | 类型 | 必填 | 说明 |
 |------|------|:----:|------|
-| `sub_session_id` | string | 是 | 目标子会话的服务端 UUID。使用 `list_sub_agent` 获取可用的会话 ID |
+| `sub_session_id` | string | 是 | 目标子会话的服务端 UUID。使用 `listSubAgent` 获取可用的会话 ID |
 
 #### 返回值
 
@@ -175,7 +175,7 @@ flowchart TD
 
 ```mermaid
 flowchart TD
-    A["调用 stop_sub_agent"] --> B["验证权限<br/>目标是当前会话树的后代"]
+    A["调用 stopSubAgent"] --> B["验证权限<br/>目标是当前会话树的后代"]
     B --> C["查询所有活跃后代"]
     C --> D["DFS 收集目标及其后代"]
     D --> E["反转顺序<br/>（叶子优先）"]
@@ -189,7 +189,7 @@ flowchart TD
 
 ---
 
-## ask_user — 向用户提问
+## askUser — 向用户提问
 
 AI 向用户提出 1-4 个选择题，用于收集偏好、澄清歧义、理解需求或获取实现决策。用户始终可以选择"其他"来提供自由文本。
 
@@ -224,7 +224,7 @@ sequenceDiagram
     participant Server
     participant Client
 
-    AI->>Server: 调用 ask_user 工具
+    AI->>Server: 调用 askUser 工具
     Server->>Server: 创建 RTC 记录，暂停轮次
     Server->>Client: 推送问题渲染
     Client->>Client: 用户选择答案
@@ -276,9 +276,9 @@ Goal 系统允许 AI 创建自主目标，并在后续轮次中自动推进目�
 stateDiagram-v2
     direction LR
 
-    [*] --> Active: create_goal
-    Active --> Completed: complete_goal ✅
-    Active --> Cancelled: cancel_goal 🚫
+    [*] --> Active: createGoal
+    Active --> Completed: completeGoal ✅
+    Active --> Cancelled: cancelGoal 🚫
     Active --> Exhausted: 超过 max_turns ⏰
 
     Completed --> [*]
@@ -293,7 +293,7 @@ stateDiagram-v2
 | `cancelled` | 目标被取消 |
 | `exhausted` | 达到最大轮次限制，自动终止 |
 
-### create_goal — 创建目标
+### createGoal — 创建目标
 
 | 参数 | 类型 | 必填 | 说明 |
 |------|------|:----:|------|
@@ -302,7 +302,7 @@ stateDiagram-v2
 
 **执行机制**：每轮 Turn 完成后，系统自动检查活跃 Goal，递增 `completed_turns` 计数器。如果条件满足则自动标记为 `completed`；如果达到 `max_turns` 则标记为 `exhausted`。
 
-### complete_goal / cancel_goal
+### completeGoal / cancelGoal
 
 | 参数 | 类型 | 必填 | 说明 |
 |------|------|:----:|------|
@@ -320,11 +320,11 @@ Loop 系统允许 AI 创建定时执行的循环任务。基于 asynq 后台任�
 stateDiagram-v2
     direction LR
 
-    [*] --> Active: create_loop
-    Active --> Paused: pause_loop ⏸️
-    Paused --> Active: resume_loop ▶️
+    [*] --> Active: createLoop
+    Active --> Paused: pauseLoop ⏸️
+    Paused --> Active: resumeLoop ▶️
     Active --> Completed: 条件满足 ✅
-    Active --> Cancelled: cancel_loop 🚫
+    Active --> Cancelled: cancelLoop 🚫
     Active --> Exhausted: 超过 max_turns 或过期 ⏰
 
     Completed --> [*]
@@ -341,7 +341,7 @@ stateDiagram-v2
 | `cancelled` | 循环被取消 |
 | `exhausted` | 达到最大轮次或过期时间 |
 
-### create_loop — 创建循环
+### createLoop — 创建循环
 
 | 参数 | 类型 | 必填 | 说明 |
 |------|------|:----:|------|
@@ -353,10 +353,10 @@ stateDiagram-v2
 
 | 工具 | 参数 | 说明 |
 |------|------|------|
-| `cancel_loop` | `loop_id` | 取消循环 |
-| `list_loop` | 无 | 列出当前会话的所有循环 |
-| `pause_loop` | `loop_id` | 暂停循环 |
-| `resume_loop` | `loop_id` | 恢复暂停的循环 |
+| `cancelLoop` | `loop_id` | 取消循环 |
+| `listLoops` | 无 | 列出当前会话的所有循环 |
+| `pauseLoop` | `loop_id` | 暂停循环 |
+| `resumeLoop` | `loop_id` | 恢复暂停的循环 |
 
 > 💡 **Loop vs Goal**：Goal 是"完成某个条件就停"，Loop 是"每隔 N 秒执行一次"。两者可以组合使用——在 Loop 中创建 Goal，让 AI 定期检查某个条件是否满足。
 

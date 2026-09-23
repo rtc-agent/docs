@@ -46,7 +46,7 @@ flowchart TD
 | ℹ️ 系统消息 | 系统通知 | 纯文本 |
 
 > **MessageRole** 共 4 种：`user`、`assistant`、`system`、`tool`
-> **ContentType** 共 7 种：`text`、`markdown`、`summary`、`thinking`、`toolcall_input`、`toolcall_output`、`user_message`
+> **ContentType** 共 8 种：`text`、`markdown`、`summary`、`thinking`、`toolcall_input`、`toolcall_output`、`user_message`、`error`
 
 ## 消息发送流程
 

@@ -10,7 +10,7 @@ flowchart TD
     subgraph PROTOCOL["📡 RTC Agent 协议"]
         direction TB
         HTTP["🔐 HTTP API<br/>OAuth2 认证"]
-        RPC["💬 WebSocket RPC<br/>16 个方法"]
+        RPC["💬 WebSocket RPC<br/>17 个方法"]
         EVT["📢 实时事件<br/>双频道推送"]
     end
 
@@ -34,7 +34,7 @@ flowchart TD
 | 层 | 协议 | 用途 | 特点 |
 |:--:|:----:|------|------|
 | 🔐 **认证层** | HTTPS | OAuth2 授权码流程 | 标准 HTTP，兼容所有 OAuth2 Provider |
-| 💬 **操作层** | WebSocket RPC | 会话、消息、Turn、RTC 操作 | 16 个方法，分为 Action 和 Query 两类 |
+| 💬 **操作层** | WebSocket RPC | 会话、消息、Turn、RTC 操作 | 17 个方法，分为 Action 和 Query 两类 |
 | 📢 **事件层** | WebSocket Pub/Sub | 实时状态推送 | 双频道（Topic + Live），支持离线恢复 |
 
 ## 认证层：HTTP API
@@ -75,7 +75,7 @@ sequenceDiagram
 
 ```mermaid
 flowchart LR
-    subgraph ACTION["⚡ Action RPC（8 个）"]
+    subgraph ACTION["⚡ Action RPC（9 个）"]
         direction TB
         A1["创建 / 修改操作"]
         A2["响应包含 updates"]
@@ -93,11 +93,11 @@ flowchart LR
     style QUERY fill:#e3f2fd,stroke:#1565c0,stroke-width:2px
 ```
 
-**4 个业务域，16 个方法**：
+**4 个业务域，17 个方法**：
 
 | 域 | Action | Query |
 |:--:|:------:|:-----:|
-| **Session** | `close` · `update` · `fork` · `compact` | `list` · `get` |
+| **Session** | `open` · `close` · `update` · `fork` · `compact` | `list` · `get` |
 | **Message** | `send` | `list` · `get` |
 | **Turn** | `stop` | `list` · `get` |
 | **RTC** | `update_status` · `submit_result` | `list` · `get` |
@@ -171,6 +171,6 @@ flowchart LR
 ## 下一步
 
 - [HTTP API](/docs/protocol/http-api/) — OAuth2 认证端点的详细定义
-- [WebSocket RPC](/docs/protocol/rpc/) — 16 个 RPC 方法的完整参考
+- [WebSocket RPC](/docs/protocol/rpc/) — 17 个 RPC 方法的完整参考
 - [实时事件](/docs/protocol/events/) — 双频道事件推送机制
 - [架构总览](/docs/architecture/) — 了解 RTC Agent 的整体架构设计
