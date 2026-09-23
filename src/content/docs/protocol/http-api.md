@@ -285,7 +285,7 @@ Prometheus 指标端点，暴露服务运行指标，供监控系统（Prometheu
 | -------- | ---- | ------ | -------------- |
 | `answer` | ✅   | string | 用户的回答内容 |
 
-**响应**：成功时返回 200 OK。
+**响应**：成功时返回 202 Accepted，响应体为 `{"status": "accepted"}`。
 
 > 💡 内部实现使用 Redis 的 `SET+PUBLISH` 模式将应答投递给等待中的中断处理协程，确保应答不丢失。详见 [中断处理流程](/docs/features/messaging/)。
 

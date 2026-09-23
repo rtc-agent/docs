@@ -285,7 +285,7 @@ Submit an interrupt answer. When the AI encounters a question requiring user dec
 | -------- | -------- | ------ | ------------------------ |
 | `answer` | ✅       | string | The user's answer content |
 
-**Response**: Returns 200 OK on success.
+**Response**: Returns 202 Accepted on success with body `{"status": "accepted"}`.
 
 > 💡 The internal implementation uses Redis `SET+PUBLISH` pattern to deliver the answer to the waiting interrupt handler goroutine, ensuring no answer is lost. See [Interrupt Flow](/docs/en/features/messaging/) for details.
 
