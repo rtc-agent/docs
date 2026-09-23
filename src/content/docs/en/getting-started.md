@@ -87,7 +87,7 @@ With the Server running, add the `<rtc-agent>` component to your web page to get
 
 ```html
 <!-- Import the component -->
-<script type="module" src="https://cdn.jsdelivr.net/npm/@rtc-agent/component@0.2.2/dist/index.js"></script>
+<script type="module" src="https://cdn.jsdelivr.net/npm/@rtc-agent/component@0.1.0/dist/index.js"></script>
 
 <!-- Minimal setup -->
 <rtc-agent></rtc-agent>

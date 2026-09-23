@@ -12,7 +12,7 @@ This document collects common questions and solutions encountered when integrati
 **Symptom**:
 
 ```
-GET https://esm.sh/@rtc-agent/component@0.2.2/es2022/assets/shared-worker-xxx.js 404 (Not Found)
+GET https://esm.sh/@rtc-agent/component@0.1.0/es2022/assets/shared-worker-xxx.js 404 (Not Found)
 
 [WorkerBridge] Worker initialization failed: HTTP 404
 ```
@@ -27,10 +27,10 @@ Use the **jsdelivr CDN**, which preserves the full build output:
 
 ```html
 <!-- Wrong ❌ -->
-<script src="https://esm.sh/@rtc-agent/component@0.2.2"></script>
+<script src="https://esm.sh/@rtc-agent/component@0.1.0"></script>
 
 <!-- Correct ✅ -->
-<script src="https://cdn.jsdelivr.net/npm/@rtc-agent/component@0.2.2/dist/index.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@rtc-agent/component@0.1.0/dist/index.js"></script>
 ```
 
 ### Problem 2: whenReady is not a function
@@ -158,7 +158,7 @@ The page is blank — the RTC Agent component is not displayed.
 
 ```html
 <!-- Check that the CDN script is included -->
-<script type="module" src="https://cdn.jsdelivr.net/npm/@rtc-agent/component@0.2.2/dist/index.js"></script>
+<script type="module" src="https://cdn.jsdelivr.net/npm/@rtc-agent/component@0.1.0/dist/index.js"></script>
 ```
 
 #### 2. Accessing properties before the component is ready

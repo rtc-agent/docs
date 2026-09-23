@@ -9,7 +9,7 @@ This document uses this project's own docs site as an example to demonstrate how
 
 - **Framework**: Astro 7.x + Starlight
 - **Integration**: CDN (jsdelivr)
-- **Component version**: @rtc-agent/component@0.2.2
+- **Component version**: @rtc-agent/component@0.1.0
 
 ## Why CDN?
 
@@ -42,7 +42,7 @@ export default defineConfig({
           tag: 'script',
           attrs: {
             type: 'module',
-            src: 'https://cdn.jsdelivr.net/npm/@rtc-agent/component@0.2.2/dist/index.js',
+            src: 'https://cdn.jsdelivr.net/npm/@rtc-agent/component@0.1.0/dist/index.js',
           },
         },
         // Initialize global floating widget

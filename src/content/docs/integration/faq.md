@@ -12,7 +12,7 @@ description: RTC Agent Web Component 集成过程中的常见问题和解决方�
 **现象**：
 
 ```
-GET https://esm.sh/@rtc-agent/component@0.2.2/es2022/assets/shared-worker-xxx.js 404 (Not Found)
+GET https://esm.sh/@rtc-agent/component@0.1.0/es2022/assets/shared-worker-xxx.js 404 (Not Found)
 
 [WorkerBridge] Worker initialization failed: HTTP 404
 ```
@@ -27,10 +27,10 @@ GET https://esm.sh/@rtc-agent/component@0.2.2/es2022/assets/shared-worker-xxx.js
 
 ```html
 <!-- 错误 ❌ -->
-<script src="https://esm.sh/@rtc-agent/component@0.2.2"></script>
+<script src="https://esm.sh/@rtc-agent/component@0.1.0"></script>
 
 <!-- 正确 ✅ -->
-<script src="https://cdn.jsdelivr.net/npm/@rtc-agent/component@0.2.2/dist/index.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@rtc-agent/component@0.1.0/dist/index.js"></script>
 ```
 
 ### 问题 2：whenReady is not a function
@@ -158,7 +158,7 @@ target.postMessage({
 
 ```html
 <!-- 检查是否引入了 CDN 脚本 -->
-<script type="module" src="https://cdn.jsdelivr.net/npm/@rtc-agent/component@0.2.2/dist/index.js"></script>
+<script type="module" src="https://cdn.jsdelivr.net/npm/@rtc-agent/component@0.1.0/dist/index.js"></script>
 ```
 
 #### 2. 组件未就绪就访问属性
