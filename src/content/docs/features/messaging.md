@@ -43,10 +43,11 @@ flowchart TD
 | 📃 纯文本 | 未格式化的文本内容（`text`） | 纯文本 |
 | 🔧 工具消息 | 独立的工具角色消息（`tool` role） | 输入/输出卡片 |
 | 📩 用户消息 | 用户输入的内容，含场景注入（`user_message`） | 纯文本 + 场景标签 |
+| 📜 系统提示词 | 持久化系统级指令（`prompt`） | 不直接渲染 |
 | ℹ️ 系统消息 | 系统通知 | 纯文本 |
 
 > **MessageRole** 共 4 种：`user`、`assistant`、`system`、`tool`
-> **ContentType** 共 8 种：`text`、`markdown`、`summary`、`thinking`、`toolcall_input`、`toolcall_output`、`user_message`、`error`
+> **ContentType** 共 9 种：`text`、`markdown`、`summary`、`thinking`、`toolcall_input`、`toolcall_output`、`user_message`、`error`、`prompt`
 
 ## 消息发送流程
 

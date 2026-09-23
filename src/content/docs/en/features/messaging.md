@@ -43,10 +43,11 @@ flowchart TD
 | 📃 Plain Text | Unformatted text content (`text`) | Plain text |
 | 🔧 Tool Message | Independent tool role message (`tool` role) | Input/output cards |
 | 📩 User Message | User input with embedded scenarios for injection (`user_message`) | Plain text + scenario tags |
+| 📜 System Prompt | Persisted system-level instructions (`prompt`) | Not directly rendered |
 | ℹ️ System Message | System notifications | Plain text |
 
 > **MessageRole** has 4 types: `user`, `assistant`, `system`, `tool`
-> **ContentType** has 8 types: `text`, `markdown`, `summary`, `thinking`, `toolcall_input`, `toolcall_output`, `user_message`, `error`
+> **ContentType** has 9 types: `text`, `markdown`, `summary`, `thinking`, `toolcall_input`, `toolcall_output`, `user_message`, `error`, `prompt`
 
 ## Message Sending Flow
 
