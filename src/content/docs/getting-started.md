@@ -44,7 +44,7 @@ redis:
 llm:
   provider: "claude"           # 或 "openai"
   # api_key 通过环境变量 LLM__API_KEY 配置，不在 YAML 中写明文
-  model: "claude-sonnet-4-20250514"
+  model: "claude-sonnet-4-20250514"  # 示例：使用 Claude 模型，实际默认配置可能不同（如 qwen3.7-plus）
 ```
 
 配置 LLM API Key（环境变量方式）：

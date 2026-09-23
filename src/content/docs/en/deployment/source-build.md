@@ -48,7 +48,7 @@ redis:
 llm:
   provider: "claude"           # or "openai"
   # api_key configured via LLM__API_KEY environment variable, not in YAML
-  model: "claude-sonnet-4-20250514"
+  model: "claude-sonnet-4-20250514"  # Example: using Claude model; actual default may differ (e.g., qwen3.7-plus)
 ```
 
 Configure LLM API Key (via environment variable):
