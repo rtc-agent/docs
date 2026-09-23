@@ -3,7 +3,7 @@ title: Web Component API
 description: A single <rtc-agent> component handles AI conversation, tool calls, and theme switching — configure with attributes, listen with events, and customize with CSS variables.
 ---
 
-**`<rtc-agent>`** is the **sole component** exposed by RTC Agent. Built on Lit, it contains 44 sub-components and 21 Controllers internally, but presents only a clean Web Component interface externally — attribute configuration, event listening, and CSS variable customization.
+**`<rtc-agent>`** is the **sole component** exposed by RTC Agent. Built on Lit, it contains 19 Controllers internally, but presents only a clean Web Component interface externally — attribute configuration, event listening, and CSS variable customization.
 
 ```mermaid
 flowchart TD
@@ -275,12 +275,12 @@ agent.activityBarConfig = {
 
 ## State Management
 
-The component uses 21 **Controllers** internally to manage state. 9 core state Controllers handle business logic, and 12 UI Controllers handle interface interactions. Controllers do not reference each other directly; instead, the root component `<rtc-agent>` acts as the central hub orchestrating cross-Controller communication:
+The component uses 19 **Controllers** internally to manage state. 9 core state Controllers handle business logic, and 10 UI Controllers handle interface interactions. Controllers do not reference each other directly; instead, the root component `<rtc-agent>` acts as the central hub orchestrating cross-Controller communication:
 
 ```mermaid
 flowchart TD
     ROOT["🧩 &lt;rtc-agent&gt;<br/>Central Orchestration"] --> CORE["📦 9 Core Controllers"]
-    ROOT --> UI["🎨 12 UI Controllers"]
+    ROOT --> UI["🎨 10 UI Controllers"]
 
     CORE --> C1["🪟 WindowState"]
     CORE --> C2["🔐 Auth"]
@@ -581,7 +581,7 @@ flowchart TD
 
 ## Debug API
 
-`<rtc-agent>` exposes a `window.rtcAgentDebug` object in all builds (dev + prod), providing 40+ methods for E2E testing, debugging, and automation.
+`<rtc-agent>` exposes a `window.rtcAgentDebug` object in dev and test builds, providing 40+ methods for E2E testing, debugging, and automation. This API is not included in production builds.
 
 ```ts
 const debug = window.rtcAgentDebug;
@@ -665,7 +665,7 @@ test('send message and get response', async ({ page }) => {
 });
 ```
 
-> 💡 The Debug API is available in production builds too, which is useful for diagnosing live issues. However, we recommend using data-modifying methods like `seedData()` and `clearData()` only in development and test environments.
+> 💡 The Debug API is only available in dev and test builds, for local development and CI testing. It is not included in production builds, so do not rely on it in host application production code. We recommend using data-modifying methods like `seedData()` and `clearData()` only in development and test environments.
 
 ## Key Interactions
 
