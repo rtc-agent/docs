@@ -1,9 +1,24 @@
 ---
 title: HTTP API
-description: RTC Agent 的 HTTP 认证接口——标准 OAuth2 授权码流程，支持多 Provider、令牌刷新和设备管理。
+description: RTC Agent 的 HTTP 接口——OAuth2 认证、健康检查、中断应答与记忆导出。
 ---
 
-RTC Agent 的 HTTP API 提供 **4 个 OAuth2 端点**，处理用户认证和令牌管理。整个流程遵循标准 OAuth2 授权码模式，兼容 GitHub、Google 等常见 Provider。
+RTC Agent 的 HTTP API 包含三类端点：**OAuth2 认证**处理用户登录和令牌管理，**运维端点**提供健康检查和指标采集，**业务端点**支持中断应答与记忆导出。认证流程遵循标准 OAuth2 授权码模式，兼容 GitHub、Google 等常见 Provider。
+
+## 端点一览
+
+### OAuth2 认证端点
+
+| 端点                                | 方法 | 功能                             | 调用时机         |
+| ----------------------------------- | ---- | -------------------------------- | ---------------- |
+| `/oauth2/authorize`                 | GET  | 获取授权重定向 URL               | 用户点击登录     |
+| `/oauth2/providers`                 | GET  | 获取已启用的 OAuth Provider 列表 | 前端初始化登录页 |
+| `/oauth2/token`                     | POST | 授权码换取令牌                   | 授权回调后       |
+| `/oauth2/refresh`                   | POST | 刷新 access_token                | 令牌即将过期     |
+
+**运维端点**（无需 JWT 认证）：`/healthz`（健康检查）、`/readyz`（就绪检查）、`/metrics`（Prometheus 指标）。
+
+**业务端点**（需要 JWT 认证）：`/api/sessions/{sessionID}/interrupts/{interruptID}/answer`（提交中断应答）、`/api/memories/export`（导出记忆数据）。
 
 ## 认证流程
 
@@ -27,15 +42,6 @@ sequenceDiagram
 ```
 
 > 💡 **设计要点**：前端（F-C）调用 `/oauth2/authorize` 获取重定向 URL，将用户引导至 OAuth2 Provider 的授权页面。授权完成后，Provider 回调前端，前端拿到授权码后调用 `/oauth2/token` 完成令牌交换。
-
-## 端点一览
-
-| 端点 | 方法 | 功能 | 调用时机 |
-|------|:----:|------|----------|
-| `/oauth2/authorize` | GET | 获取授权重定向 URL | 用户点击登录 |
-| `/oauth2/providers` | GET | 获取已启用的 OAuth Provider 列表 | 前端初始化登录页 |
-| `/oauth2/token` | POST | 授权码换取令牌 | 授权回调后 |
-| `/oauth2/refresh` | POST | 刷新 access_token | 令牌即将过期 |
 
 ---
 
@@ -217,6 +223,103 @@ flowchart TD
     style F fill:#fff9c4,stroke:#f9a825,stroke-width:2px
     style G fill:#e3f2fd,stroke:#1565c0,stroke-width:2px
 ```
+
+---
+
+## 运维端点
+
+运维端点无需 JWT 认证，供基础设施层调用。
+
+### GET /healthz
+
+健康检查端点，用于负载均衡器和 Kubernetes liveness probe。
+
+**响应**：
+
+```json
+{"status": "ok"}
+```
+
+### GET /readyz
+
+就绪检查端点，用于 Kubernetes readiness probe。仅当服务完全启动并可接收请求时返回 200。
+
+**响应**：
+
+```json
+{"status": "ok"}
+```
+
+### GET /metrics
+
+Prometheus 指标端点，暴露服务运行指标，供监控系统（Prometheus / Grafana）采集。
+
+**响应**：`text/plain` 格式的 Prometheus 指标。
+
+---
+
+## 业务端点
+
+业务端点需要 JWT 认证（`Authorization: Bearer <token>` 请求头）。开发模式下支持 `X-User-ID` / `X-Device-ID` 请求头旁路。
+
+### POST /api/sessions/{sessionID}/interrupts/{interruptID}/answer
+
+提交中断应答。当 AI 在执行过程中遇到需要用户决策的问题时，会通过中断机制暂停并向前端发送提问。前端收集用户回答后，通过此端点提交。
+
+**路径参数**：
+
+| 参数           | 类型   | 说明                         |
+| -------------- | ------ | ---------------------------- |
+| `sessionID`    | UUID   | 会话 ID                      |
+| `interruptID`  | string | 中断 ID（由中断事件携带）    |
+
+**请求体**：
+
+```json
+{
+  "answer": "用户对中断问题的回答"
+}
+```
+
+| 字段     | 必填 | 类型   | 说明           |
+| -------- | ---- | ------ | -------------- |
+| `answer` | ✅   | string | 用户的回答内容 |
+
+**响应**：成功时返回 200 OK。
+
+> 💡 内部实现使用 Redis 的 `SET+PUBLISH` 模式将应答投递给等待中的中断处理协程，确保应答不丢失。详见 [中断处理流程](/docs/features/messaging/)。
+
+### POST /api/memories/export
+
+导出记忆数据为 OKF（Open Knowledge Format）bundle。支持按范围（会话 / 用户 / 全局）、类型、标签过滤。
+
+**请求体**：
+
+```json
+{
+  "scope": "user",
+  "scopeId": "user-uuid",
+  "format": "okf-bundle",
+  "types": ["fact", "preference"],
+  "tags": ["work"],
+  "includeLinks": true,
+  "includeLog": false
+}
+```
+
+| 字段           | 必填 | 类型       | 说明                                                     |
+| -------------- | ---- | ---------- | -------------------------------------------------------- |
+| `scope`        | ✅   | string     | 导出范围：`session` / `user` / `global`                  |
+| `scopeId`      | ✅   | string     | 范围对应的 ID（session UUID / user UUID / 空字符串）     |
+| `format`       | ✅   | string     | 导出格式，当前仅支持 `okf-bundle`                        |
+| `types`        | —    | string[]   | 按记忆类型过滤（可选）                                   |
+| `tags`         | —    | string[]   | 按标签过滤（可选）                                       |
+| `includeLinks` | —    | boolean    | 是否包含交叉引用（默认 false）                           |
+| `includeLog`   | —    | boolean    | 是否生成 log.md（默认 false）                            |
+
+**响应**：`Content-Type: application/gzip`，返回 gzip 压缩的 OKF bundle 流。
+
+> 💡 由于采用流式响应，一旦开始写入响应体后发生错误，将无法返回 JSON 错误响应。客户端应通过 HTTP 状态码和 `Content-Length` 判断导出是否成功。
 
 ## 下一步
 

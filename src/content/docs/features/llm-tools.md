@@ -13,15 +13,20 @@ AI 在推理过程中可以调用一组**内置工具**来扩展自身能力。�
 | `listSubAgent` | 列出当前会话树中所有活跃的子 Agent | 否 |
 | `getSubAgentMessage` | 获取指定子 Agent 的最新消息 | 否 |
 | `stopSubAgent` | 停止指定子 Agent 及其所有后代会话 | 否 |
+| `sendMessageToSubAgent` | 向异步子 Agent 发送追加消息 | 否 |
 | `askUser` | 向用户提出 1-4 个选择题，等待用户回答 | 是 |
+| `todoWrite` | 管理任务清单（创建、更新待办事项列表） | 否 |
 | `createGoal` | 创建自主目标，自动驱动后续轮次直到完成 | 否 |
 | `completeGoal` | 标记目标为已完成 | 否 |
 | `cancelGoal` | 取消目标 | 否 |
 | `createLoop` | 创建定时循环任务，按固定间隔自动执行 | 否 |
 | `cancelLoop` | 取消循环任务 | 否 |
+| `completeLoop` | 将循环任务标记为已完成 | 否 |
 | `listLoops` | 列出当前会话的所有循环任务 | 否 |
 | `pauseLoop` | 暂停循环任务 | 否 |
 | `resumeLoop` | 恢复暂停的循环任务 | 否 |
+
+> 💡 此外，记忆系统提供了 `saveSessionMemory`、`listSessionMemories`、`searchMemory` 等会话记忆工具，以及 `saveUserMemory`、`updateUserMemory`、`deleteUserMemory`、`listUserMemory` 等用户记忆工具。详见 [记忆系统](/docs/features/memory/)。
 
 ---
 
@@ -189,6 +194,25 @@ flowchart TD
 
 ---
 
+### sendMessageToSubAgent — 向子 Agent 发送消息
+
+向异步子 Agent 发送追加消息。用于在子 Agent 运行过程中提供额外指令、补充上下文或回应子 Agent 的问题。
+
+#### 参数
+
+| 参数 | 类型 | 必填 | 说明 |
+|------|------|:----:|------|
+| `sub_session_id` | string | 是 | 目标异步子会话的服务端 UUID |
+| `message` | string | 是 | 发送给子 Agent 的消息内容 |
+
+#### 使用场景
+
+- 子 Agent 执行过程中需要追加指令
+- 回应异步子 Agent 的提问
+- 调整子 Agent 的执行方向
+
+---
+
 ## askUser — 向用户提问
 
 AI 向用户提出 1-4 个选择题，用于收集偏好、澄清歧义、理解需求或获取实现决策。用户始终可以选择"其他"来提供自由文本。
@@ -266,6 +290,32 @@ User has answered your questions: "使用哪个日期格式化库？"="date-fns"
 
 ---
 
+## todoWrite — 任务清单管理
+
+管理 AI 的任务清单（Todo List）。采用**全量替换**模式——每次调用传入完整的待办列表，替换之前的全部内容。更新后通过事件通知前端实时展示。
+
+### 参数
+
+| 参数 | 类型 | 必填 | 说明 |
+|------|------|:----:|------|
+| `todos` | array | 否 | 待办事项列表（完整替换） |
+
+每个待办事项包含：
+
+| 字段 | 类型 | 必填 | 说明 |
+|------|------|:----:|------|
+| `content` | string | 是 | 任务描述（祈使句） |
+| `status` | `"pending"` / `"in_progress"` / `"completed"` | 是 | 任务状态 |
+| `active_form` | string | 否 | 进行中的简短描述，用于状态栏展示 |
+
+### 使用建议
+
+- 保持任务粒度适中——每个任务应该是一个可验证的里程碑
+- 及时更新状态——完成的任务标记为 `completed`，正在进行的标记为 `in_progress`
+- 不需要的任务直接从列表中移除，而不是标记为取消
+
+---
+
 ## Goal 工具 — 自主目标驱动
 
 Goal 系统允许 AI 创建自主目标，并在后续轮次中自动推进目标完成。每个 Goal 有独立的状态生命周期和 turn 边界检查点。
@@ -323,7 +373,7 @@ stateDiagram-v2
     [*] --> Active: createLoop
     Active --> Paused: pauseLoop ⏸️
     Paused --> Active: resumeLoop ▶️
-    Active --> Completed: 条件满足 ✅
+    Active --> Completed: completeLoop / 条件满足 ✅
     Active --> Cancelled: cancelLoop 🚫
     Active --> Exhausted: 超过 max_turns 或过期 ⏰
 
@@ -354,6 +404,7 @@ stateDiagram-v2
 | 工具 | 参数 | 说明 |
 |------|------|------|
 | `cancelLoop` | `loop_id` | 取消循环 |
+| `completeLoop` | `reason` | 将循环标记为已完成（附完成原因说明） |
 | `listLoops` | 无 | 列出当前会话的所有循环 |
 | `pauseLoop` | `loop_id` | 暂停循环 |
 | `resumeLoop` | `loop_id` | 恢复暂停的循环 |

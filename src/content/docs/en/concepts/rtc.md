@@ -72,14 +72,16 @@ sequenceDiagram
 
 The RTC protocol defines **6 built-in tools** covering file system operations and script execution:
 
-| Tool | Function | Key Parameters |
-|:----:|------|----------|
-| 🔍 `ls` | List directory contents | `path` (default `/`) |
-| 📖 `read` | Read file contents | `path`, `offset` / `limit` (pagination) |
-| ✏️ `write` | Write to file | `path`, `content`, `mode` (overwrite / append) |
-| 🔎 `grep` | Search by content | `pattern` (regex), `path` |
-| 📁 `find` | Search by name | `pattern` (glob), `path` |
-| ⚡ `script` | Execute JavaScript | `action` (save / run / eval), `code` |
+| Tool | Function | Key Parameters | Status |
+|:----:|------|----------|:----:|
+| 🔍 `ls` | List directory contents | `path` (default `/`) | Available |
+| 📖 `read` | Read file contents | `path`, `offset` / `limit` (pagination) | Available |
+| ✏️ `write` | Write to file | `path`, `content`, `mode` (overwrite / append) | Not yet enabled |
+| 🔎 `grep` | Search by content | `pattern` (regex), `path` | Available |
+| 📁 `find` | Search by name | `pattern` (glob), `path` | Available |
+| ⚡ `script` | Execute JavaScript | `action` (save / run / eval), `code` | Available |
+
+> 💡 The `write` tool is currently disabled — file writes can be performed via the `rtcAgent.fs.write()` API in the `script` tool. The tool implementation is complete and may be re-enabled in the future.
 
 These 6 tools give the AI a **complete file operation interface** — operating on the frontend virtual file system just like working with a local terminal.
 

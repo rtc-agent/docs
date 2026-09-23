@@ -1,9 +1,24 @@
 ---
 title: HTTP API
-description: RTC Agent HTTP authentication endpoints — standard OAuth2 authorization code flow, supporting multiple Providers, token refresh, and device management.
+description: RTC Agent HTTP endpoints — OAuth2 authentication, health checks, interrupt answers, and memory export.
 ---
 
-RTC Agent's HTTP API provides **4 OAuth2 endpoints** for user authentication and token management. The entire flow follows the standard OAuth2 authorization code pattern, compatible with common Providers like GitHub and Google.
+RTC Agent's HTTP API includes three categories of endpoints: **OAuth2 Authentication** handles user login and token management, **Operational Endpoints** provide health checks and metrics collection, and **Business Endpoints** support interrupt answers and memory export. The authentication flow follows the standard OAuth2 authorization code pattern, compatible with common Providers like GitHub and Google.
+
+## Endpoint Summary
+
+### OAuth2 Authentication Endpoints
+
+| Endpoint            | Method | Function                             | When Called                     |
+| ------------------- | ------ | ------------------------------------ | ------------------------------- |
+| `/oauth2/authorize` | GET    | Get authorization redirect URL       | User clicks login               |
+| `/oauth2/providers` | GET    | Get list of enabled OAuth Providers  | Frontend initializes login page |
+| `/oauth2/token`     | POST   | Exchange authorization code for tokens | After authorization callback  |
+| `/oauth2/refresh`   | POST   | Refresh access_token                 | When token is about to expire   |
+
+**Operational Endpoints** (no JWT required): `/healthz` (health check), `/readyz` (readiness check), `/metrics` (Prometheus metrics).
+
+**Business Endpoints** (JWT required): `/api/sessions/{sessionID}/interrupts/{interruptID}/answer` (submit interrupt answer), `/api/memories/export` (export memory data).
 
 ## Authentication Flow
 
@@ -27,15 +42,6 @@ sequenceDiagram
 ```
 
 > 💡 **Design note**: The frontend (F-C) calls `/oauth2/authorize` to get the redirect URL, then navigates the user to the OAuth2 Provider's authorization page. After authorization is complete, the Provider calls back to the frontend, which then calls `/oauth2/token` to complete the token exchange.
-
-## Endpoint Summary
-
-| Endpoint | Method | Function | When Called |
-|------|:----:|------|----------|
-| `/oauth2/authorize` | GET | Get authorization redirect URL | User clicks login |
-| `/oauth2/providers` | GET | Get list of enabled OAuth Providers | Frontend initializes login page |
-| `/oauth2/token` | POST | Exchange authorization code for tokens | After authorization callback |
-| `/oauth2/refresh` | POST | Refresh access_token | When token is about to expire |
 
 ---
 
@@ -217,6 +223,103 @@ flowchart TD
     style F fill:#fff9c4,stroke:#f9a825,stroke-width:2px
     style G fill:#e3f2fd,stroke:#1565c0,stroke-width:2px
 ```
+
+---
+
+## Operational Endpoints
+
+Operational endpoints do not require JWT authentication and are intended for infrastructure use.
+
+### GET /healthz
+
+Health check endpoint for load balancer and Kubernetes liveness probes.
+
+**Response**:
+
+```json
+{"status": "ok"}
+```
+
+### GET /readyz
+
+Readiness check endpoint for Kubernetes readiness probes. Returns 200 only when the server is fully started and ready to accept requests.
+
+**Response**:
+
+```json
+{"status": "ok"}
+```
+
+### GET /metrics
+
+Prometheus metrics endpoint exposing runtime metrics for monitoring systems (Prometheus / Grafana).
+
+**Response**: Prometheus metrics in `text/plain` format.
+
+---
+
+## Business Endpoints
+
+Business endpoints require JWT authentication (`Authorization: Bearer <token>` header). In development mode, `X-User-ID` / `X-Device-ID` headers are accepted as a bypass.
+
+### POST /api/sessions/{sessionID}/interrupts/{interruptID}/answer
+
+Submit an interrupt answer. When the AI encounters a question requiring user decision during execution, it pauses via the interrupt mechanism and sends the question to the frontend. The frontend collects the user's answer and submits it through this endpoint.
+
+**Path Parameters**:
+
+| Parameter     | Type   | Description                          |
+| ------------- | ------ | ------------------------------------ |
+| `sessionID`   | UUID   | Session ID                           |
+| `interruptID` | string | Interrupt ID (carried by interrupt event) |
+
+**Request Body**:
+
+```json
+{
+  "answer": "User's answer to the interrupt question"
+}
+```
+
+| Field    | Required | Type   | Description              |
+| -------- | -------- | ------ | ------------------------ |
+| `answer` | ✅       | string | The user's answer content |
+
+**Response**: Returns 200 OK on success.
+
+> 💡 The internal implementation uses Redis `SET+PUBLISH` pattern to deliver the answer to the waiting interrupt handler goroutine, ensuring no answer is lost. See [Interrupt Flow](/docs/en/features/messaging/) for details.
+
+### POST /api/memories/export
+
+Export memory data as an OKF (Open Knowledge Format) bundle. Supports filtering by scope (session / user / global), type, and tags.
+
+**Request Body**:
+
+```json
+{
+  "scope": "user",
+  "scopeId": "user-uuid",
+  "format": "okf-bundle",
+  "types": ["fact", "preference"],
+  "tags": ["work"],
+  "includeLinks": true,
+  "includeLog": false
+}
+```
+
+| Field          | Required | Type     | Description                                            |
+| -------------- | -------- | -------- | ------------------------------------------------------ |
+| `scope`        | ✅       | string   | Export scope: `session` / `user` / `global`            |
+| `scopeId`      | ✅       | string   | ID corresponding to scope (session UUID / user UUID / empty string) |
+| `format`       | ✅       | string   | Export format, currently only `okf-bundle` is supported |
+| `types`        | —        | string[] | Filter by memory types (optional)                      |
+| `tags`         | —        | string[] | Filter by tags (optional)                              |
+| `includeLinks` | —        | boolean  | Include cross-references (default false)               |
+| `includeLog`   | —        | boolean  | Generate log.md (default false)                        |
+
+**Response**: `Content-Type: application/gzip`, returns a gzip-compressed OKF bundle stream.
+
+> 💡 Because this uses a streaming response, JSON error responses are no longer possible once writing to the response body begins. Clients should check HTTP status code and `Content-Length` to determine export success.
 
 ## Next Steps
 

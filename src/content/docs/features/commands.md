@@ -167,6 +167,7 @@ flowchart LR
 |---------|------|
 | `createLoop` | 创建定时循环任务 |
 | `cancelLoop` | 取消循环任务 |
+| `completeLoop` | 将循环任务标记为已完成 |
 | `listLoops` | 列出当前会话的所有循环任务 |
 | `pauseLoop` | 暂停循环任务 |
 | `resumeLoop` | 恢复暂停的循环任务 |

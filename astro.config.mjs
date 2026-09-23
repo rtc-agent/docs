@@ -143,6 +143,7 @@ export default defineConfig({
 						{ label: 'What is RTC Agent', link: '/introduction/', translations: { 'zh-CN': '什么是 RTC Agent' } },
 						{ label: 'Quick Start', link: '/getting-started/', translations: { 'zh-CN': '快速开始' } },
 						{ label: 'Build from Source', link: '/deployment/source-build/', translations: { 'zh-CN': '源码构建' } },
+						{ label: 'CDN Deployment', link: '/deployment/cdn/', translations: { 'zh-CN': 'CDN 部署' } },
 						{ label: 'Distributed Cluster', link: '/deployment/distributed-deploy/', translations: { 'zh-CN': '分布式集群' } },
 					],
 				},
@@ -167,6 +168,9 @@ export default defineConfig({
 						{ label: 'Memory', link: '/features/memory/', translations: { 'zh-CN': '记忆系统' } },
 						{ label: 'Context Management', link: '/features/context-management/', translations: { 'zh-CN': '上下文管理' } },
 						{ label: 'Real-time Communication', link: '/features/realtime/', translations: { 'zh-CN': '实时通信' } },
+						{ label: 'LLM Built-in Tools', link: '/features/llm-tools/', translations: { 'zh-CN': 'LLM 内置工具' } },
+						{ label: 'Notifications', link: '/features/notifications/', translations: { 'zh-CN': '通知系统' } },
+						{ label: 'Settings', link: '/features/settings/', translations: { 'zh-CN': '全局设置系统' } },
 					],
 				},
 				{
@@ -177,6 +181,7 @@ export default defineConfig({
 						{ label: 'Web Component API', link: '/integration/component-api/', translations: { 'zh-CN': 'Web Component API' } },
 						{ label: 'Function Registration', link: '/integration/function-registration/', translations: { 'zh-CN': 'Function 注册指南' } },
 						{ label: 'Scenario Authoring', link: '/integration/scenario-authoring/', translations: { 'zh-CN': 'Scenario 编写指南' } },
+						{ label: 'i18n Integration', link: '/integration/i18n/', translations: { 'zh-CN': '国际化集成指南' } },
 						{ label: 'Integration Tutorial', link: '/integration/integration-tutorial/', translations: { 'zh-CN': '接入实战' } },
 						{ label: 'FAQ', link: '/integration/faq/', translations: { 'zh-CN': '常见问题' } },
 					],
@@ -218,6 +223,7 @@ export default defineConfig({
 					label: 'Community Showcase',
 					translations: { 'zh-CN': '社区案例' },
 					items: [
+						{ label: 'Overview', link: '/showcase/', translations: { 'zh-CN': '案例总览' } },
 						{ label: 'Mermaid Live Editor', link: '/showcase/mermaid-live-editor/', translations: { 'zh-CN': 'Mermaid Live Editor' } },
 						{ label: 'Peep', link: '/showcase/peep/', translations: { 'zh-CN': 'Peep 命理工作台' } },
 					],

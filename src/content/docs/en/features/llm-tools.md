@@ -13,15 +13,20 @@ During reasoning, the AI can call a set of **built-in tools** to extend its capa
 | `listSubAgent` | List all active sub-agents in the current session tree | No |
 | `getSubAgentMessage` | Get the latest message from a specific sub-agent | No |
 | `stopSubAgent` | Stop a specific sub-agent and all its descendant sessions | No |
+| `sendMessageToSubAgent` | Send an additional message to an async sub-agent | No |
 | `askUser` | Ask the user 1-4 multiple-choice questions and wait for answers | Yes |
+| `todoWrite` | Manage task lists (create, update todo items) | No |
 | `createGoal` | Create an autonomous goal, automatically driving subsequent turns until completion | No |
 | `completeGoal` | Mark the goal as completed | No |
 | `cancelGoal` | Cancel the goal | No |
 | `createLoop` | Create a scheduled loop task that runs automatically at fixed intervals | No |
 | `cancelLoop` | Cancel a loop task | No |
+| `completeLoop` | Mark a loop task as completed | No |
 | `listLoops` | List all loop tasks in the current session | No |
 | `pauseLoop` | Pause a loop task | No |
 | `resumeLoop` | Resume a paused loop task | No |
+
+> 💡 Additionally, the memory system provides session memory tools (`saveSessionMemory`, `listSessionMemories`, `searchMemory`) and user memory tools (`saveUserMemory`, `updateUserMemory`, `deleteUserMemory`, `listUserMemory`). See [Memory System](/docs/en/features/memory/) for details.
 
 ---
 
@@ -189,6 +194,25 @@ flowchart TD
 
 ---
 
+### sendMessageToSubAgent — Send Message to Sub-Agent
+
+Send an additional message to an async sub-agent. Used to provide extra instructions, supply additional context, or respond to the sub-agent's questions during its execution.
+
+#### Parameters
+
+| Parameter | Type | Required | Description |
+|-----------|------|:--------:|-------------|
+| `sub_session_id` | string | Yes | The server UUID of the target async sub-agent session |
+| `message` | string | Yes | The message content to send to the sub-agent |
+
+#### Use Cases
+
+- Provide additional instructions during sub-agent execution
+- Respond to questions from an async sub-agent
+- Redirect the sub-agent's focus
+
+---
+
 ## askUser — Ask the User
 
 The AI asks the user 1-4 multiple-choice questions to gather preferences, clarify ambiguity, understand requirements, or get decisions on implementation choices. Users can always pick "Other" to provide free-form text.
@@ -266,6 +290,58 @@ User has answered your questions: "Which date formatting library should we use?"
 
 ---
 
+## todoWrite — Task List Management
+
+Manage the AI's task list (Todo List). Uses a **full replacement** mode — each call passes the complete todo list, replacing the previous content entirely. Updates are published as events to notify the frontend for real-time display.
+
+### Parameters
+
+| Parameter | Type | Required | Description |
+|-----------|------|:--------:|-------------|
+| `todos` | array | No | Todo item list (complete replacement) |
+
+Each todo item contains:
+
+| Field | Type | Required | Description |
+|-------|------|:--------:|-------------|
+| `content` | string | Yes | Task description (imperative) |
+| `status` | `"pending"` / `"in_progress"` / `"completed"` | Yes | Task status |
+| `active_form` | string | No | Short description for status bar display when in progress |
+
+### Usage Tips
+
+- Keep tasks at a moderate granularity — each task should be a verifiable milestone
+- Update status promptly — mark completed tasks as `completed`, in-progress ones as `in_progress`
+- Remove unneeded tasks from the list directly instead of marking them as cancelled
+
+---
+
+## todoWrite — Task List Management
+
+Manage the AI's task list (Todo List). Uses a **full replacement** mode — each call passes in the complete todo list, replacing the previous content entirely. Updates notify the frontend for real-time display via events.
+
+### Parameters
+
+| Parameter | Type | Required | Description |
+|------|------|:----:|------|
+| `todos` | array | No | Todo item list (full replacement) |
+
+Each todo item contains:
+
+| Field | Type | Required | Description |
+|------|------|:----:|------|
+| `content` | string | Yes | Task description (imperative sentence) |
+| `status` | `"pending"` / `"in_progress"` / `"completed"` | Yes | Task status |
+| `active_form` | string | No | Short description for in-progress tasks, displayed in the status bar |
+
+### Usage Tips
+
+- Keep task granularity moderate — each task should be a verifiable milestone
+- Update status promptly — mark completed tasks as `completed`, in-progress as `in_progress`
+- Remove unneeded tasks directly from the list rather than marking them as cancelled
+
+---
+
 ## Goal Tools — Autonomous Goal Driving
 
 The Goal system allows AI to create autonomous goals and automatically advance them across turns until completion. Each Goal has its own state lifecycle and turn-boundary checkpoint.
@@ -323,7 +399,7 @@ stateDiagram-v2
     [*] --> Active: createLoop
     Active --> Paused: pauseLoop ⏸️
     Paused --> Active: resumeLoop ▶️
-    Active --> Completed: Condition met ✅
+    Active --> Completed: completeLoop / Condition met ✅
     Active --> Cancelled: cancelLoop 🚫
     Active --> Exhausted: Exceeded max_turns or expired ⏰
 
@@ -354,6 +430,7 @@ stateDiagram-v2
 | Tool | Parameter | Description |
 |------|------|------|
 | `cancelLoop` | `loop_id` | Cancel the loop |
+| `completeLoop` | `reason` | Mark the loop as completed (with completion reason) |
 | `listLoops` | None | List all loops in the current session |
 | `pauseLoop` | `loop_id` | Pause the loop |
 | `resumeLoop` | `loop_id` | Resume a paused loop |

@@ -167,6 +167,7 @@ Users describe tasks that need to be executed in a loop using natural language. 
 |---------|------|
 | `createLoop` | Create a scheduled loop task |
 | `cancelLoop` | Cancel a loop task |
+| `completeLoop` | Mark a loop task as completed |
 | `listLoops` | List all loop tasks in the current session |
 | `pauseLoop` | Pause a loop task |
 | `resumeLoop` | Resume a paused loop task |
