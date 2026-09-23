@@ -188,6 +188,7 @@ sequenceDiagram
 | `toolcall_output` | 工具调用结果 | `ToolCall` 对象 |
 | `user_message` | 用户消息（含场景注入） | `UserMessageContent` 对象 |
 | `error` | 结构化错误消息 | `ErrorContent` 对象 |
+| `prompt` | 系统提示词（持久化系统级指令） | `PromptContent` 对象 |
 
 ### ErrorContent 错误消息
 

@@ -3,7 +3,7 @@ title: Web Component API
 description: 一个 <rtc-agent> 组件，搞定 AI 对话、工具调用、主题切换——用属性配置，用事件监听，用 CSS 变量定制。
 ---
 
-**`<rtc-agent>`** 是 RTC Agent 对外暴露的**唯一组件**。它基于 Lit 构建，内部包含 38 个子组件和 20 个 Controller，但对外只呈现一个简洁的 Web Component 接口——属性配置、事件监听、CSS 变量定制。
+**`<rtc-agent>`** 是 RTC Agent 对外暴露的**唯一组件**。它基于 Lit 构建，内部包含 44 个子组件和 19 个 Controller，但对外只呈现一个简洁的 Web Component 接口——属性配置、事件监听、CSS 变量定制。
 
 ```mermaid
 flowchart TD
@@ -275,12 +275,12 @@ agent.activityBarConfig = {
 
 ## 状态管理
 
-组件内部使用 20 个 **Controller** 管理状态。其中 9 个核心状态 Controller 负责业务逻辑，11 个 UI 辅助 Controller 负责界面交互。Controller 之间不直接引用，由根组件 `<rtc-agent>` 作为中枢编排跨 Controller 通信：
+组件内部使用 19 个 **Controller** 管理状态。其中 9 个核心状态 Controller 负责业务逻辑，10 个 UI 辅助 Controller 负责界面交互。Controller 之间不直接引用，由根组件 `<rtc-agent>` 作为中枢编排跨 Controller 通信：
 
 ```mermaid
 flowchart TD
     ROOT["🧩 &lt;rtc-agent&gt;<br/>中枢编排"] --> CORE["📦 9 个核心 Controller"]
-    ROOT --> UI["🎨 11 个 UI Controller"]
+    ROOT --> UI["🎨 10 个 UI Controller"]
 
     CORE --> C1["🪟 WindowState"]
     CORE --> C2["🔐 Auth"]
@@ -592,7 +592,7 @@ flowchart TD
 
 ## Debug API
 
-`<rtc-agent>` 在所有构建（dev + prod）中暴露 `window.rtcAgentDebug` 对象，提供 27+ 个方法用于 E2E 测试、调试和自动化操作。
+`<rtc-agent>` 在所有构建（dev + prod）中暴露 `window.rtcAgentDebug` 对象，提供 40+ 个方法用于 E2E 测试、调试和自动化操作。
 
 ```ts
 const debug = window.rtcAgentDebug;
@@ -613,6 +613,8 @@ const debug = window.rtcAgentDebug;
 | **Settings** | `getSettings()`, `updateSettings(section, patch)` | 设置管理 |
 | **Activity** | `setActivity(activity)`, `getActivity()` | Activity Bar 控制 |
 | **Network** | `simulateOffline()`, `restoreNetwork()`, `isOffline` | 网络状态模拟 |
+| **Event** | `triggerEvent(name, detail?)` | 自定义事件模拟 |
+| **Metrics** | `getMetrics()` | 性能指标采集 |
 | **Component** | `element`, `waitForReady(timeout?)`, `waitForConnected(timeout?)` | 组件引用和等待 |
 | **Logs** | `logs`, `clearLogs()` | 日志访问 |
 

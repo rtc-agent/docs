@@ -1,24 +1,28 @@
 ---
 title: Context Management
-description: RTC Agent's three-layer compression mechanism — from tool result cleanup to full summarization — ensuring conversations never hit the context ceiling.
+description: RTC Agent's five-layer compression mechanism — from tool result cleanup to full summarization — ensuring conversations never hit the context ceiling.
 ---
 
-**Context Management** is the key to sustaining long conversations. As conversations grow longer and tool outputs accumulate, the system intelligently manages the context window through a **three-layer compression mechanism** — retaining critical information, freeing up precious space, and keeping the conversation unbroken.
+**Context Management** is the key to sustaining long conversations. As conversations grow longer and tool outputs accumulate, the system intelligently manages the context window through a **five-layer compression mechanism** — retaining critical information, freeing up precious space, and keeping the conversation unbroken.
 
-## Three-Layer Compression Architecture
+## Five-Layer Compression Architecture
 
 ```mermaid
 flowchart TD
-    subgraph LAYERS["📦 Three-Layer Compression"]
+    subgraph LAYERS["📦 Compression Mechanisms"]
         direction TB
-        L1["🔹 Layer 1: Microcompact<br/>Tool result cleanup"]
-        L2["🔸 Layer 2: Auto Compact<br/>Automatic summary compression"]
-        L3["🔹 Layer 3: Session Memory Compact<br/>Session memory compression"]
+        L0["🔹 Manual Compact<br/>User-triggered"]
+        L1["🔸 Microcompact<br/>Tool result cleanup"]
+        L2["🔹 Auto Compact<br/>Automatic summary compression"]
+        L3["🔸 Reactive Compact<br/>Progressive emergency compression"]
+        L4["🔹 Session Memory Compact<br/>Session memory compression"]
     end
 
+    L0 -->|"User command"| COMPACT["🗜️ Force compression"]
     L1 -->|"Running out of space"| L2
-    L2 -->|"Has Session Memory"| L3
+    L2 -->|"Has Session Memory"| L4
     L2 -->|"No Session Memory"| L2B["🧠 Call LLM to generate summary"]
+    L2 -->|"Tokens still over limit"| L3
 
     subgraph SCOPE["Compression Granularity"]
         direction LR
@@ -29,20 +33,44 @@ flowchart TD
 
     L1 --> S1
     L2 --> S2
-    L3 --> S3
+    L4 --> S3
 
     style LAYERS fill:#e8eaf6,stroke:#3f51b5,stroke-width:2px
     style SCOPE fill:#f5f5f5,stroke:#9e9e9e,stroke-width:1px
+    style L0 fill:#f3e5f5,stroke:#7b1fa2,stroke-width:2px
     style L1 fill:#e3f2fd,stroke:#1565c0,stroke-width:2px
     style L2 fill:#fff9c4,stroke:#f9a825,stroke-width:2px
-    style L3 fill:#e8f5e9,stroke:#388e3c,stroke-width:2px
+    style L3 fill:#ffcdd2,stroke:#c62828,stroke-width:2px
+    style L4 fill:#e8f5e9,stroke:#388e3c,stroke-width:2px
 ```
 
 | Layer | Name | Trigger | Compression Granularity | Cost |
 |:----:|------|----------|----------|:----:|
+| 0 | Manual Compact | User sends `/compact` command | Full → summary | One LLM call |
 | 1 | Microcompact | Time interval | Single tool result | Zero |
 | 2 | Auto Compact | Token count reaches threshold | A batch of messages → summary | One LLM call |
-| 3 | Session Memory Compact | When Auto Compact is triggered | Session memory → summary | Zero |
+| 3 | Reactive Compact | Still over limit after Auto Compact | Progressive multi-level compression | Zero ~ one LLM |
+| 4 | Session Memory Compact | When Auto Compact is triggered | Session memory → summary | Zero |
+
+## Manual Compact
+
+Users can trigger context compression manually via the `/compact` command, useful for proactively cleaning context or adjusting summary direction.
+
+**RPC**: `v1.session.compact`
+
+```json
+{
+  "session_id": "uuid",
+  "custom_instruction": "Focus on retaining API design decisions and code snippets"
+}
+```
+
+| Parameter | Description |
+|------|------|
+| `session_id` | Target session ID |
+| `custom_instruction` | Optional, custom summary instruction overriding the default compression prompt |
+
+> 💡 Manual compression uses `force` mode, bypassing the token threshold check — compression is performed even if the context is not over the limit. The compression LLM call disables thinking/reasoning to save tokens.
 
 ## Microcompact — Tool Result Cleanup
 
@@ -172,6 +200,72 @@ flowchart TD
 ```
 
 This is exactly the **convergence point** of the memory system and context management — Session Memory, continuously accumulated during the conversation, becomes a high-quality summary at compression time without requiring an additional LLM call.
+
+## Reactive Compact — Progressive Emergency Compression
+
+When tokens are still over the limit after Auto Compact, the system activates **Reactive Compact** — a progressive multi-level compression strategy that frees up as much space as possible without increasing LLM cost.
+
+```mermaid
+flowchart LR
+    A["📏 After Auto Compact<br/>tokens still over limit"] --> L1["Level 1<br/>Light compression"]
+    L1 -->|"Still over"| L2["Level 2<br/>Medium compression"]
+    L2 -->|"Still over"| L3["Level 3<br/>Aggressive compression"]
+
+    style A fill:#fff9c4,stroke:#f9a825,stroke-width:2px
+    style L1 fill:#e3f2fd,stroke:#1565c0,stroke-width:2px
+    style L2 fill:#ffcc80,stroke:#ef6c00,stroke-width:2px
+    style L3 fill:#ffcdd2,stroke:#c62828,stroke-width:2px
+```
+
+| Level | Strategy | Description |
+|:----:|------|------|
+| Level 1 | Light compression | More aggressive tool result cleanup + reduced message retention |
+| Level 2 | Medium compression | Further message trimming + shorter attachment injection |
+| Level 3 | Aggressive compression | Aggressive microcompact + minimal retention configuration |
+
+> 💡 Reactive Compact persists across process restarts — even after a Server restart, the system detects the current token state and continues executing the required compression level.
+
+## Tool Result Budget
+
+Individual tool outputs are limited to **10K tokens** to prevent any single tool result from monopolizing the context window:
+
+| Strategy | Ratio | Description |
+|------|:----:|------|
+| Head retention | 60% | Keep the first 6,000 tokens of the output |
+| Tail retention | 20% | Keep the last 2,000 tokens of the output |
+| Middle truncation | 20% | Middle section replaced with `[...truncated...]` |
+
+Truncation uses a **UTF-8 safe** algorithm to ensure no character is split in the middle.
+
+## Strategic Cache Breakpoints
+
+**Cache breakpoints** are set at key positions in the message list so that the LLM's prompt cache maintains a high hit rate even after compression:
+
+```mermaid
+flowchart TD
+    subgraph MESSAGES["📝 Message List"]
+        direction TB
+        BP1["🔵 Breakpoint 1<br/>Summary (1h TTL)"]
+        M1["...older messages..."]
+        BP2["🟢 Breakpoint 2<br/>Recent messages (5m TTL)"]
+        M2["...recent messages..."]
+    end
+
+    style BP1 fill:#e3f2fd,stroke:#1565c0,stroke-width:2px
+    style BP2 fill:#e8f5e9,stroke:#388e3c,stroke-width:2px
+```
+
+| Breakpoint | Position | TTL | Description |
+|:----:|------|:---:|------|
+| BP1 | After summary message | 1h | Compressed summaries rarely change, long TTL |
+| BP2 | After recent messages | 5m | Active area, short TTL for freshness |
+
+| Effect | Data |
+|------|------|
+| Cache hit rate | 0% → **75%** (after microcompact) |
+| Input cost reduction | ~**69%** |
+
+> 💡 Configurable via `worker.enable_strategic_cache_breakpoints` (default `true`). This feature works with Anthropic's prompt caching mechanism to reuse previous caches even after context compression.
 
 ## Post-Compression Context Recovery
 

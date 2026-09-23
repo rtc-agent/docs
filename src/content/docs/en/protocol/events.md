@@ -151,6 +151,20 @@ The `session.updated` event includes **token statistics** and **compression stat
 |-------|:----:|------|
 | `device_id` | string | Device ID that created this Session (from JWT Token), used by the frontend to determine RTC request ownership |
 
+### Sub-agent Hierarchy Fields
+
+When a Session is created by the Sub-agent system, the following fields describe its position in the Session tree:
+
+| Field | Type | Description |
+|-------|:----:|------|
+| `parent_client_session_id` | string? | Parent Session's Client ID |
+| `parent_server_session_id` | UUID? | Parent Session's Server ID |
+| `root_client_session_id` | string? | Root Session's Client ID (top of the tree) |
+| `root_server_session_id` | UUID? | Root Session's Server ID (top of the tree) |
+| `sub_agent_parent_message_id` | UUID? | Message ID in the parent Session that triggered the Sub-agent |
+
+> 💡 **Session Tree**: Sessions created by Sub-agents reference their parent Session via `parent_*` fields and the root Session of the tree via `root_*` fields. The frontend can use these to render hierarchical navigation (e.g. `rtc-session-tree` component). For top-level Sessions, these fields are all `null`.
+
 > 💡 Token statistics fields use a throttling mechanism (Throttle) to control push frequency, avoiding event storms. The frontend displays this data via the `rtc-token-usage` component. See [Session Management](/docs/en/features/session/) and [Context Management](/docs/en/features/context-management/) for details.
 
 ---

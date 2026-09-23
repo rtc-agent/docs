@@ -188,6 +188,7 @@ sequenceDiagram
 | `toolcall_output` | Tool call result | `ToolCall` object |
 | `user_message` | User message (with scenario injection) | `UserMessageContent` object |
 | `error` | Structured error message | `ErrorContent` object |
+| `prompt` | System prompt (persisted system-level instructions) | `PromptContent` object |
 
 ### ErrorContent Error Messages
 

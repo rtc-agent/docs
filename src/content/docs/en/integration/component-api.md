@@ -3,7 +3,7 @@ title: Web Component API
 description: A single <rtc-agent> component handles AI conversation, tool calls, and theme switching — configure with attributes, listen with events, and customize with CSS variables.
 ---
 
-**`<rtc-agent>`** is the **sole component** exposed by RTC Agent. Built on Lit, it contains 38 sub-components and 20 Controllers internally, but presents only a clean Web Component interface externally — attribute configuration, event listening, and CSS variable customization.
+**`<rtc-agent>`** is the **sole component** exposed by RTC Agent. Built on Lit, it contains 44 sub-components and 19 Controllers internally, but presents only a clean Web Component interface externally — attribute configuration, event listening, and CSS variable customization.
 
 ```mermaid
 flowchart TD
@@ -275,12 +275,12 @@ agent.activityBarConfig = {
 
 ## State Management
 
-The component uses 20 **Controllers** internally to manage state. 9 core state Controllers handle business logic, and 11 UI Controllers handle interface interactions. Controllers do not reference each other directly; instead, the root component `<rtc-agent>` acts as the central hub orchestrating cross-Controller communication:
+The component uses 19 **Controllers** internally to manage state. 9 core state Controllers handle business logic, and 10 UI Controllers handle interface interactions. Controllers do not reference each other directly; instead, the root component `<rtc-agent>` acts as the central hub orchestrating cross-Controller communication:
 
 ```mermaid
 flowchart TD
     ROOT["🧩 &lt;rtc-agent&gt;<br/>Central Orchestration"] --> CORE["📦 9 Core Controllers"]
-    ROOT --> UI["🎨 11 UI Controllers"]
+    ROOT --> UI["🎨 10 UI Controllers"]
 
     CORE --> C1["🪟 WindowState"]
     CORE --> C2["🔐 Auth"]
@@ -589,6 +589,94 @@ flowchart TD
 | 🏗️ Design Tokens | Spacing, typography, radius, shadow, transition, z-index | Foundational design constants ensuring visual consistency |
 | 🌓 Color Themes | Light / Dark (VS Code style) | Two complete color schemes with automatic adaptation |
 | 🔧 CSS Variables | Component-level customization (window dimensions, bubble size) | Overridable by host applications for personalization |
+
+## Debug API
+
+`<rtc-agent>` exposes a `window.rtcAgentDebug` object in all builds (dev + prod), providing 40+ methods for E2E testing, debugging, and automation.
+
+```ts
+const debug = window.rtcAgentDebug;
+```
+
+### Method Categories
+
+| Domain | Methods | Description |
+|:--:|------|------|
+| **State** | `getState()`, `clearData()`, `seedData()` | State access and data management |
+| **Auth** | `loginAs(userId, tokens?)`, `logout()` | Authentication simulation |
+| **VirtualFS** | `listFiles(path?)`, `readFile(path)`, `writeFile(path, content)`, `deleteFile(path)` | Virtual file system operations |
+| **Session** | `createSession()`, `switchSession(id)`, `deleteSession(id)`, `renameSession(id, title)`, `getSessions()`, `getCurrentSessionId()` | Session management |
+| **Message** | `sendMessage(content)`, `getMessages()`, `addDemoMessage(content, role?)`, `clearMessages()` | Message operations |
+| **Tool Call** | `getToolCalls()`, `addPendingToolCall(call)`, `approveToolCall(id)`, `denyToolCall(id)`, `approveAllToolCalls(toolName)` | Tool call simulation |
+| **UI Control** | `click(selector)`, `scrollIntoView(selector)`, `typeText(selector, text)` | UI interaction simulation |
+| **Toast** | `showToast(message, type?)`, `getToasts()` | Toast notifications |
+| **Settings** | `getSettings()`, `updateSettings(section, patch)` | Settings management |
+| **Activity** | `setActivity(activity)`, `getActivity()` | Activity Bar control |
+| **Network** | `simulateOffline()`, `restoreNetwork()`, `isOffline` | Network simulation |
+| **Event** | `triggerEvent(name, detail?)` | Custom event simulation |
+| **Metrics** | `getMetrics()` | Performance metrics collection |
+| **Component** | `element`, `waitForReady(timeout?)`, `waitForConnected(timeout?)` | Component reference and waiting |
+| **Logs** | `logs`, `clearLogs()` | Log access |
+
+### Usage Example
+
+```ts
+const debug = window.rtcAgentDebug;
+
+// Wait for component to be ready
+const agent = await debug.waitForReady(5000);
+
+// Wait for connection
+await debug.waitForConnected(10000);
+
+// Create a session and send a message
+const sessionId = debug.createSession();
+debug.switchSession(sessionId);
+await debug.sendMessage('Hello, help me write a Hello World');
+
+// Simulate offline mode
+debug.simulateOffline();
+console.log('Is offline:', debug.isOffline);
+
+// Restore network
+debug.restoreNetwork();
+
+// Get all messages
+const messages = debug.getMessages();
+console.log('Message count:', messages.length);
+
+// Get current state
+const state = debug.getState();
+console.log('Current session:', debug.getCurrentSessionId());
+```
+
+### E2E Testing Best Practices
+
+```ts
+// Playwright example
+test('send message and get response', async ({ page }) => {
+  await page.goto('/');
+  
+  // Wait for component to be ready
+  await page.waitForFunction(() => window.rtcAgentDebug?.waitForReady);
+  await page.evaluate(() => window.rtcAgentDebug.waitForReady(5000));
+  
+  // Send a message
+  await page.evaluate(() => window.rtcAgentDebug.sendMessage('Hello'));
+  
+  // Wait for AI response
+  await page.waitForFunction(() => {
+    const msgs = window.rtcAgentDebug.getMessages();
+    return msgs.some(m => m.role === 'assistant');
+  }, { timeout: 30000 });
+  
+  // Verify response
+  const messages = await page.evaluate(() => window.rtcAgentDebug.getMessages());
+  expect(messages.length).toBeGreaterThan(1);
+});
+```
+
+> 💡 The Debug API is available in production builds too, which is useful for diagnosing live issues. However, we recommend using data-modifying methods like `seedData()` and `clearData()` only in development and test environments.
 
 ## Key Interactions
 

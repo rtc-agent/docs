@@ -1,9 +1,9 @@
 ---
 title: Frontend Architecture
-description: RTC Agent frontend architecture — a Lit-based Web Components library with 21 sub-components, 12 Controllers, and @lit/context state distribution.
+description: RTC Agent frontend architecture — a Lit-based Web Components library with 44 sub-components, 19 Controllers, and @lit/context state distribution.
 ---
 
-The RTC Agent frontend is a component library built on **Lit Web Components**. It exposes only a single `<rtc-agent>` component to the outside world, containing **21 sub-components** internally, managed by **12 Controllers**, with data distributed to child components via `@lit/context`.
+The RTC Agent frontend is a component library built on **Lit Web Components**. It exposes only a single `<rtc-agent>` component to the outside world, containing **44 sub-components** internally, managed by **19 Controllers**, with data distributed to child components via `@lit/context`.
 
 ## Component Architecture
 
@@ -99,7 +99,11 @@ flowchart TD
 | Attribute | Description | Example |
 | --- | --- | --- |
 | `theme` | Theme switching | `light` / `dark` / `system` |
+| `lang` | Interface language | `zh-CN` / `en-US` |
 | `app-label` | Title bar text + bubble tooltip | `"RTC Assistant"` |
+| `database-name` | IndexedDB name prefix | `"my-app-rtc"` |
+| `server-url` | Server address | `"https://rtc.example.com"` |
+| `redirect-uri` | OAuth callback address | `"/auth/callback.html"` |
 | `bubble-icon` | SVG/HTML inside the minimized bubble | Custom icon |
 | `scenarios-url` | Scenarios document URL | `"https://..."` |
 | `agentConfig` | Declarative function registration (recommended) | JSON config object |
@@ -110,39 +114,42 @@ For detailed API documentation, see [Component API](/docs/en/integration/compone
 
 ```mermaid
 flowchart TD
-    subgraph CONTROLLERS["🎮 12 Controllers"]
+    subgraph CONTROLLERS["🎮 19 Controllers"]
         direction TB
-        C1["🪟 WindowState<br/>Window position / size"]
-        C2["🔐 Auth<br/>Login state"]
-        C3["📦 Session<br/>Session list"]
-        C4["💬 Message<br/>Message list"]
-        C5["🔧 Mode<br/>Work mode"]
-        C6["⚡ ToolCall<br/>Tool confirmation"]
-        C7["💾 Persistence<br/>Data layer"]
-        C8["📚 Skill<br/>Function registration"]
-        C9["🖱️ WindowInteraction<br/>Drag interaction"]
-        C10["📂 SessionTree<br/>Session tree structure"]
-        C11["🔔 Notification<br/>Notification system"]
-        C12["⚙️ Settings<br/>Global settings"]
+        subgraph CORE["📦 9 Core Controllers"]
+            C1["🪟 WindowState"]
+            C2["🔐 Auth"]
+            C3["📦 Session"]
+            C4["💬 Message"]
+            C5["🔧 Mode"]
+            C6["⚡ ToolCall"]
+            C7["💾 Persistence"]
+            C8["📚 Skill"]
+            C9["🖱️ WindowInteraction"]
+        end
+        subgraph UI["🎨 10 UI Controllers"]
+            C10["📂 SessionTree"]
+            C11["📑 SessionTab"]
+            C12["🔔 Notification"]
+            C13["🍞 Toast"]
+            C14["🌿 Fork"]
+            C15["📊 Activity"]
+            C16["📁 FileExplorer"]
+            C17["📝 EditorArea"]
+            C18["📏 StatusBar"]
+            C19["⚙️ Settings"]
+        end
     end
 
-    ROOT["🏠 &lt;rtc-agent&gt;<br/>Central Orchestrator"] --> C1
-    ROOT --> C2
-    ROOT --> C3
-    ROOT --> C4
-    ROOT --> C5
-    ROOT --> C6
-    ROOT --> C7
-    ROOT --> C8
-    ROOT --> C9
-    ROOT --> C10
-    ROOT --> C11
-    ROOT --> C12
+    ROOT["🏠 &lt;rtc-agent&gt;<br/>Central Orchestrator"] --> CORE
+    ROOT --> UI
 
     ROOT -->|"@lit/context"| CHILDREN["🧩 Child Components<br/>Consume state as needed"]
 
     style ROOT fill:#fff9c4,stroke:#f9a825,stroke-width:3px
     style CONTROLLERS fill:#e3f2fd,stroke:#1565c0,stroke-width:2px
+    style CORE fill:#e8f5e9,stroke:#388e3c,stroke-width:1px
+    style UI fill:#fff9c4,stroke:#f9a825,stroke-width:1px
     style CHILDREN fill:#e8f5e9,stroke:#388e3c,stroke-width:2px
 ```
 

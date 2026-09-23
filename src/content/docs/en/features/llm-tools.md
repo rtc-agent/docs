@@ -266,6 +266,102 @@ User has answered your questions: "Which date formatting library should we use?"
 
 ---
 
+## Goal Tools — Autonomous Goal Driving
+
+The Goal system allows AI to create autonomous goals and automatically advance them across turns until completion. Each Goal has its own state lifecycle and turn-boundary checkpoint.
+
+### Goal State
+
+```mermaid
+stateDiagram-v2
+    direction LR
+
+    [*] --> Active: createGoal
+    Active --> Completed: completeGoal ✅
+    Active --> Cancelled: cancelGoal 🚫
+    Active --> Exhausted: Exceeded max_turns ⏰
+
+    Completed --> [*]
+    Cancelled --> [*]
+    Exhausted --> [*]
+```
+
+| State | Description |
+|:----:|------|
+| `active` | Goal is active; progress checked each turn |
+| `completed` | Goal has been completed |
+| `cancelled` | Goal was cancelled |
+| `exhausted` | Reached max turn limit; automatically terminated |
+
+### createGoal — Create a Goal
+
+| Parameter | Type | Required | Description |
+|------|------|:----:|------|
+| `condition` | string | Yes | Description of the goal completion condition |
+| `max_turns` | int | No | Maximum turn limit (default 50) |
+
+**Execution mechanism**: After each Turn completes, the system automatically checks active Goals and increments the `completed_turns` counter. If the condition is met, the Goal is marked as `completed`; if `max_turns` is reached, it is marked as `exhausted`.
+
+### completeGoal / cancelGoal
+
+| Parameter | Type | Required | Description |
+|------|------|:----:|------|
+| `goal_id` | string | Yes | Goal ID |
+
+---
+
+## Loop Tools — Scheduled Recurring Tasks
+
+The Loop system allows AI to create scheduled recurring tasks. Built on the asynq background task queue, it supports pause, resume, and automatic expiry.
+
+### Loop State
+
+```mermaid
+stateDiagram-v2
+    direction LR
+
+    [*] --> Active: createLoop
+    Active --> Paused: pauseLoop ⏸️
+    Paused --> Active: resumeLoop ▶️
+    Active --> Completed: Condition met ✅
+    Active --> Cancelled: cancelLoop 🚫
+    Active --> Exhausted: Exceeded max_turns or expired ⏰
+
+    Completed --> [*]
+    Cancelled --> [*]
+    Paused --> [*]
+    Exhausted --> [*]
+```
+
+| State | Description |
+|:----:|------|
+| `active` | Loop is active; triggers automatically at intervals |
+| `paused` | Loop is paused; no new turns triggered |
+| `completed` | Loop has completed |
+| `cancelled` | Loop was cancelled |
+| `exhausted` | Reached max turns or expired |
+
+### createLoop — Create a Loop
+
+| Parameter | Type | Required | Description |
+|------|------|:----:|------|
+| `prompt` | string | Yes | Prompt to execute on each cycle |
+| `interval_seconds` | int | Yes | Execution interval (seconds) |
+| `max_turns` | int | No | Maximum executions (default 10) |
+
+### Other Loop Operations
+
+| Tool | Parameter | Description |
+|------|------|------|
+| `cancelLoop` | `loop_id` | Cancel the loop |
+| `listLoops` | None | List all loops in the current session |
+| `pauseLoop` | `loop_id` | Pause the loop |
+| `resumeLoop` | `loop_id` | Resume a paused loop |
+
+> 💡 **Loop vs Goal**: A Goal is "work until the condition is met, then stop"; a Loop is "execute every N seconds". They can be combined — create a Goal inside a Loop to have AI periodically check whether a condition is satisfied.
+
+---
+
 ## Next Steps
 
 - [Command System](/docs/en/features/commands/) -- Learn about the slash commands available to users

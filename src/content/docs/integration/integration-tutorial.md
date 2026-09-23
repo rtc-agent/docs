@@ -9,7 +9,7 @@ description: 从零开始在 Astro 文档站点中集成 RTC Agent Web Component
 
 - **框架**: Astro 7.x + Starlight
 - **集成方式**: CDN（jsdelivr）
-- **组件版本**: @rtc-agent/component@0.1.9-rc.0
+- **组件版本**: @rtc-agent/component@0.2.2
 
 ## 为什么选择 CDN？
 
@@ -42,7 +42,7 @@ export default defineConfig({
           tag: 'script',
           attrs: {
             type: 'module',
-            src: 'https://cdn.jsdelivr.net/npm/@rtc-agent/component@0.1.9-rc.0/dist/index.js',
+            src: 'https://cdn.jsdelivr.net/npm/@rtc-agent/component@0.2.2/dist/index.js',
           },
         },
         // 初始化全局悬浮窗

@@ -1,9 +1,9 @@
 ---
 title: 前端架构
-description: RTC Agent 的前端架构——基于 Lit 的 Web Components 组件库，21 个子组件、12 个 Controller、@lit/context 状态分发。
+description: RTC Agent 的前端架构——基于 Lit 的 Web Components 组件库，44 个子组件、19 个 Controller、@lit/context 状态分发。
 ---
 
-RTC Agent 的前端是一个基于 **Lit Web Components** 构建的组件库。对外只暴露一个 `<rtc-agent>` 组件，内部包含 **21 个子组件**，使用 **12 个 Controller** 管理状态，通过 `@lit/context` 向子组件分发数据。
+RTC Agent 的前端是一个基于 **Lit Web Components** 构建的组件库。对外只暴露一个 `<rtc-agent>` 组件，内部包含 **44 个子组件**，使用 **19 个 Controller** 管理状态，通过 `@lit/context` 向子组件分发数据。
 
 ## 组件架构
 
@@ -99,7 +99,11 @@ flowchart TD
 | 属性 | 说明 | 示例 |
 | --- | --- | --- |
 | `theme` | 主题切换 | `light` / `dark` / `system` |
+| `lang` | 界面语言 | `zh-CN` / `en-US` |
 | `app-label` | 标题栏文字 + 气泡 tooltip | `"RTC 助手"` |
+| `database-name` | IndexedDB 名称前缀 | `"my-app-rtc"` |
+| `server-url` | 服务端地址 | `"https://rtc.example.com"` |
+| `redirect-uri` | OAuth 回调地址 | `"/auth/callback.html"` |
 | `bubble-icon` | 最小化气泡内的 SVG/HTML | 自定义图标 |
 | `scenarios-url` | 场景文档 URL | `"https://..."` |
 | `agentConfig` | 声明式函数注册（推荐） | JSON 配置对象 |
@@ -110,39 +114,42 @@ flowchart TD
 
 ```mermaid
 flowchart TD
-    subgraph CONTROLLERS["🎮 12 个 Controller"]
+    subgraph CONTROLLERS["🎮 19 个 Controller"]
         direction TB
-        C1["🪟 WindowState<br/>窗口位置 / 尺寸"]
-        C2["🔐 Auth<br/>登录状态"]
-        C3["📦 Session<br/>会话列表"]
-        C4["💬 Message<br/>消息列表"]
-        C5["🔧 Mode<br/>工作模式"]
-        C6["⚡ ToolCall<br/>工具确认"]
-        C7["💾 Persistence<br/>数据层"]
-        C8["📚 Skill<br/>函数注册"]
-        C9["🖱️ WindowInteraction<br/>拖拽交互"]
-        C10["📂 SessionTree<br/>会话树结构"]
-        C11["🔔 Notification<br/>通知系统"]
-        C12["⚙️ Settings<br/>全局设置"]
+        subgraph CORE["📦 9 个核心 Controller"]
+            C1["🪟 WindowState"]
+            C2["🔐 Auth"]
+            C3["📦 Session"]
+            C4["💬 Message"]
+            C5["🔧 Mode"]
+            C6["⚡ ToolCall"]
+            C7["💾 Persistence"]
+            C8["📚 Skill"]
+            C9["🖱️ WindowInteraction"]
+        end
+        subgraph UI["🎨 10 个 UI Controller"]
+            C10["📂 SessionTree"]
+            C11["📑 SessionTab"]
+            C12["🔔 Notification"]
+            C13["🍞 Toast"]
+            C14["🌿 Fork"]
+            C15["📊 Activity"]
+            C16["📁 FileExplorer"]
+            C17["📝 EditorArea"]
+            C18["📏 StatusBar"]
+            C19["⚙️ Settings"]
+        end
     end
 
-    ROOT["🏠 &lt;rtc-agent&gt;<br/>中枢编排"] --> C1
-    ROOT --> C2
-    ROOT --> C3
-    ROOT --> C4
-    ROOT --> C5
-    ROOT --> C6
-    ROOT --> C7
-    ROOT --> C8
-    ROOT --> C9
-    ROOT --> C10
-    ROOT --> C11
-    ROOT --> C12
+    ROOT["🏠 &lt;rtc-agent&gt;<br/>中枢编排"] --> CORE
+    ROOT --> UI
 
     ROOT -->|"@lit/context"| CHILDREN["🧩 子组件<br/>按需消费状态"]
 
     style ROOT fill:#fff9c4,stroke:#f9a825,stroke-width:3px
     style CONTROLLERS fill:#e3f2fd,stroke:#1565c0,stroke-width:2px
+    style CORE fill:#e8f5e9,stroke:#388e3c,stroke-width:1px
+    style UI fill:#fff9c4,stroke:#f9a825,stroke-width:1px
     style CHILDREN fill:#e8f5e9,stroke:#388e3c,stroke-width:2px
 ```
 
