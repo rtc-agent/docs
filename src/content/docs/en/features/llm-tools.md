@@ -316,32 +316,6 @@ Each todo item contains:
 
 ---
 
-## todoWrite — Task List Management
-
-Manage the AI's task list (Todo List). Uses a **full replacement** mode — each call passes in the complete todo list, replacing the previous content entirely. Updates notify the frontend for real-time display via events.
-
-### Parameters
-
-| Parameter | Type | Required | Description |
-|------|------|:----:|------|
-| `todos` | array | No | Todo item list (full replacement) |
-
-Each todo item contains:
-
-| Field | Type | Required | Description |
-|------|------|:----:|------|
-| `content` | string | Yes | Task description (imperative sentence) |
-| `status` | `"pending"` / `"in_progress"` / `"completed"` | Yes | Task status |
-| `active_form` | string | No | Short description for in-progress tasks, displayed in the status bar |
-
-### Usage Tips
-
-- Keep task granularity moderate — each task should be a verifiable milestone
-- Update status promptly — mark completed tasks as `completed`, in-progress as `in_progress`
-- Remove unneeded tasks directly from the list rather than marking them as cancelled
-
----
-
 ## Goal Tools — Autonomous Goal Driving
 
 The Goal system allows AI to create autonomous goals and automatically advance them across turns until completion. Each Goal has its own state lifecycle and turn-boundary checkpoint.
