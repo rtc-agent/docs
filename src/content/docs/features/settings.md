@@ -120,12 +120,12 @@ flowchart TD
 
 | 分类 | 值 | 图标 |
 |:----:|:--:|:----:|
-| 外观 | `appearance` | 🎨 |
+| 外观 | `appearance` | ⚙️ |
 | 聊天 | `chat` | 💬 |
 | 文件 | `files` | 📁 |
-| 通知 | `notifications` | 🔔 |
+| 通知 | `notifications` | ☑️ |
 | 账户 | `account` | 👤 |
-| 关于 | `about` | ℹ️ |
+| 关于 | `about` | 📝 |
 
 ## SettingsContext
 

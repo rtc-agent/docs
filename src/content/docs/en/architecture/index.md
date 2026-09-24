@@ -14,7 +14,7 @@ flowchart LR
         UI["👤 Web Component<br/>&lt;rtc-agent&gt;"]
         WS["🔌 WebSocket Client"]
         SCRIPT["🔑 script tool"]
-        TOOLS["⚙️ Basic Tools<br/>ls / read / write / grep / find"]
+        TOOLS["⚙️ Basic Tools<br/>ls / read / write / edit / grep / find"]
         VFS[("💾 Virtual File System<br/>IndexedDB")]
         FX["📦 Function Library"]
     end

@@ -33,7 +33,7 @@ flowchart TD
 | 🤖 **Domain Layer** | AI reasoning, state management | Agent Engine, Context Management, Memory System |
 | 💾 **Infrastructure Layer** | Data persistence, message passing | PostgreSQL, Redis, Centrifuge |
 
-> **OAuth2 Authentication**: The system uses the OAuth2 authorization code flow. The frontend completes authorization via iframe redirect, obtaining an Access Token (1-hour validity) and Refresh Token (30-day validity). WebSocket connections use the Access Token for authentication. See [Authentication Flow](/docs/en/integration/auth).
+> **OAuth2 Authentication**: The system uses the OAuth2 authorization code flow. The frontend completes authorization via a popup window, obtaining an Access Token (1-hour validity) and Refresh Token (30-day validity). WebSocket connections use the Access Token for authentication. See [Authentication Flow](/docs/en/integration/auth).
 
 ## Core Components
 

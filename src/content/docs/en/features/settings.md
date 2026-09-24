@@ -120,12 +120,12 @@ Left-side category navigation component:
 
 | Category | Value | Icon |
 |:--------:|:-----:|:----:|
-| Appearance | `appearance` | 🎨 |
+| Appearance | `appearance` | ⚙️ |
 | Chat | `chat` | 💬 |
 | Files | `files` | 📁 |
-| Notifications | `notifications` | 🔔 |
+| Notifications | `notifications` | ☑️ |
 | Account | `account` | 👤 |
-| About | `about` | ℹ️ |
+| About | `about` | 📝 |
 
 ## SettingsContext
 

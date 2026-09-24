@@ -33,7 +33,7 @@ flowchart TD
 | 🤖 **领域层** | AI 推理、状态管理 | Agent 引擎、上下文管理、记忆系统 |
 | 💾 **基础设施层** | 数据持久化、消息传递 | PostgreSQL、Redis、Centrifuge |
 
-> **OAuth2 认证**：系统采用 OAuth2 授权码流程，前端通过 iframe 跳转完成授权，获取 Access Token（1 小时有效）和 Refresh Token（30 天有效）。WebSocket 建连时使用 Access Token 鉴权。详见 [认证流程](/docs/integration/auth)。
+> **OAuth2 认证**：系统采用 OAuth2 授权码流程，前端通过弹窗（popup window）跳转完成授权，获取 Access Token（1 小时有效）和 Refresh Token（30 天有效）。WebSocket 建连时使用 Access Token 鉴权。详见 [认证流程](/docs/integration/auth)。
 
 ## 核心组件
 
