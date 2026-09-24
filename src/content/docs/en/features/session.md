@@ -19,7 +19,7 @@ stateDiagram-v2
     Idle --> Closed: Close session
     Active --> Closed: Close session
 
-    Closed --> [*]
+    Closed --> Idle: Reopen session
 
     state Active {
         [*] --> Executing
@@ -34,7 +34,7 @@ stateDiagram-v2
 |:-----:|---------|-------------------|
 | 🟢 `Idle` | Idle, ready to send new messages | Send message, Close |
 | 🔵 `Active` | Turn is executing | Stop turn, Close |
-| ⚫ `Closed` | Closed, no further writes allowed | View history, Fork |
+| ⚫ `Closed` | Closed (archived), can view history or reopen | View history, Fork, Reopen |
 
 ## Session Operations
 
@@ -54,6 +54,7 @@ flowchart TD
     subgraph ADVANCED["🔀 Advanced"]
         A1["🌿 Fork<br/>Create branch from a message"]
         A2["🔒 Close<br/>Freeze session, stop execution"]
+        A3["🔓 Open<br/>Restore closed session"]
     end
 
     style CREATE fill:#e8f5e9,stroke:#2e7d32,stroke-width:2px
@@ -69,6 +70,7 @@ flowchart TD
 | **Rename** | Modify the session title |
 | **Fork** | Copy history based on a specific message, replace that message's content, and trigger a new AI flow |
 | **Close** | Mark as `Closed` and stop the currently executing turn |
+| **Open** | Restore a `Closed` session back to `Idle`, allowing new messages (idempotent operation) |
 
 ## Session Title
 
@@ -200,6 +202,7 @@ Pushed change types:
 | Created | A new session was created (e.g., auto-created) |
 | Updated | Session title modified, state changed |
 | Closed | Session was closed |
+| Opened | A closed session was reopened |
 
 ## Session Tree & Navigation
 
