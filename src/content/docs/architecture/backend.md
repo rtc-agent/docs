@@ -83,10 +83,10 @@ Gateway 是前后端通信的入口，管理所有 WebSocket 连接和 RPC 路�
 
 | 类别 | 方法 |
 | --- | --- |
-| **Session** | `session.list`, `session.get`, `session.open`, `session.close`, `session.update`, `session.fork`, `session.compact` |
-| **Message** | `message.send`, `message.list`, `message.get` |
-| **Turn** | `turn.list`, `turn.get`, `turn.stop` |
-| **RTC** | `rtc.list`, `rtc.get`, `rtc.update_status`, `rtc.submit_result` |
+| **Session** | `v1.session.list`, `v1.session.get`, `v1.session.open`, `v1.session.close`, `v1.session.update`, `v1.session.fork`, `v1.session.compact` |
+| **Message** | `v1.message.send`, `v1.message.list`, `v1.message.get` |
+| **Turn** | `v1.turn.list`, `v1.turn.get`, `v1.turn.stop` |
+| **RTC** | `v1.rtc.list`, `v1.rtc.get`, `v1.rtc.update_status`, `v1.rtc.submit_result` |
 
 详见 [WebSocket RPC](/docs/protocol/rpc)。
 

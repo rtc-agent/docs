@@ -137,7 +137,6 @@ For the full configuration options, see [etc/config.docker.yaml](https://github.
 | Config | Description | Default |
 | --- | --- | --- |
 | `tracing.enabled` | Enable OpenTelemetry tracing | `false` |
-| `embedding.enabled` | Enable vector retrieval (User Memory) | `false` |
 | `log.level` | Log level: `debug` / `info` / `warn` / `error` | `info` |
 | `log.server_log_file` | Server log file path (JSON format, for promtail collection). Leave empty to disable file logging. Logs use lumberjack auto-rotation (100MB/file, retain 3, 7 days, gzip compression) | empty |
 | `worker.cache_hit_rate_warn_threshold` | Cache hit rate warning threshold (0.0-1.0). A warn log is emitted when the session's cumulative cache hit rate drops below this value. Negative values disable the warning | `0.88` |

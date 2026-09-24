@@ -137,7 +137,6 @@ Server 跑起来后，在你的网页中添加 `<rtc-agent>` 组件即可获得 
 | 配置 | 说明 | 默认值 |
 | --- | --- | --- |
 | `tracing.enabled` | 启用 OpenTelemetry 追踪 | `false` |
-| `embedding.enabled` | 启用向量检索（User Memory） | `false` |
 | `log.level` | 日志级别：`debug` / `info` / `warn` / `error` | `info` |
 | `log.server_log_file` | 服务器日志文件路径（JSON 格式，用于 promtail 采集）。留空则不写文件。日志使用 lumberjack 自动轮转（100MB/文件，保留 3 个，7 天，gzip 压缩） | 空 |
 | `worker.cache_hit_rate_warn_threshold` | 缓存命中率告警阈值（0.0-1.0）。Session 累计缓存命中率低于此值时输出 warn 日志。负数表示禁用告警 | `0.88` |

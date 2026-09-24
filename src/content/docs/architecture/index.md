@@ -124,7 +124,7 @@ sequenceDiagram
 flowchart LR
     subgraph PAGES["📖 详细架构文档"]
         direction TB
-        FE_PAGE["🖥️ 前端架构<br/>Web Components<br/>44 个子组件 · 20 个 Controller"]
+        FE_PAGE["🖥️ 前端架构<br/>Web Components<br/>45 个子组件 · 19 个 Controller"]
         BE_PAGE["⚙️ 后端架构<br/>Go 服务<br/>Gateway · Agent · Context · Memory"]
     end
 
