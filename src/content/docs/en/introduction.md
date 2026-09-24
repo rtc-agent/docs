@@ -19,7 +19,7 @@ RTC Agent lets AI reason on the server while **tools execute on the frontend** â
 
 ### Frontend Virtual File System
 
-Built on **IndexedDB**, AI tools (`read` / `write` / `ls` / `grep`) operate directly on frontend files. Data never leaves the user's browser.
+Built on **IndexedDB**, AI tools (`read` / `ls` / `grep`) operate directly on frontend files. Data never leaves the user's browser.
 
 ### Script Tool + Function Composition
 

@@ -3,7 +3,7 @@ title: 虚拟文件系统
 description: 基于 IndexedDB 的浏览器端虚拟文件系统——AI 的文件操作界面，数据永不离开用户设备。
 ---
 
-RTC Agent 在浏览器中构建了一个**完整的虚拟文件系统**。AI 通过 `ls`、`read`、`write`、`grep`、`find` 等工具操作文件，就像操作本地终端一样——但所有数据始终留在用户的浏览器中。
+RTC Agent 在浏览器中构建了一个**完整的虚拟文件系统**。AI 通过 `ls`、`read`、`grep`、`find` 等工具操作文件，就像操作本地终端一样——但所有数据始终留在用户的浏览器中。
 
 ## 为什么用文件系统
 
@@ -82,15 +82,17 @@ flowchart LR
     style WRITE fill:#fff9c4,stroke:#f9a825,stroke-width:2px
 ```
 
-| 操作 | 功能 | 关键参数 |
-|:----:|------|----------|
-| `ls` | 列出目录内容 | `path`（默认 `/`） |
-| `read` | 读取文件内容 | `path`（必填），`offset` / `limit`（分页） |
-| `write` | 创建或写入文件 | `path`、`content`（必填），`mode`（overwrite / append） |
-| `find` | 按文件名搜索 | `pattern`（glob），`path` |
-| `grep` | 按文件内容搜索 | `pattern`（正则），`path`，`caseSensitive` |
-| `remove` | 删除文件 | `path` |
+| 操作 | 功能 | 关键参数 | 状态 |
+|:----:|------|----------|:----:|
+| `ls` | 列出目录内容 | `path`（默认 `/`） | ✅ 可用 |
+| `read` | 读取文件内容 | `path`（必填），`offset` / `limit`（分页） | ✅ 可用 |
+| `write` | 创建或写入文件 | `path`、`content`（必填），`mode`（overwrite / append） | 🔜 暂未启用 |
+| `find` | 按文件名搜索 | `pattern`（glob），`path` | ✅ 可用 |
+| `grep` | 按文件内容搜索 | `pattern`（正则），`path`，`caseSensitive` | ✅ 可用 |
+| `remove` | 删除文件 | `path` | 🔒 内部接口 |
 
+> ⚠️ `write` 工具当前处于禁用状态——文件写入可通过 `script` 工具中的 `rtcAgent.fs.write()` API 实现。工具定义已完整实现，未来可能重新启用。详见 [Remote Tool Calling](/docs/concepts/rtc/)。
+>
 > ⚠️ `remove` 是虚拟文件系统的内部接口，当前未作为 RTC 工具暴露给 AI。AI 无法直接删除文件。
 
 ### 分页读取

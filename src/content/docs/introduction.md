@@ -19,7 +19,7 @@ RTC Agent 让 AI 在服务端推理，**工具在前端执行**——读取页�
 
 ### 前端虚拟文件系统
 
-基于 **IndexedDB** 构建，AI 工具（`read` / `write` / `ls` / `grep`）直接操作前端文件，数据不离开用户浏览器。
+基于 **IndexedDB** 构建，AI 工具（`read` / `ls` / `grep`）直接操作前端文件，数据不离开用户浏览器。
 
 ### Script 工具 + Function 组合
 

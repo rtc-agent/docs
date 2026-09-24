@@ -3,7 +3,7 @@ title: Virtual File System
 description: A browser-side virtual file system based on IndexedDB — the file operation interface for AI, where data never leaves the user's device.
 ---
 
-RTC Agent builds a **complete virtual file system** in the browser. AI operates on files using tools like `ls`, `read`, `write`, `grep`, and `find`, just like working with a local terminal — but all data always stays within the user's browser.
+RTC Agent builds a **complete virtual file system** in the browser. AI operates on files using tools like `ls`, `read`, `grep`, and `find`, just like working with a local terminal — but all data always stays within the user's browser.
 
 ## Why a File System
 
@@ -82,15 +82,17 @@ flowchart LR
     style WRITE fill:#fff9c4,stroke:#f9a825,stroke-width:2px
 ```
 
-| Operation | Function | Key Parameters |
-|:----:|------|----------|
-| `ls` | List directory contents | `path` (default `/`) |
-| `read` | Read file contents | `path` (required), `offset` / `limit` (pagination) |
-| `write` | Create or write to file | `path`, `content` (required), `mode` (overwrite / append) |
-| `find` | Search by file name | `pattern` (glob), `path` |
-| `grep` | Search by file content | `pattern` (regex), `path`, `caseSensitive` |
-| `remove` | Delete file | `path` |
+| Operation | Function | Key Parameters | Status |
+|:----:|------|----------|:----:|
+| `ls` | List directory contents | `path` (default `/`) | ✅ Available |
+| `read` | Read file contents | `path` (required), `offset` / `limit` (pagination) | ✅ Available |
+| `write` | Create or write to file | `path`, `content` (required), `mode` (overwrite / append) | 🔜 Not yet enabled |
+| `find` | Search by file name | `pattern` (glob), `path` | ✅ Available |
+| `grep` | Search by file content | `pattern` (regex), `path`, `caseSensitive` | ✅ Available |
+| `remove` | Delete file | `path` | 🔒 Internal API |
 
+> ⚠️ The `write` tool is currently disabled — file writing can be achieved through the `rtcAgent.fs.write()` API in the `script` tool. The tool definition is fully implemented and may be re-enabled in the future. See [Remote Tool Calling](/docs/en/concepts/rtc/).
+>
 > ⚠️ `remove` is an internal API of the virtual file system and is not currently exposed to AI as an RTC tool. AI cannot directly delete files.
 
 ### Paginated Reading
