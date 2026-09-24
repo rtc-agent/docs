@@ -86,13 +86,11 @@ flowchart LR
 |:----:|------|----------|:----:|
 | `ls` | List directory contents | `path` (default `/`) | ✅ Available |
 | `read` | Read file contents | `path` (required), `offset` / `limit` (pagination) | ✅ Available |
-| `write` | Create or write to file | `path`, `content` (required), `mode` (overwrite / append) | 🔜 Not yet enabled |
+| `write` | Create or write to file | `path`, `content` (required), `mode` (overwrite / append / create-new) | ✅ Available |
 | `find` | Search by file name | `pattern` (glob), `path` | ✅ Available |
 | `grep` | Search by file content | `pattern` (regex), `path`, `caseSensitive` | ✅ Available |
 | `remove` | Delete file | `path` | 🔒 Internal API |
 
-> ⚠️ The `write` tool is currently disabled — file writing can be achieved through the `rtcAgent.fs.write()` API in the `script` tool. The tool definition is fully implemented and may be re-enabled in the future. See [Remote Tool Calling](/docs/en/concepts/rtc/).
->
 > ⚠️ `remove` is an internal API of the virtual file system and is not currently exposed to AI as an RTC tool. AI cannot directly delete files.
 
 ### Paginated Reading

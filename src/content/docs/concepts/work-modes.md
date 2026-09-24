@@ -40,21 +40,19 @@ flowchart LR
 
 不同模式下，工具的确认策略如下：
 
-> ⚠️ `write` 工具当前处于禁用状态（详见 [虚拟文件系统](/docs/concepts/virtual-fs/)），下方权限矩阵展示的是设计意图——一旦重新启用将按此规则工作。
-
 ```mermaid
 flowchart TD
     subgraph MANUAL["🔒 manual 模式"]
         direction TB
         M1["只读工具<br/>ls / read / find / grep"] -->|"✅ 自动允许"| M1R["执行"]
-        M2["write（暂未启用）"] -->|"⚠️ 需确认"| M2R["弹窗"]
+        M2["write"] -->|"⚠️ 需确认"| M2R["弹窗"]
         M3["script"] -->|"⚠️ 需确认"| M3R["弹窗"]
     end
 
     subgraph EDIT["📝 edit 模式（默认）"]
         direction TB
         E1["只读工具<br/>ls / read / find / grep"] -->|"✅ 自动允许"| E1R["执行"]
-        E2["write（暂未启用）"] -->|"✅ 自动允许"| E2R["执行"]
+        E2["write"] -->|"✅ 自动允许"| E2R["执行"]
         E3["script"] -->|"⚠️ 需确认"| E3R["弹窗"]
     end
 
@@ -71,7 +69,7 @@ flowchart TD
 | 工具 | 🔒 manual | 📝 edit | 📋 plan | 🤖 auto | ⚡ bypass |
 |------|:---------:|:-------:|:-------:|:-------:|:---------:|
 | ls / read / find / grep | ✅ 自动 | ✅ 自动 | ✅ 自动 | ✅ 自动 | ✅ 自动 |
-| write（暂未启用） | ⚠️ 确认 | ✅ 自动 | ✅ 自动 | ✅ 自动 | ✅ 自动 |
+| write | ⚠️ 确认 | ✅ 自动 | ✅ 自动 | ✅ 自动 | ✅ 自动 |
 | script | ⚠️ 确认 | ⚠️ 确认 | ⚠️ 确认 | ⚠️ 确认 | ✅ 自动 |
 
 > 📌 **plan** 和 **auto** 模式当前未启用，暂时使用与 **edit** 相同的权限规则。

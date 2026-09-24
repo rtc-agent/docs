@@ -86,13 +86,11 @@ flowchart LR
 |:----:|------|----------|:----:|
 | `ls` | 列出目录内容 | `path`（默认 `/`） | ✅ 可用 |
 | `read` | 读取文件内容 | `path`（必填），`offset` / `limit`（分页） | ✅ 可用 |
-| `write` | 创建或写入文件 | `path`、`content`（必填），`mode`（overwrite / append） | 🔜 暂未启用 |
+| `write` | 创建或写入文件 | `path`、`content`（必填），`mode`（overwrite / append / create-new） | ✅ 可用 |
 | `find` | 按文件名搜索 | `pattern`（glob），`path` | ✅ 可用 |
 | `grep` | 按文件内容搜索 | `pattern`（正则），`path`，`caseSensitive` | ✅ 可用 |
 | `remove` | 删除文件 | `path` | 🔒 内部接口 |
 
-> ⚠️ `write` 工具当前处于禁用状态——文件写入可通过 `script` 工具中的 `rtcAgent.fs.write()` API 实现。工具定义已完整实现，未来可能重新启用。详见 [Remote Tool Calling](/docs/concepts/rtc/)。
->
 > ⚠️ `remove` 是虚拟文件系统的内部接口，当前未作为 RTC 工具暴露给 AI。AI 无法直接删除文件。
 
 ### 分页读取

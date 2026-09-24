@@ -40,21 +40,19 @@ flowchart LR
 
 The confirmation policies for tools in different modes are as follows:
 
-> ⚠️ The `write` tool is currently disabled (see [Virtual File System](/docs/en/concepts/virtual-fs/)). The permission matrix below shows the design intent — these rules will apply once it is re-enabled.
-
 ```mermaid
 flowchart TD
     subgraph MANUAL["🔒 manual mode"]
         direction TB
         M1["Read-only tools<br/>ls / read / find / grep"] -->|"✅ Auto-allowed"| M1R["Execute"]
-        M2["write (not yet enabled)"] -->|"⚠️ Confirmation required"| M2R["Dialog"]
+        M2["write"] -->|"⚠️ Confirmation required"| M2R["Dialog"]
         M3["script"] -->|"⚠️ Confirmation required"| M3R["Dialog"]
     end
 
     subgraph EDIT["📝 edit mode (default)"]
         direction TB
         E1["Read-only tools<br/>ls / read / find / grep"] -->|"✅ Auto-allowed"| E1R["Execute"]
-        E2["write (not yet enabled)"] -->|"✅ Auto-allowed"| E2R["Execute"]
+        E2["write"] -->|"✅ Auto-allowed"| E2R["Execute"]
         E3["script"] -->|"⚠️ Confirmation required"| E3R["Dialog"]
     end
 
@@ -71,7 +69,7 @@ flowchart TD
 | Tool | 🔒 manual | 📝 edit | 📋 plan | 🤖 auto | ⚡ bypass |
 |------|:---------:|:-------:|:-------:|:-------:|:---------:|
 | ls / read / find / grep | ✅ Auto | ✅ Auto | ✅ Auto | ✅ Auto | ✅ Auto |
-| write (not yet enabled) | ⚠️ Confirm | ✅ Auto | ✅ Auto | ✅ Auto | ✅ Auto |
+| write | ⚠️ Confirm | ✅ Auto | ✅ Auto | ✅ Auto | ✅ Auto |
 | script | ⚠️ Confirm | ⚠️ Confirm | ⚠️ Confirm | ⚠️ Confirm | ✅ Auto |
 
 > 📌 **plan** and **auto** modes are not yet enabled and currently use the same permission rules as **edit**.
