@@ -60,8 +60,48 @@ flowchart TD
 | Action | Function | Required Parameters | Use Case |
 |:------:|------|----------|----------|
 | 📁 `save` | Save script to file system | `name`, `code` | Create reusable scripts |
-| ▶️ `run` | Execute a saved script | `name` | Run previously written scripts |
+| ▶️ `run` | Execute a saved script | `name`, optional `params` | Run previously written scripts |
 | 💬 `eval` | Execute inline code directly | `code` | One-off computations, quick validation |
+
+### Script Parameters (params)
+
+Scripts can accept parameters via the `params` field. Access them in your code through the top-level `params` variable. This enables saving reusable scripts with configurable inputs instead of hardcoding values.
+
+#### Example: Parameterized Script
+
+```javascript
+// Save a reusable script with params
+const { startDate, endDate, format } = params;
+console.log(`Processing data from ${startDate} to ${endDate}`);
+
+const result = {
+  range: `${startDate} → ${endDate}`,
+  outputFormat: format || 'json'
+};
+
+return result;
+```
+
+#### Run with Parameters
+
+```json
+{
+  "action": "run",
+  "name": "analyze-data",
+  "params": {
+    "startDate": "2024-01-01",
+    "endDate": "2024-12-31",
+    "format": "csv"
+  }
+}
+```
+
+#### Best Practices
+
+- **Save frequently reused scripts**: If you find yourself running the same or similar code multiple times, save it with `action: "save"` and a descriptive `name` for easy reuse via `action: "run"`
+- **Use descriptive names**: When saving scripts, use clear kebab-case names (e.g. `analyze-sales-data`, `format-csv-output`)
+- **Use eval for one-off tasks**: For single-use code, use `action: "eval"` (default) without saving
+- **Document parameters**: When saving scripts, include comments or a `description` explaining what parameters the script expects
 
 ## Script Storage Format
 

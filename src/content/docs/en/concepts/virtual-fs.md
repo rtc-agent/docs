@@ -3,7 +3,7 @@ title: Virtual File System
 description: A browser-side virtual file system based on IndexedDB — the file operation interface for AI, where data never leaves the user's device.
 ---
 
-RTC Agent builds a **complete virtual file system** in the browser. AI operates on files using tools like `ls`, `read`, `grep`, and `find`, just like working with a local terminal — but all data always stays within the user's browser.
+RTC Agent builds a **complete virtual file system** in the browser. AI operates on files using tools like `ls`, `read`, `edit`, `grep`, and `find`, just like working with a local terminal — but all data always stays within the user's browser.
 
 ## Why a File System
 
@@ -62,7 +62,7 @@ flowchart TD
 
 ## File Operations
 
-The virtual file system provides **6 operations** covering all file interactions the AI needs:
+The virtual file system provides **7 operations** covering all file interactions the AI needs:
 
 ```mermaid
 flowchart LR
@@ -75,6 +75,7 @@ flowchart LR
 
     subgraph WRITE["✏️ Write Operations"]
         WRITE_OP["write<br/>Write file"]
+        EDIT["edit<br/>Exact replacement"]
         REMOVE["remove<br/>Delete file"]
     end
 
@@ -86,14 +87,15 @@ flowchart LR
 |:----:|------|----------|:----:|
 | `ls` | List directory contents | `path` (default `/`) | ✅ Available |
 | `read` | Read file contents | `path` (required), `offset` / `limit` (pagination) | ✅ Available |
-| `write` | Create or write to file | `path`, `content` (required), `mode` (overwrite / append / create-new) | ✅ Available |
+| `write` | Create or write to file | `path`, `content` (required) | ✅ Available |
+| `edit` | Exact string replacement | `path`, `old_string`, `new_string` (required), `replace_all` | ✅ Available |
 | `find` | Search by file name | `pattern` (glob), `path` | ✅ Available |
-| `grep` | Search by file content | `pattern` (regex), `path`, `caseSensitive` | ✅ Available |
+| `grep` | Search by file content | `pattern` (regex), see parameter table below | ✅ Available |
 | `remove` | Delete file | `path` | 🔒 Internal API |
 
 > ⚠️ `remove` is an internal API of the virtual file system and is not currently exposed to AI as an RTC tool. AI cannot directly delete files.
 
-### Paginated Reading
+### read — Paginated Reading
 
 Large files support paginated reading to avoid loading too much content at once:
 
@@ -106,6 +108,51 @@ flowchart LR
 
     style A fill:#e3f2fd,stroke:#1565c0,stroke-width:2px
 ```
+
+| Parameter | Type | Required | Description |
+|------|------|:----:|------|
+| `path` | string | Yes | Absolute path to the file |
+| `offset` | integer | No | Starting line number (1-indexed), only provide for large files |
+| `limit` | integer | No | Number of lines to read, only provide for large files |
+
+### edit — Exact String Replacement
+
+Perform exact string replacements in a file, similar to Claude Code's Edit tool. You must use the `read` tool on the file before editing it.
+
+| Parameter | Type | Required | Description |
+|------|------|:----:|------|
+| `path` | string | Yes | Absolute path to the file |
+| `old_string` | string | Yes | The original text to replace — must exactly match the file content including indentation and whitespace |
+| `new_string` | string | Yes | The replacement text (must differ from `old_string`) |
+| `replace_all` | boolean | No | Set to `true` to replace all occurrences (default `false`). Required when `old_string` is not unique |
+
+**Usage Constraints**:
+
+- You must use the `read` tool on the file first, otherwise the edit will fail
+- `old_string` must match **uniquely** in the file — provide more surrounding context to make it unique, or use `replace_all`
+- Prefer using `edit` to modify existing files rather than using `write` to overwrite the entire file
+
+### grep — Advanced Search
+
+A powerful search tool for the virtual filesystem. Supports regex, file filtering, pagination, and multiple output modes.
+
+| Parameter | Type | Required | Description |
+|------|------|:----:|------|
+| `pattern` | string | Yes | Regular expression search pattern |
+| `path` | string | No | File or directory path to search in (default root `/`) |
+| `glob` | string | No | Glob pattern to filter files (e.g. `"*.js"`, `"**/*.tsx"`) |
+| `type` | string | No | File type filter (e.g. `"js"`, `"py"`, `"go"`) — more efficient than glob |
+| `output_mode` | string | No | Output mode: `"files_with_matches"` (default, file paths only), `"content"` (matching lines with context), `"count"` (match counts) |
+| `-i` | boolean | No | Case-insensitive search |
+| `-n` | boolean | No | Show line numbers (requires `output_mode: "content"`, default `true`) |
+| `-B` | integer | No | Lines to show **before** each match (requires `output_mode: "content"`) |
+| `-A` | integer | No | Lines to show **after** each match (requires `output_mode: "content"`) |
+| `-C` / `context` | integer | No | Lines to show **before and after** each match |
+| `head_limit` | integer | No | Limit output to first N entries (default 250, pass 0 for unlimited) |
+| `offset` | integer | No | Skip first N entries before applying `head_limit` (default 0) |
+| `multiline` | boolean | No | Enable multiline mode (`.` matches newlines, patterns can span lines) |
+
+> 💡 **Mode Selection Tips**: Use `"files_with_matches"` to find files; use `"content"` with `-n` and `-C` to inspect matching code; use `"count"` to tally occurrences.
 
 ## Path Specifications
 
@@ -197,6 +244,7 @@ At system startup, `/AGENT.md` is automatically checked. If it doesn't exist, a 
 | 🔐 Permission control | Determined by [work mode](/docs/en/concepts/work-modes/) |
 | 💾 Capacity limits | Subject to browser IndexedDB quota |
 | 🚫 No cross-origin access | File system is fully isolated within the browser sandbox |
+| 🛡️ User edit protection | System files (e.g. `/AGENT.md`, `/functions/*.md`) that the user has manually edited will not be automatically overwritten by the system. The user must click "Restore Default" to regenerate them |
 
 ## Next Steps
 

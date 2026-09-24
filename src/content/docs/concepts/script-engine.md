@@ -60,8 +60,48 @@ flowchart TD
 | Action | 功能 | 必需参数 | 使用场景 |
 |:------:|------|----------|----------|
 | 📁 `save` | 保存脚本到文件系统 | `name`, `code` | 创建可复用的脚本 |
-| ▶️ `run` | 执行已保存的脚本 | `name` | 运行之前写好的脚本 |
+| ▶️ `run` | 执行已保存的脚本 | `name`，可选 `params` | 运行之前写好的脚本 |
 | 💬 `eval` | 直接执行内联代码 | `code` | 一次性计算、快速验证 |
+
+### 脚本参数（params）
+
+脚本可以通过 `params` 字段接收参数，在代码中通过顶层 `params` 变量访问。这使得保存可复用的、带可配置输入的脚本成为可能，而无需硬编码值。
+
+#### 示例：带参数的脚本
+
+```javascript
+// 保存一个带参数的可复用脚本
+const { startDate, endDate, format } = params;
+console.log(`Processing data from ${startDate} to ${endDate}`);
+
+const result = {
+  range: `${startDate} → ${endDate}`,
+  outputFormat: format || 'json'
+};
+
+return result;
+```
+
+#### 使用参数运行
+
+```json
+{
+  "action": "run",
+  "name": "analyze-data",
+  "params": {
+    "startDate": "2024-01-01",
+    "endDate": "2024-12-31",
+    "format": "csv"
+  }
+}
+```
+
+#### 最佳实践
+
+- **保存常用脚本**：如果反复运行相似代码，使用 `action: "save"` 保存并命名，便于通过 `action: "run"` 复用
+- **使用描述性名称**：保存脚本时使用清晰的 kebab-case 命名（如 `analyze-sales-data`、`format-csv-output`）
+- **一次性代码用 eval**：对于单次使用的代码，使用 `action: "eval"`（默认）即可
+- **文档化参数**：保存脚本时，在注释或 `description` 中说明脚本需要哪些参数
 
 ## 脚本存储格式
 
