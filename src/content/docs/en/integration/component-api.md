@@ -3,7 +3,7 @@ title: Web Component API
 description: A single <rtc-agent> component handles AI conversation, tool calls, and theme switching — configure with attributes, listen with events, and customize with CSS variables.
 ---
 
-**`<rtc-agent>`** is the **sole component** exposed by RTC Agent. Built on Lit, it contains 44 sub-components and 20 Controllers internally, but presents only a clean Web Component interface externally — attribute configuration, event listening, and CSS variable customization.
+**`<rtc-agent>`** is the **sole component** exposed by RTC Agent. Built on Lit, it contains 45 sub-components and 20 Controllers internally, but presents only a clean Web Component interface externally — attribute configuration, event listening, and CSS variable customization.
 
 ```mermaid
 flowchart TD

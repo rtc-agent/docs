@@ -87,7 +87,7 @@ Server 跑起来后，在你的网页中添加 `<rtc-agent>` 组件即可获得 
 
 ```html
 <!-- 引入组件 -->
-<script type="module" src="https://cdn.jsdelivr.net/npm/@rtc-agent/component@0.2.2/dist/index.js"></script>
+<script type="module" src="https://cdn.jsdelivr.net/npm/@rtc-agent/component@0.2.3/dist/index.js"></script>
 
 <!-- 最简接入 -->
 <rtc-agent></rtc-agent>

@@ -70,22 +70,24 @@ sequenceDiagram
 
 ## Built-in Tools
 
-The RTC protocol defines **6 built-in tools** covering file system operations and script execution:
+The RTC protocol defines **8 built-in tools** covering file system operations, precise editing, and script execution:
 
 | Tool | Function | Key Parameters | Status |
 |:----:|------|----------|:----:|
 | 🔍 `ls` | List directory contents | `path` (default `/`) | Available |
 | 📖 `read` | Read file contents | `path`, `offset` / `limit` (pagination) | Available |
-| ✏️ `write` | Write to file | `path`, `content`, `mode` (overwrite / append) | Not yet enabled |
+| ✏️ `write` | Write to file (full overwrite) | `path`, `content` | Available |
+| 🔧 `edit` | Precise text replacement | `path`, `old_string`, `new_string`, `replace_all` | Available |
 | 🔎 `grep` | Search by content | `pattern` (regex), `path` | Available |
 | 📁 `find` | Search by name | `pattern` (glob), `path` | Available |
 | ⚡ `script` | Execute JavaScript | `action` (save / run / eval), `code` | Available |
+| 💬 `askUser` | Ask user questions (interrupts turn) | `questions` (1-4 multiple choice) | Available |
 
-> 💡 The `write` tool is currently disabled — file writes can be performed via the `rtcAgent.fs.write()` API in the `script` tool. The tool implementation is complete and may be re-enabled in the future.
+> 💡 The `write` tool performs full-content overwrites. For partial edits, use the `edit` tool (precise string replacement) or the `rtcAgent.fs.write()` API in the `script` tool.
 
-These 6 tools give the AI a **complete file operation interface** — operating on the frontend virtual file system just like working with a local terminal.
+These 8 tools give the AI a **complete file operation interface** — operating on the frontend virtual file system just like working with a local terminal.
 
-> 💡 In addition to the file tools above, `askUser` (prompt the user with questions) is also implemented over the RTC protocol — the server pauses the Turn, waits for the frontend to submit the user's choice, then resumes reasoning. See [LLM Built-in Tools](/docs/en/features/llm-tools/) for details.
+> 💡 All RTC tools follow the same lifecycle: the server creates an RTC record, saves a checkpoint, pauses the turn, pushes an event to the frontend, the frontend executes the tool, submits the result, the server restores the checkpoint, and reasoning continues.
 
 ## State Machine
 

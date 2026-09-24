@@ -70,22 +70,24 @@ sequenceDiagram
 
 ## 内置工具
 
-RTC 协议定义了 **6 个内置工具**，覆盖文件系统和脚本执行：
+RTC 协议定义了 **8 个内置工具**，覆盖文件系统操作、脚本执行和精确编辑：
 
 | 工具 | 功能 | 关键参数 | 状态 |
 |:----:|------|----------|:----:|
 | 🔍 `ls` | 列出目录内容 | `path`（默认 `/`） | ✅ 可用 |
 | 📖 `read` | 读取文件内容 | `path`，`offset` / `limit`（分页） | ✅ 可用 |
-| ✏️ `write` | 写入文件 | `path`、`content`，`mode`（overwrite / append） | 🔜 暂未启用 |
+| ✏️ `write` | 写入文件（全量覆盖） | `path`、`content` | ✅ 可用 |
+| 🔧 `edit` | 精确替换文件中的文本 | `path`、`old_string`、`new_string`、`replace_all` | ✅ 可用 |
 | 🔎 `grep` | 按内容搜索 | `pattern`（正则），`path` | ✅ 可用 |
 | 📁 `find` | 按名称搜索 | `pattern`（glob），`path` | ✅ 可用 |
 | ⚡ `script` | 执行 JavaScript | `action`（save / run / eval），`code` | ✅ 可用 |
+| 💬 `askUser` | 向用户提问（中断轮次） | `questions`（1-4 个选择题） | ✅ 可用 |
 
-> 💡 `write` 工具当前处于禁用状态——文件写入可通过 `script` 工具中的 `rtcAgent.fs.write()` API 实现。工具定义已完整实现，未来可能重新启用。
+> 💡 `write` 工具执行全量写入——传入完整内容覆盖目标文件。如需局部修改，使用 `edit` 工具（精确字符串替换）或通过 `script` 工具中的 `rtcAgent.fs.write()` API 实现。
 
-这 6 个工具让 AI 拥有了一个 **完整的文件操作界面**——就像操作本地终端一样操作前端虚拟文件系统。
+这 8 个工具让 AI 拥有了一个 **完整的文件操作界面**——就像操作本地终端一样操作前端虚拟文件系统。
 
-> 💡 除上述文件工具外，`askUser`（向用户提问）也基于 RTC 协议实现——服务端暂停 Turn，等待前端提交用户选择后恢复推理。详见 [LLM 内置工具](/docs/features/llm-tools/)。
+> 💡 所有 RTC 工具都遵循相同的生命周期：服务端创建 RTC 记录 -> 保存 Checkpoint -> 暂停 Turn -> 推送事件到前端 -> 前端执行 -> 提交结果 -> 恢复 Checkpoint -> 继续推理。
 
 ## 状态机
 
