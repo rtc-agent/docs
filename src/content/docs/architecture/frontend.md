@@ -1,9 +1,9 @@
 ---
 title: 前端架构
-description: RTC Agent 的前端架构——基于 Lit 的 Web Components 组件库，46 个子组件、20 个 Controller、@lit/context 状态分发。
+description: RTC Agent 的前端架构——基于 Lit 的 Web Components 组件库，44 个子组件、20 个 Controller、@lit/context 状态分发。
 ---
 
-RTC Agent 的前端是一个基于 **Lit Web Components** 构建的组件库。对外只暴露一个 `<rtc-agent>` 组件，内部包含 **46 个子组件**，使用 **20 个 Controller** 管理状态，通过 `@lit/context` 向子组件分发数据。
+RTC Agent 的前端是一个基于 **Lit Web Components** 构建的组件库。对外只暴露一个 `<rtc-agent>` 组件，内部包含 **44 个子组件**，使用 **20 个 Controller** 管理状态，通过 `@lit/context` 向子组件分发数据。
 
 ## 组件架构
 
@@ -127,7 +127,7 @@ flowchart TD
             C8["📚 Skill"]
             C9["🖱️ WindowInteraction"]
         end
-        subgraph UI["🎨 10 个 UI Controller"]
+        subgraph UI["🎨 11 个 UI Controller"]
             C10["📂 SessionTree"]
             C11["📑 SessionTab"]
             C12["🔔 Notification"]
@@ -136,8 +136,9 @@ flowchart TD
             C15["📊 Activity"]
             C16["📁 FileExplorer"]
             C17["📝 EditorArea"]
-            C18["📏 StatusBar"]
-            C19["⚙️ Settings"]
+            C18["✏️ Editor"]
+            C19["📏 StatusBar"]
+            C20["⚙️ Settings"]
         end
     end
 
