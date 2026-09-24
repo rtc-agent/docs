@@ -124,7 +124,7 @@ sequenceDiagram
 flowchart LR
     subgraph PAGES["📖 Detailed Architecture Docs"]
         direction TB
-        FE_PAGE["🖥️ Frontend Architecture<br/>Web Components<br/>44 Sub-components · 19 Controllers"]
+        FE_PAGE["🖥️ Frontend Architecture<br/>Web Components<br/>46 Sub-components · 20 Controllers"]
         BE_PAGE["⚙️ Backend Architecture<br/>Go Service<br/>Gateway · Agent · Context · Memory"]
     end
 
