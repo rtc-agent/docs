@@ -20,7 +20,7 @@ description: 5 分钟部署 RTC Agent Server 并嵌入前端组件，跑通完�
 
 > 如果选择源码构建，还需 Go 1.27+、PostgreSQL 17+（含 pgvector）、Redis 7+。详见 [源码构建指南](/docs/deployment/source-build/)。
 >
-> Docker 部署内置了 `mock-oauth2` 作为示例认证服务，可直接体验。生产环境需部署自己的 OAuth2 服务，详见 [认证与授权](/docs/integration/auth/#开发者接入指南)。
+> Docker Compose 包含了 `mock-oauth2` 服务容器，但默认配置中 `providers.mock.enabled` 为 `false`。如需体验 Mock 登录，请编辑 `etc/config.docker.yaml` 将 `mock.enabled` 改为 `true`，并将 `url` 改为 `http://mock-oauth2:10060`（Docker 内部服务名）。生产环境需部署自己的 OAuth2 服务，详见 [认证与授权](/docs/integration/auth/#开发者接入指南)。
 
 ## 第一步：部署 Server
 

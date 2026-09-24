@@ -20,7 +20,7 @@ Getting RTC Agent up and running takes two steps: **deploy the Server** → **em
 
 > For source builds, you also need Go 1.27+, PostgreSQL 17+ (with pgvector), and Redis 7+. See the [Source Build Guide](/docs/en/deployment/source-build/).
 >
-> Docker deployments include a built-in `mock-oauth2` as a sample auth service for quick demos. Production environments require your own OAuth2 service — see [Authentication](/docs/en/integration/auth/#developer-integration-guide) for details.
+> Docker Compose includes a `mock-oauth2` service container, but `providers.mock.enabled` defaults to `false` in the config. To try Mock login, edit `etc/config.docker.yaml` and set `mock.enabled` to `true`, and change `url` to `http://mock-oauth2:10060` (the internal Docker service name). Production environments require your own OAuth2 service — see [Authentication](/docs/en/integration/auth/#developer-integration-guide) for details.
 
 ## Step 1: Deploy the Server
 
