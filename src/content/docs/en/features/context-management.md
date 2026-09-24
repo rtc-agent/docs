@@ -352,5 +352,5 @@ flowchart LR
 ## Next Steps
 
 - [Memory System](/docs/en/features/memory/) — Dive deeper into how Session Memory and User Memory work
-- [Remote Tool Calling](/docs/concepts/rtc/) — Learn the full lifecycle of tool calls
+- [Remote Tool Calling](/docs/en/concepts/rtc/) — Learn the full lifecycle of tool calls
 - [Session Management](/docs/en/features/session/) — Understand where context management fits within sessions

@@ -302,5 +302,5 @@ flowchart LR
 ## Next Steps
 
 - [WebSocket RPC](/docs/en/protocol/rpc/) — Learn how to perform business operations via RPC
-- [Remote Tool Calling](/docs/concepts/rtc/) — Learn about the full RTC tool call lifecycle
+- [Remote Tool Calling](/docs/en/concepts/rtc/) — Learn about the full RTC tool call lifecycle
 - [Protocol Overview](/docs/en/protocol/) — Return to the protocol panorama

@@ -267,6 +267,6 @@ flowchart TD
 
 ## Next Steps
 
-- [Remote Tool Calling](/docs/concepts/rtc/) — Learn about the core protocol carried by real-time communication
+- [Remote Tool Calling](/docs/en/concepts/rtc/) — Learn about the core protocol carried by real-time communication
 - [Session Management](/docs/en/features/session/) — Learn how real-time events are organized within sessions
 - [Context Management](/docs/en/features/context-management/) — Learn how messages are intelligently compressed

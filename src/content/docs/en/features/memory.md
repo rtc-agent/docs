@@ -292,5 +292,5 @@ flowchart LR
 ## Next Steps
 
 - [Context Management](/docs/en/features/context-management/) — Learn how the memory system works with the compression system
-- [Remote Tool Calling](/docs/concepts/rtc/) — Learn how AI executes tools on the frontend
+- [Remote Tool Calling](/docs/en/concepts/rtc/) — Learn how AI executes tools on the frontend
 - [Session Management](/docs/en/features/session/) — Understand memory in the context of sessions

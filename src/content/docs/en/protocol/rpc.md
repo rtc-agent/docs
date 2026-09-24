@@ -403,5 +403,5 @@ The Message model contains two ordering fields:
 ## Next Steps
 
 - [Real-Time Events](/docs/en/protocol/events/) — Learn about the dual-channel push mechanism behind updates
-- [Remote Tool Calling](/docs/concepts/rtc/) — Deep dive into the full RTC tool call lifecycle
+- [Remote Tool Calling](/docs/en/concepts/rtc/) — Deep dive into the full RTC tool call lifecycle
 - [Protocol Overview](/docs/en/protocol/) — Return to the protocol panorama

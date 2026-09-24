@@ -92,7 +92,7 @@ flowchart LR
 |------|:----:|------|
 | `id` | UUID | Update 唯一标识 |
 | `items` | array | 变化条目列表 |
-| `items[].entity` | string | 实体类型：`session` / `turn` / `message` / `rtc` / `file` |
+| `items[].entity` | string | 实体类型：`session` / `turn` / `message` / `rtc`（`file` 为预留，当前未使用） |
 | `items[].action` | string | 操作类型：`created` / `updated`（`deleted` 为预留，当前未使用；删除通过 `data_list` 中的 `deleted_at` 表达） |
 | `items[].entity_id` | UUID | 实体 ID |
 | `data_list` | array | 实体完整数据（可选，与 items 一一对应） |
