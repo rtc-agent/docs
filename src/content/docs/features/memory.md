@@ -1,20 +1,21 @@
 ---
 title: 记忆系统
-description: RTC Agent 的双层记忆架构——会话级记忆与用户级记忆，让 AI 在对话中不忘事、跨会话能传承。
+description: RTC Agent 的 OKF 统一记忆架构——会话级记忆与用户级记忆，让 AI 在对话中不忘事、跨会话能传承。
 ---
 
 **记忆系统** 让 AI 拥有了"记忆力"。它不仅能在一次对话中持续追踪关键决策和进展，还能跨会话记住你的偏好、项目背景和工作习惯——越用越懂你。
 
-## 双层架构
+## OKF 统一架构
 
-记忆系统分为两层，各司其职：
+记忆系统基于 **OKF（Open Knowledge Format）** 统一模型，所有记忆存储在同一个知识库中，通过 **作用域（Scope）** 字段区分归属：
 
 ```mermaid
 flowchart TD
-    subgraph MEMORY["🧠 记忆系统"]
+    subgraph MEMORY["🧠 记忆系统（OKF 统一模型）"]
         direction TB
-        SM["📋 Session Memory<br/>会话级记忆"]
-        UM["🗂️ User Memory<br/>用户级记忆"]
+        SM["📋 Session Memory<br/>scope = session"]
+        UM["🗂️ User Memory<br/>scope = user"]
+        GM["🌐 Global Memory<br/>scope = global"]
     end
 
     subgraph SM_DETAIL["Session Memory 特性"]
@@ -22,7 +23,7 @@ flowchart TD
         SM1["作用域：单个会话"]
         SM2["生命周期：会话期间"]
         SM3["用途：压缩摘要 / 跨轮次上下文"]
-        SM4["提取：自动 + 主动"]
+        SM4["提取：后台自动提取"]
     end
 
     subgraph UM_DETAIL["User Memory 特性"]
@@ -35,21 +36,23 @@ flowchart TD
 
     SM --> SM_DETAIL
     UM --> UM_DETAIL
-    SM --> EMB["🔍 Embedding 向量检索"]
-    UM --> EMB
+    SM --> DB[("📦 memories<br/>统一存储")]
+    UM --> DB
+    GM --> DB
 
     style MEMORY fill:#e8eaf6,stroke:#3f51b5,stroke-width:2px
     style SM_DETAIL fill:#e3f2fd,stroke:#1565c0,stroke-width:2px
     style UM_DETAIL fill:#fce4ec,stroke:#c62828,stroke-width:2px
-    style EMB fill:#e8f5e9,stroke:#388e3c,stroke-width:2px
+    style DB fill:#e8f5e9,stroke:#388e3c,stroke-width:2px
 ```
 
 | | Session Memory | User Memory |
 |---|---------------|-------------|
+| **Scope** | `session` | `user` |
 | **作用域** | 单个会话 | 跨所有会话 |
 | **生命周期** | 会话期间 | 长期保留 |
 | **核心用途** | 压缩摘要、跨轮次上下文 | 个性化、知识传承 |
-| **提取方式** | 自动提取 + Agent 主动保存 | Agent 主动保存 |
+| **提取方式** | 后台 Agent 自动提取 | Agent 主动保存 |
 | **容量上限** | 20 条，~12K tokens | 1,000 条 |
 
 ## Session Memory
@@ -66,9 +69,9 @@ Session Memory 将持续对话中的关键信息归纳为 **5 个分类**：
 | 🚧 `issue` | 遇到的问题和解决方案 | "CORS 错误，通过配置中间件解决" |
 | 💡 `learnings` | 学到的经验和教训 | "连接池可以显著提升性能" |
 
-### 双轨提取
+### 自动提取
 
-Session Memory 通过 **自动提取** 和 **Agent 主动保存** 两条路径持续积累：
+Session Memory 由后台 Agent **自动提取**，将持续对话中的关键信息归纳为 5 个分类：
 
 ```mermaid
 flowchart LR
@@ -76,20 +79,12 @@ flowchart LR
         direction TB
         A1["上下文 token >= 10,000"] -->|"触发"| A2["后台 forked agent<br/>共享 prompt cache"]
         A2 --> A3["提取 5 类关键信息"]
-        A3 --> A4["写入 session_memories"]
-    end
-
-    subgraph MANUAL["✋ Agent 主动保存"]
-        direction TB
-        M1["Agent 判断信息重要"] --> M2["调用 save_session_memory"]
-        M2 --> M3["写入 session_memories"]
+        A3 --> A4["写入 memories 表<br/>scope = session"]
     end
 
     A4 --> DB[("📦 Session Memory<br/>最多 20 条<br/>~12K tokens")]
-    M3 --> DB
 
     style AUTO fill:#e3f2fd,stroke:#1565c0,stroke-width:2px
-    style MANUAL fill:#fff9c4,stroke:#f9a825,stroke-width:2px
     style DB fill:#e8f5e9,stroke:#388e3c,stroke-width:2px
 ```
 
@@ -159,41 +154,36 @@ How to apply: 这条指导何时/何地适用
 |--------|:--:|------|
 | 最大条目数 | 1,000 条 | 单个用户 |
 | 单条 token 上限 | ~1,000 | - |
-| 超出策略 | 无自动淘汰 | 仅支持手动删除（`delete_user_memory` 工具） |
+| 超出策略 | 无自动淘汰 | 仅支持手动删除（`deleteMemory` 工具） |
 
-## Embedding 检索
+## 关键词检索
 
-User Memory 采用 **混合检索** 策略，兼顾语义理解和精确匹配：
+User Memory 采用 **词级 OR 匹配** 的关键词检索策略，兼顾召回率和排序质量：
 
 ```mermaid
 flowchart TD
-    Q["🔍 查询"] --> VE["生成查询 Embedding"]
-    Q --> KW["提取关键词"]
-
-    VE --> VS["📐 向量相似度检索<br/>余弦相似度 Top 10"]
-    KW --> KS["🔤 关键词检索<br/>tags + title + content<br/>Top 10"]
-
-    VS --> FUSION["🔀 RRF 融合排序<br/>Reciprocal Rank Fusion"]
-    KS --> FUSION
-
-    FUSION --> FILTER["⚖️ 重要性加权<br/>critical ×1.5, high ×1.3<br/>medium ×1.0, low ×0.7"]
-    FILTER --> TOP["✅ 返回 Top 5"]
+    Q["🔍 查询"] --> SPLIT["分词<br/>按空格拆分查询词"]
+    SPLIT --> KW["🔤 词级 OR 匹配<br/>title / content / description"]
+    KW --> FILTER["⚖️ 重要性加权<br/>critical ×1.5, high ×1.3<br/>medium ×1.0, low ×0.7"]
+    FILTER --> SORT["🔀 排序<br/>权重 → 时间倒序"]
+    SORT --> TOP["✅ 返回 Top N"]
 
     style Q fill:#e8eaf6,stroke:#3f51b5,stroke-width:2px
-    style VS fill:#e3f2fd,stroke:#1565c0,stroke-width:2px
-    style KS fill:#fff9c4,stroke:#f9a825,stroke-width:2px
-    style FUSION fill:#fce4ec,stroke:#c62828,stroke-width:2px
+    style KW fill:#fff9c4,stroke:#f9a825,stroke-width:2px
     style FILTER fill:#f3e5f5,stroke:#7b1fa2,stroke-width:2px
+    style SORT fill:#fce4ec,stroke:#c62828,stroke-width:2px
     style TOP fill:#e8f5e9,stroke:#388e3c,stroke-width:2px
 ```
 
 | 阶段 | 策略 | 说明 |
 |------|------|------|
-| 向量检索 | 余弦相似度 | 语义层面的匹配，Top 10 |
-| 关键词检索 | 全文检索 + 标签匹配 | 精确关键词匹配，Top 10 |
-| 融合排序 | RRF 算法 | `score = Σ 1/(60 + rank)`，合并两路结果 |
-| 加权过滤 | 重要性 + 访问频率 + 时效性 | 重要且常用的记忆优先 |
-| 最终输出 | Top 5 | 精选最相关的 5 条记忆 |
+| 分词 | 按空格拆分 | 查询 `"saveMemory tool test"` 拆为 3 个词 |
+| 匹配 | 词级 OR | 每条记忆匹配**任一**词即命中（title/content/description） |
+| 加权 | 重要性权重 | critical ×1.5, high ×1.3, medium ×1.0, low ×0.7 |
+| 排序 | 权重 + 时间 | 权重高者在前；权重相同时，更新时间倒序 |
+| 输出 | Top N | 默认返回 5 条，可配置 |
+
+> 💡 词级 OR 匹配相比短语匹配有更高的召回率——查询 `"saveMemory tool test"` 会匹配包含 `saveMemory`、`tool` 或 `test` 中任意一词的记忆。
 
 ## 注入策略
 
@@ -208,7 +198,7 @@ flowchart LR
 
     subgraph UM_INJECT["User Memory 注入"]
         direction TB
-        UM1["每轮对话"] --> UM2["Embedding 检索<br/>按重要性动态过滤"]
+        UM1["每轮对话"] --> UM2["关键词检索<br/>按重要性动态过滤"]
     end
 
     SM2 --> CTX["📝 AI 上下文"]
@@ -222,7 +212,7 @@ flowchart LR
 | 记忆类型 | 注入时机 | 注入数量 | 触发条件 |
 |----------|----------|:--------:|----------|
 | Session Memory | 每轮对话前 | 5 条，最多 5,000 tokens | 自动 |
-| User Memory | 每轮对话 | 按重要性动态过滤 | 基于 Embedding 检索 |
+| User Memory | 每轮对话 | 按重要性动态过滤 | 基于关键词检索 |
 | Session Memory（压缩时） | Auto Compact 触发 | 全部 | 作为压缩摘要 |
 
 > 💡 User Memory 按重要性动态过滤：`critical` / `high` 全部注入，`medium` 每类最多 10 条，`low` 不注入。
@@ -263,7 +253,7 @@ flowchart LR
     subgraph NOW["🔵 当前"]
         N1["Session Memory"]
         N2["User Memory"]
-        N3["Embedding 检索"]
+        N3["关键词检索"]
     end
 
     subgraph NEXT["🟢 近期"]

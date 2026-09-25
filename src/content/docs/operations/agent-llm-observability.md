@@ -41,8 +41,10 @@ Agent 层是 LLM 智能的核心，包括 Turn 执行流、LLM 调用、Token �
 | `[session_memory_extractor] extractor.done` | 记忆提取完成 | `session_id`, `memory_tokens` |
 | `[session_memory_extractor] extractor.skip_threshold_not_met` | 未达到提取阈值 | `session_id`, `token_count`, `threshold` |
 | `[triggerSessionMemoryExtraction] extracted` | 记忆提取成功 | `session_id`, `memory_tokens` |
-| `save_session_memory.success` | Session 记忆保存成功 | `session_id`, `memory_tokens` |
-| `save_user_memory.success` | 用户记忆保存成功 | `user_id`, `scope`, `key` |
+| `save_session_memory.success` | Session 记忆提取成功（后台 Agent） | `session_id`, `memory_tokens` |
+| `saveMemory.success` | 用户记忆保存成功 | `user_id`, `memory_id`, `category`, `importance` |
+| `tool.webSearch.completed` | Web 搜索完成 | `session_id`, `query`, `result_count`, `provider` |
+| `tool.webFetch.completed` | Web 抓取完成 | `session_id`, `url`, `bytes`, `status_code`, `cached` |
 
 ### 流式数据处理
 

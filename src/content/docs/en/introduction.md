@@ -33,7 +33,7 @@ Built on **Centrifuge WebSocket**, with bidirectional message pushing, supportin
 
 ### Memory System
 
-Dual-layer memory: **Session Memory** (conversation context compression) + **User Memory** (cross-session long-term memory with vector retrieval). AI truly "remembers" your users.
+Dual-layer memory: **Session Memory** (conversation context compression) + **User Memory** (cross-session long-term memory with keyword retrieval). AI truly "remembers" your users.
 
 ### Context Management
 

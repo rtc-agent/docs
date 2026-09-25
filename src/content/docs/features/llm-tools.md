@@ -25,8 +25,10 @@ AI 在推理过程中可以调用一组**内置工具**来扩展自身能力。�
 | `listLoops` | 列出当前会话的所有循环任务 | 否 |
 | `pauseLoop` | 暂停循环任务 | 否 |
 | `resumeLoop` | 恢复暂停的循环任务 | 否 |
+| `webSearch` | 搜索互联网，获取最新信息（需配置） | 否 |
+| `webFetch` | 抓取指定 URL 的网页内容并提取信息（需配置） | 否 |
 
-> 💡 此外，记忆系统提供了 `saveSessionMemory`、`listSessionMemories`、`searchMemory` 等会话记忆工具，以及 `saveUserMemory`、`updateUserMemory`、`deleteUserMemory`、`listUserMemory` 等用户记忆工具。详见 [记忆系统](/docs/features/memory/)。
+> 💡 此外，记忆系统提供了 `saveMemory`、`updateMemory`、`deleteMemory`、`listMemories`、`searchMemory` 等记忆工具。详见 [记忆系统](/docs/features/memory/)。
 
 ---
 
@@ -410,6 +412,75 @@ stateDiagram-v2
 | `resumeLoop` | `loop_id` | 恢复暂停的循环 |
 
 > 💡 **Loop vs Goal**：Goal 是"完成某个条件就停"，Loop 是"每隔 N 秒执行一次"。两者可以组合使用——在 Loop 中创建 Goal，让 AI 定期检查某个条件是否满足。
+
+---
+
+## webSearch — 网络搜索
+
+搜索互联网获取最新信息。支持多搜索引擎（DuckDuckGo、Bing、SearXNG、Tavily）自动故障转移。需要服务端配置 `web_search` 模块后才会注册此工具。
+
+### 参数
+
+| 参数 | 类型 | 必填 | 说明 |
+|------|------|:----:|------|
+| `query` | string | 是 | 搜索查询词，应具体明确。示例：`"Go 1.22 新特性"`、`"React 19 迁移指南 2026"` |
+| `max_results` | integer | 否 | 最大返回结果数。默认 10，最大 30。快速回答用较少结果，深度研究用较多结果 |
+| `time_range` | string | 否 | 时间范围过滤。可选值：`"day"`（24 小时内）、`"week"`、`"month"`、`"year"`。留空表示不限时间 |
+
+### 返回格式
+
+返回 JSON 对象，包含：
+
+| 字段 | 类型 | 说明 |
+|------|------|------|
+| `query` | string | 原始查询词 |
+| `result_count` | integer | 结果数量 |
+| `results` | array | 搜索结果列表，每项包含 `title`、`url`、`description`、`source` |
+
+### 使用建议
+
+- 搜索时包含当前年份（如 `"Go 文档 2026"`）以获取最新结果
+- 结果中包含标题、URL 和摘要——分析后选择最相关的 URL
+- 如果摘要已足够回答问题，可直接回复；如需深入分析特定 URL，使用 `webFetch` 工具
+- 回答时**必须**在末尾附加 Sources 区块，列出引用的来源链接
+
+---
+
+## webFetch — 网页内容抓取
+
+抓取指定 URL 的网页内容，使用 AI 模型提取指定信息。将 HTML 转换为 Markdown 后用小型模型处理。需要服务端配置 `web_fetch` 模块后才会注册此工具。
+
+> ⚠️ webFetch 无法访问需要认证的 URL（如 Google Docs、Confluence、Jira、GitHub 私有仓库）。如有认证需求，请使用专门的 MCP 工具。
+
+### 参数
+
+| 参数 | 类型 | 必填 | 说明 |
+|------|------|:----:|------|
+| `url` | string | 是 | 要抓取的 URL，必须是完整的 HTTP 或 HTTPS 地址 |
+| `prompt` | string | 是 | 提取提示，描述需要从页面中提取什么信息 |
+
+### 工作机制
+
+```mermaid
+flowchart LR
+    A["🔗 URL"] --> B["📥 抓取内容"]
+    B --> C["📝 HTML → Markdown"]
+    C --> D{"📏 内容大小"}
+    D -->|"≤ 50,000 字符"| E["📋 直接返回"]
+    D -->|"> 50,000 字符"| F["🤖 LLM 提取"]
+    F --> G["📋 返回提取结果"]
+
+    style A fill:#e3f2fd,stroke:#1565c0,stroke-width:2px
+    style E fill:#a5d6a7,stroke:#2e7d32,stroke-width:2px
+    style G fill:#a5d6a7,stroke:#2e7d32,stroke-width:2px
+```
+
+| 特性 | 说明 |
+|------|------|
+| 缓存 | 自清理 30 分钟缓存，重复访问同一 URL 时更快 |
+| 重定向 | URL 重定向到其他域名时，返回重定向 URL 供再次请求 |
+| 内容限制 | 最大 URL 长度 2,000 字符，最大内容 10 MB |
+| 超时 | 抓取超时 60 秒 |
 
 ---
 

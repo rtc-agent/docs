@@ -25,8 +25,10 @@ During reasoning, the AI can call a set of **built-in tools** to extend its capa
 | `listLoops` | List all loop tasks in the current session | No |
 | `pauseLoop` | Pause a loop task | No |
 | `resumeLoop` | Resume a paused loop task | No |
+| `webSearch` | Search the web for up-to-date information (when configured) | No |
+| `webFetch` | Fetch a URL and extract content using AI (when configured) | No |
 
-> 💡 Additionally, the memory system provides session memory tools (`saveSessionMemory`, `listSessionMemories`, `searchMemory`) and user memory tools (`saveUserMemory`, `updateUserMemory`, `deleteUserMemory`, `listUserMemory`). See [Memory System](/docs/en/features/memory/) for details.
+> 💡 Additionally, the memory system provides tools `saveMemory`, `updateMemory`, `deleteMemory`, `listMemories`, and `searchMemory`. See [Memory System](/docs/en/features/memory/) for details.
 
 ---
 
@@ -410,6 +412,75 @@ stateDiagram-v2
 | `resumeLoop` | `loop_id` | Resume a paused loop |
 
 > 💡 **Loop vs Goal**: A Goal is "work until the condition is met, then stop"; a Loop is "execute every N seconds". They can be combined — create a Goal inside a Loop to have AI periodically check whether a condition is satisfied.
+
+---
+
+## webSearch -- Web Search
+
+Search the internet for up-to-date information. Supports multiple search engines (DuckDuckGo, Bing, SearXNG, Tavily) with automatic failover. This tool is only registered when the server has the `web_search` module configured.
+
+### Parameters
+
+| Parameter | Type | Required | Description |
+|-----------|------|:--------:|-------------|
+| `query` | string | Yes | The search query. Should be specific and clear. Examples: `"latest Go programming news"`, `"Python asyncio tutorial"` |
+| `max_results` | integer | No | Maximum number of results to return. Default: 10, max: 30. Use fewer for quick answers, more for comprehensive research |
+| `time_range` | string | No | Limit results to a time range. Options: `"day"` (last 24h), `"week"`, `"month"`, `"year"`. Leave empty for all time |
+
+### Return Format
+
+Returns a JSON object containing:
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `query` | string | The original query |
+| `result_count` | integer | Number of results |
+| `results` | array | Search result list, each entry contains `title`, `url`, `description`, `source` |
+
+### Usage Tips
+
+- Include the current year in your query (e.g. `"Go docs 2026"`) to get the most up-to-date results
+- Results include titles, URLs, and snippets -- analyze them to find the most relevant URLs
+- If snippets are sufficient to answer the question, respond directly; if deeper analysis of a specific URL is needed, use the `webFetch` tool
+- Your response **must** include a "Sources:" section at the end, listing all referenced source links
+
+---
+
+## webFetch -- Web Content Fetching
+
+Fetches content from a specified URL and extracts information using an AI model. Converts HTML to Markdown and processes it with a small, fast model. This tool is only registered when the server has the `web_fetch` module configured.
+
+> WARNING: webFetch will FAIL for authenticated or private URLs (e.g. Google Docs, Confluence, Jira, private GitHub repos). For authenticated access, use a specialized MCP tool instead.
+
+### Parameters
+
+| Parameter | Type | Required | Description |
+|-----------|------|:--------:|-------------|
+| `url` | string | Yes | The URL to fetch. Must be a fully-formed HTTP or HTTPS address |
+| `prompt` | string | Yes | Extraction prompt describing what information you want to extract from the page |
+
+### How It Works
+
+```mermaid
+flowchart LR
+    A["🔗 URL"] --> B["📥 Fetch content"]
+    B --> C["📝 HTML → Markdown"]
+    C --> D{"📏 Content size"}
+    D -->|"≤ 50,000 chars"| E["📋 Return directly"]
+    D -->|"> 50,000 chars"| F["🤖 LLM extraction"]
+    F --> G["📋 Return extracted result"]
+
+    style A fill:#e3f2fd,stroke:#1565c0,stroke-width:2px
+    style E fill:#a5d6a7,stroke:#2e7d32,stroke-width:2px
+    style G fill:#a5d6a7,stroke:#2e7d32,stroke-width:2px
+```
+
+| Feature | Description |
+|---------|-------------|
+| Cache | Self-cleaning 30-minute cache for faster repeated access to the same URL |
+| Redirects | When a URL redirects to a different host, the redirect URL is returned for a follow-up request |
+| Content limits | Max URL length: 2,000 chars; max content size: 10 MB |
+| Timeout | Fetch timeout: 60 seconds |
 
 ---
 

@@ -27,7 +27,7 @@ When you use the Service, you must authenticate via OAuth2. We collect:
 ### 1.3 Memory Data
 
 - **Session Memory**: Context summary of the current session
-- **User Memory**: Long-term cross-session memory (may include vector embeddings)
+- **User Memory**: Long-term cross-session memory (with keyword indexing)
 
 ### 1.4 Data Stored Locally in Browser Only
 

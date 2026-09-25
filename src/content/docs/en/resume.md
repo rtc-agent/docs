@@ -104,7 +104,7 @@ OpenTelemetry + Jaeger + Prometheus + Grafana + Loki full-chain tracing.
 |--------|------------|
 | Language | Go 1.27 |
 | ORM | GORM |
-| Vector Search | pgvector |
+| Observability | OpenTelemetry, Zap |
 | AI Framework | Anthropic SDK, Eino |
 | Script Sandbox | Babel AST transformation |
 
@@ -179,7 +179,7 @@ AI infers on the server, but **tools execute in the user's browser**. Data never
 
 - **Session Memory**: 5 categories, up to 20 items, ~12K tokens
 - **User Memory**: 4 categories, up to 1000 items, cross-session persistence
-- Hybrid retrieval: vector cosine similarity + keyword full-text search, RRF fusion + importance weighting
+- Keyword retrieval: word-level OR matching + importance-weighted ranking
 
 #### 6. Context Management
 

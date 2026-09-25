@@ -330,9 +330,8 @@ Prometheus 指标端点，暴露服务运行指标，供监控系统（Prometheu
   "scope": "user",
   "scopeId": "user-uuid",
   "format": "okf-bundle",
-  "types": ["fact", "preference"],
+  "types": ["user", "feedback"],
   "tags": ["work"],
-  "includeLinks": true,
   "includeLog": false
 }
 ```
@@ -344,7 +343,6 @@ Prometheus 指标端点，暴露服务运行指标，供监控系统（Prometheu
 | `format`       | ✅   | string     | 导出格式，当前仅支持 `okf-bundle`                        |
 | `types`        | —    | string[]   | 按记忆类型过滤（可选）                                   |
 | `tags`         | —    | string[]   | 按标签过滤（可选）                                       |
-| `includeLinks` | —    | boolean    | 是否包含交叉引用（默认 false）                           |
 | `includeLog`   | —    | boolean    | 是否生成 log.md（默认 false）                            |
 
 **响应**：`Content-Type: application/gzip`，返回 gzip 压缩的 OKF bundle 流。

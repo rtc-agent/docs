@@ -330,9 +330,8 @@ Export memory data as an OKF (Open Knowledge Format) bundle. Supports filtering 
   "scope": "user",
   "scopeId": "user-uuid",
   "format": "okf-bundle",
-  "types": ["fact", "preference"],
+  "types": ["user", "feedback"],
   "tags": ["work"],
-  "includeLinks": true,
   "includeLog": false
 }
 ```
@@ -344,7 +343,6 @@ Export memory data as an OKF (Open Knowledge Format) bundle. Supports filtering 
 | `format`       | ✅       | string   | Export format, currently only `okf-bundle` is supported |
 | `types`        | —        | string[] | Filter by memory types (optional)                      |
 | `tags`         | —        | string[] | Filter by tags (optional)                              |
-| `includeLinks` | —        | boolean  | Include cross-references (default false)               |
 | `includeLog`   | —        | boolean  | Generate log.md (default false)                        |
 
 **Response**: `Content-Type: application/gzip`, returns a gzip-compressed OKF bundle stream.

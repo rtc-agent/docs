@@ -1,20 +1,21 @@
 ---
 title: Memory System
-description: RTC Agent's dual-layer memory architecture — session-level memory and user-level memory — ensuring AI never forgets during a conversation and carries knowledge across sessions.
+description: RTC Agent's OKF unified memory architecture — session-level memory and user-level memory — ensuring AI never forgets during a conversation and carries knowledge across sessions.
 ---
 
 The **Memory System** gives AI a "memory." It not only tracks key decisions and progress throughout a single conversation, but also remembers your preferences, project context, and working habits across sessions — the more you use it, the better it understands you.
 
-## Dual-Layer Architecture
+## OKF Unified Architecture
 
-The memory system is divided into two layers, each with its own role:
+The memory system is built on the **OKF (Open Knowledge Format)** unified model. All memories are stored in a single knowledge base, distinguished by the **Scope** field:
 
 ```mermaid
 flowchart TD
-    subgraph MEMORY["🧠 Memory System"]
+    subgraph MEMORY["🧠 Memory System (OKF Unified Model)"]
         direction TB
-        SM["📋 Session Memory<br/>Session-Level Memory"]
-        UM["🗂️ User Memory<br/>User-Level Memory"]
+        SM["📋 Session Memory<br/>scope = session"]
+        UM["🗂️ User Memory<br/>scope = user"]
+        GM["🌐 Global Memory<br/>scope = global"]
     end
 
     subgraph SM_DETAIL["Session Memory Features"]
@@ -22,7 +23,7 @@ flowchart TD
         SM1["Scope: Single session"]
         SM2["Lifecycle: During session"]
         SM3["Purpose: Compression summaries / Cross-turn context"]
-        SM4["Extraction: Automatic + Manual"]
+        SM4["Extraction: Automatic background extraction"]
     end
 
     subgraph UM_DETAIL["User Memory Features"]
@@ -35,21 +36,23 @@ flowchart TD
 
     SM --> SM_DETAIL
     UM --> UM_DETAIL
-    SM --> EMB["🔍 Embedding Vector Search"]
-    UM --> EMB
+    SM --> DB[("📦 memories<br/>Unified storage")]
+    UM --> DB
+    GM --> DB
 
     style MEMORY fill:#e8eaf6,stroke:#3f51b5,stroke-width:2px
     style SM_DETAIL fill:#e3f2fd,stroke:#1565c0,stroke-width:2px
     style UM_DETAIL fill:#fce4ec,stroke:#c62828,stroke-width:2px
-    style EMB fill:#e8f5e9,stroke:#388e3c,stroke-width:2px
+    style DB fill:#e8f5e9,stroke:#388e3c,stroke-width:2px
 ```
 
 | | Session Memory | User Memory |
 |---|---------------|-------------|
-| **Scope** | Single session | Across all sessions |
+| **Scope** | `session` | `user` |
+| **Scope Boundary** | Single session | Across all sessions |
 | **Lifecycle** | During session | Long-term retention |
 | **Core Purpose** | Compression summaries, cross-turn context | Personalization, knowledge inheritance |
-| **Extraction Method** | Automatic extraction + Agent-initiated saves | Agent-initiated saves |
+| **Extraction Method** | Automatic background extraction | Agent-initiated saves |
 | **Capacity Limit** | 20 entries, ~12K tokens | 1,000 entries |
 
 ## Session Memory
@@ -66,9 +69,9 @@ Session Memory distills key information from ongoing conversations into **5 cate
 | 🚧 `issue` | Encountered issues and solutions | "CORS error, resolved by configuring middleware" |
 | 💡 `learnings` | Lessons learned and takeaways | "Connection pooling can significantly improve performance" |
 
-### Dual-Track Extraction
+### Automatic Extraction
 
-Session Memory accumulates through **automatic extraction** and **agent-initiated saves** via two parallel paths:
+Session Memory is **automatically extracted** by a background agent, distilling key information from ongoing conversations into 5 categories:
 
 ```mermaid
 flowchart LR
@@ -76,20 +79,12 @@ flowchart LR
         direction TB
         A1["Context tokens >= 10,000"] -->|"Trigger"| A2["Background forked agent<br/>Shares prompt cache"]
         A2 --> A3["Extract 5 categories of key information"]
-        A3 --> A4["Write to session_memories"]
-    end
-
-    subgraph MANUAL["✋ Agent-Initiated Save"]
-        direction TB
-        M1["Agent determines information is important"] --> M2["Call save_session_memory"]
-        M2 --> M3["Write to session_memories"]
+        A3 --> A4["Write to memories table<br/>scope = session"]
     end
 
     A4 --> DB[("📦 Session Memory<br/>Up to 20 entries<br/>~12K tokens")]
-    M3 --> DB
 
     style AUTO fill:#e3f2fd,stroke:#1565c0,stroke-width:2px
-    style MANUAL fill:#fff9c4,stroke:#f9a825,stroke-width:2px
     style DB fill:#e8f5e9,stroke:#388e3c,stroke-width:2px
 ```
 
@@ -159,41 +154,36 @@ How to apply: When/where this guidance applies
 |--------|:--:|------|
 | Maximum entries | 1,000 | Per single user |
 | Per-entry token limit | ~1,000 | - |
-| Overflow strategy | No automatic eviction | Only manual deletion supported (`delete_user_memory` tool) |
+| Overflow strategy | No automatic eviction | Only manual deletion supported (`deleteMemory` tool) |
 
-## Embedding Retrieval
+## Keyword Retrieval
 
-User Memory uses a **hybrid retrieval** strategy that balances semantic understanding with exact matching:
+User Memory uses a **word-level OR matching** keyword retrieval strategy that balances recall and ranking quality:
 
 ```mermaid
 flowchart TD
-    Q["🔍 Query"] --> VE["Generate Query Embedding"]
-    Q --> KW["Extract Keywords"]
-
-    VE --> VS["📐 Vector Similarity Search<br/>Cosine similarity Top 10"]
-    KW --> KS["🔤 Keyword Search<br/>tags + title + content<br/>Top 10"]
-
-    VS --> FUSION["🔀 RRF Fusion Ranking<br/>Reciprocal Rank Fusion"]
-    KS --> FUSION
-
-    FUSION --> FILTER["⚖️ Importance Weighting<br/>critical ×1.5, high ×1.3<br/>medium ×1.0, low ×0.7"]
-    FILTER --> TOP["✅ Return Top 5"]
+    Q["🔍 Query"] --> SPLIT["Tokenize<br/>Split query by spaces"]
+    SPLIT --> KW["🔤 Word-level OR Match<br/>title / content / description"]
+    KW --> FILTER["⚖️ Importance Weighting<br/>critical ×1.5, high ×1.3<br/>medium ×1.0, low ×0.7"]
+    FILTER --> SORT["🔀 Sort<br/>Weight → Recency"]
+    SORT --> TOP["✅ Return Top N"]
 
     style Q fill:#e8eaf6,stroke:#3f51b5,stroke-width:2px
-    style VS fill:#e3f2fd,stroke:#1565c0,stroke-width:2px
-    style KS fill:#fff9c4,stroke:#f9a825,stroke-width:2px
-    style FUSION fill:#fce4ec,stroke:#c62828,stroke-width:2px
+    style KW fill:#fff9c4,stroke:#f9a825,stroke-width:2px
     style FILTER fill:#f3e5f5,stroke:#7b1fa2,stroke-width:2px
+    style SORT fill:#fce4ec,stroke:#c62828,stroke-width:2px
     style TOP fill:#e8f5e9,stroke:#388e3c,stroke-width:2px
 ```
 
 | Stage | Strategy | Description |
 |------|------|------|
-| Vector search | Cosine similarity | Semantic-level matching, Top 10 |
-| Keyword search | Full-text search + tag matching | Exact keyword matching, Top 10 |
-| Fusion ranking | RRF algorithm | `score = Σ 1/(60 + rank)`, merges both result sets |
-| Weighted filtering | Importance + access frequency + recency | Important and frequently used memories are prioritized |
-| Final output | Top 5 | The 5 most relevant memories |
+| Tokenization | Space-delimited split | Query `"saveMemory tool test"` splits into 3 words |
+| Matching | Word-level OR | A memory matches if it contains **any** of the words (in title/content/description) |
+| Weighting | Importance weights | critical ×1.5, high ×1.3, medium ×1.0, low ×0.7 |
+| Sorting | Weight + recency | Higher weight first; ties broken by most recently updated |
+| Output | Top N | Default 5 results, configurable |
+
+> 💡 Word-level OR matching provides higher recall than phrase matching — a query like `"saveMemory tool test"` matches memories containing any of `saveMemory`, `tool`, or `test`.
 
 ## Injection Strategy
 
@@ -208,7 +198,7 @@ flowchart LR
 
     subgraph UM_INJECT["User Memory Injection"]
         direction TB
-        UM1["Every turn"] --> UM2["Embedding retrieval<br/>Dynamic importance filtering"]
+        UM1["Every turn"] --> UM2["Keyword retrieval<br/>Dynamic importance filtering"]
     end
 
     SM2 --> CTX["📝 AI Context"]
@@ -222,7 +212,7 @@ flowchart LR
 | Memory Type | Injection Timing | Injection Count | Trigger |
 |----------|----------|:--------:|----------|
 | Session Memory | Before each turn | 5 entries, up to 5,000 tokens | Automatic |
-| User Memory | Every turn | Dynamic importance filtering | Based on embedding retrieval |
+| User Memory | Every turn | Dynamic importance filtering | Based on keyword retrieval |
 | Session Memory (during compression) | Auto Compact triggered | All entries | Used as compression summary |
 
 > 💡 User Memory is dynamically filtered by importance: `critical` / `high` are all injected, `medium` injects up to 10 entries per category, `low` is not injected.
@@ -263,7 +253,7 @@ flowchart LR
     subgraph NOW["🔵 Current"]
         N1["Session Memory"]
         N2["User Memory"]
-        N3["Embedding Retrieval"]
+        N3["Keyword Retrieval"]
     end
 
     subgraph NEXT["🟢 Near-term"]

@@ -41,8 +41,10 @@ The Agent layer is the core of LLM intelligence, including Turn execution flow, 
 | `[session_memory_extractor] extractor.done` | Memory extraction completed | `session_id`, `memory_tokens` |
 | `[session_memory_extractor] extractor.skip_threshold_not_met` | Extraction threshold not met | `session_id`, `token_count`, `threshold` |
 | `[triggerSessionMemoryExtraction] extracted` | Memory extraction successful | `session_id`, `memory_tokens` |
-| `save_session_memory.success` | Session memory saved successfully | `session_id`, `memory_tokens` |
-| `save_user_memory.success` | User memory saved successfully | `user_id`, `scope`, `key` |
+| `save_session_memory.success` | Session memory extracted successfully (background agent) | `session_id`, `memory_tokens` |
+| `saveMemory.success` | User memory saved successfully | `user_id`, `memory_id`, `category`, `importance` |
+| `tool.webSearch.completed` | Web search completed | `session_id`, `query`, `result_count`, `provider` |
+| `tool.webFetch.completed` | Web fetch completed | `session_id`, `url`, `bytes`, `status_code`, `cached` |
 
 ### Streaming Data Processing
 

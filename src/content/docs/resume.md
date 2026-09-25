@@ -104,7 +104,7 @@ OpenTelemetry + Jaeger + Prometheus + Grafana + Loki 全链路追踪。
 |------|------|
 | 语言 | Go 1.27 |
 | ORM | GORM |
-| 向量搜索 | pgvector |
+| 可观测性 | OpenTelemetry, Zap |
 | AI 框架 | Anthropic SDK, Eino |
 | 脚本沙箱 | Babel AST 变换 |
 
@@ -179,7 +179,7 @@ AI 在服务端推理，但**工具在用户浏览器中执行**。数据不离�
 
 - **Session Memory**：5 类，最多 20 条，约 12K tokens
 - **User Memory**：4 类，最多 1000 条，跨会话持久化
-- 混合检索：向量余弦相似度 + 关键词全文搜索，RRF 融合 + 重要性加权
+- 关键词检索：词级 OR 匹配 + 重要性加权排序
 
 #### 6. 上下文管理
 
