@@ -26,7 +26,7 @@ export default defineConfig({
 				},
 			},
 			head: [
-				{ tag: 'script', attrs: { type: 'module', src: 'https://cdn.jsdelivr.net/npm/@rtc-agent/component@0.2.4/dist/index.js' } },
+				{ tag: 'script', attrs: { type: 'module', src: 'https://cdn.jsdelivr.net/npm/@rtc-agent/component@0.2.5/dist/index.js' } },
 				{ tag: 'script', attrs: { type: 'module' }, content: `
 					let DOCS_INDEX = null;
 					const loadIndex = () => DOCS_INDEX || fetch('/docs/docs-index.json').then(r => r.json()).then(d => DOCS_INDEX = d);
