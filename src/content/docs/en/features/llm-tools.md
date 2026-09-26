@@ -466,8 +466,8 @@ flowchart LR
     A["🔗 URL"] --> B["📥 Fetch content"]
     B --> C["📝 HTML → Markdown"]
     C --> D{"📏 Content size"}
-    D -->|"≤ 50,000 chars"| E["📋 Return directly"]
-    D -->|"> 50,000 chars"| F["🤖 LLM extraction"]
+    D -->|"≤ 50,000 bytes"| E["📋 Return directly"]
+    D -->|"> 50,000 bytes"| F["🤖 LLM extraction"]
     F --> G["📋 Return extracted result"]
 
     style A fill:#e3f2fd,stroke:#1565c0,stroke-width:2px
@@ -481,6 +481,7 @@ flowchart LR
 | Redirects | When a URL redirects to a different host, the redirect URL is returned for a follow-up request |
 | Content limits | Max URL length: 2,000 chars; max content size: 10 MB |
 | Timeout | Fetch timeout: 60 seconds |
+| LLM extraction threshold | LLM extraction is triggered when content exceeds 50,000 bytes (configurable) |
 
 ---
 

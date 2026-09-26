@@ -1,6 +1,6 @@
 ---
 title: Agent 与 LLM 可观测性
-description: 监控 LLM 调用、Token 消耗、上下文压缩、Sub-Agent 管理和记忆提取等 Agent 内部行为。
+description: 监控 LLM 调用、Token 消耗、上下文压缩、Sub-Agent 管理、记忆提取、OpenTelemetry 分布式追踪等 Agent 内部行为。
 ---
 
 Agent 层是 LLM 智能的核心，包括 Turn 执行流、LLM 调用、Token 管理、上下文压缩、Sub-Agent 编排等。这些日志帮助理解 Agent 的决策过程和资源消耗。
@@ -242,6 +242,62 @@ histogram_quantile(0.95, sum(rate(rtc_llm_request_duration_seconds_bucket[5m])) 
 # LLM 请求错误率
 sum(rate(rtc_llm_request_duration_seconds_count{status="error"}[5m])) / sum(rate(rtc_llm_request_duration_seconds_count[5m]))
 ```
+
+## OpenTelemetry 分布式追踪
+
+除了结构化日志和 Prometheus 指标，Agent 层还通过 **OpenTelemetry** 自动为关键操作创建 Span，支持在 Grafana Tempo 等追踪后端中查看完整调用链。
+
+> 💡 所有结构化日志自动注入 `trace_id` 和 `span_id`（来自 OpenTelemetry context），可通过 Trace ID 将日志与 Span 关联。详见 [通用日志查询模式 — 按 Trace ID 查询](/docs/operations/common-query-patterns/)。
+
+### 追踪覆盖范围
+
+| Span 名称 | 触发时机 | 关键属性 |
+| --------- | -------- | -------- |
+| `tool.searchMemory` | searchMemory 工具调用 | `query`, `limit`, `result_count` |
+| `tool.saveMemory` | saveMemory 工具调用 | `category`, `importance` |
+| `tool.updateMemory` | updateMemory 工具调用 | `memory_id` |
+| `tool.deleteMemory` | deleteMemory 工具调用 | `memory_id` |
+| `tool.listMemories` | listMemories 工具调用 | — |
+| `tool.webSearch` | webSearch 工具调用 | `query`, `provider`, `result_count` |
+| `tool.webFetch` | webFetch 工具调用 | `url`, `cached` |
+| `tool.subAgent` | subAgent 工具调用 | `mode` |
+| `tool.stopSubAgent` | stopSubAgent 工具调用 | — |
+| `tool.createGoal` | createGoal 工具调用 | — |
+| `tool.todoWrite` | todoWrite 工具调用 | — |
+| `rtcTool.<name>` | RTC 工具调用（ls/read/write/grep/find/script 等） | `tool_name` |
+| `goalWorkflow.onTurnComplete` | Goal 工作流转检查 | — |
+| `loopWorkflow.onTurnComplete` | Loop 工作流进度检查 | — |
+| `loopWorkflow.scheduleNext` | Loop 调度下一次执行 | — |
+| `gorm.*` | 所有 SQL 操作（GORM 追踪插件） | SQL 语句、影响行数 |
+| `centrifuge-plus.*` | Centrifuge 发布/订阅操作 | `channel`, `offset`, `queue` |
+
+### 追踪架构
+
+```mermaid
+flowchart LR
+    subgraph SPANS["OpenTelemetry Spans"]
+        direction TB
+        TOOL["工具调用<br/>tool.*"]
+        RTC_T["RTC 工具<br/>rtcTool.*"]
+        WF["工作流<br/>goalWorkflow / loopWorkflow"]
+        DB["数据库<br/>gorm.*"]
+        MQ["消息队列<br/>centrifuge-plus.*"]
+    end
+
+    TOOL --> TRACE["Trace Backend<br/>Grafana Tempo"]
+    RTC_T --> TRACE
+    WF --> TRACE
+    DB --> TRACE
+    MQ --> TRACE
+
+    TRACE --> LOGS["结构化日志<br/>自动注入 trace_id"]
+    TRACE --> METRICS["Prometheus 指标"]
+
+    style SPANS fill:#e8eaf6,stroke:#3f51b5,stroke-width:2px
+    style TRACE fill:#e8f5e9,stroke:#388e3c,stroke-width:2px
+```
+
+> 📌 OpenTelemetry 追踪在生产环境中通过配置 `TracerProvider` 启用。未配置时使用 no-op tracer，零开销。
 
 ## 告警规则
 

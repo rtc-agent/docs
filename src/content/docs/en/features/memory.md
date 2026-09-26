@@ -46,14 +46,16 @@ flowchart TD
     style DB fill:#e8f5e9,stroke:#388e3c,stroke-width:2px
 ```
 
-| | Session Memory | User Memory |
-|---|---------------|-------------|
-| **Scope** | `session` | `user` |
-| **Scope Boundary** | Single session | Across all sessions |
-| **Lifecycle** | During session | Long-term retention |
-| **Core Purpose** | Compression summaries, cross-turn context | Personalization, knowledge inheritance |
-| **Extraction Method** | Automatic background extraction | Agent-initiated saves |
-| **Capacity Limit** | 20 entries, ~12K tokens | 1,000 entries |
+| | Session Memory | User Memory | Global Memory |
+|---|---------------|-------------|---------------|
+| **Scope** | `session` | `user` | `global` |
+| **Scope Boundary** | Single session | Across all sessions | Across all users |
+| **Lifecycle** | During session | Long-term retention | Long-term retention |
+| **Core Purpose** | Compression summaries, cross-turn context | Personalization, knowledge inheritance | Team-shared knowledge (reserved) |
+| **Extraction Method** | Automatic background extraction | Agent-initiated saves | — |
+| **Capacity Limit** | 20 entries, ~12K tokens | 1,000 entries | — |
+
+> 📌 **Global Memory** is defined in the OKF model but not yet exposed via agent read/write tools. It is reserved for future team-shared knowledge scenarios.
 
 ## Session Memory
 
@@ -164,13 +166,11 @@ User Memory uses a **word-level OR matching** keyword retrieval strategy that ba
 flowchart TD
     Q["🔍 Query"] --> SPLIT["Tokenize<br/>Split query by spaces"]
     SPLIT --> KW["🔤 Word-level OR Match<br/>title / content / description"]
-    KW --> FILTER["⚖️ Importance Weighting<br/>critical ×1.5, high ×1.3<br/>medium ×1.0, low ×0.7"]
-    FILTER --> SORT["🔀 Sort<br/>Weight → Recency"]
+    KW --> SORT["🔀 Sort<br/>Most recently updated first"]
     SORT --> TOP["✅ Return Top N"]
 
     style Q fill:#e8eaf6,stroke:#3f51b5,stroke-width:2px
     style KW fill:#fff9c4,stroke:#f9a825,stroke-width:2px
-    style FILTER fill:#f3e5f5,stroke:#7b1fa2,stroke-width:2px
     style SORT fill:#fce4ec,stroke:#c62828,stroke-width:2px
     style TOP fill:#e8f5e9,stroke:#388e3c,stroke-width:2px
 ```
@@ -179,11 +179,10 @@ flowchart TD
 |------|------|------|
 | Tokenization | Space-delimited split | Query `"saveMemory tool test"` splits into 3 words |
 | Matching | Word-level OR | A memory matches if it contains **any** of the words (in title/content/description) |
-| Weighting | Importance weights | critical ×1.5, high ×1.3, medium ×1.0, low ×0.7 |
-| Sorting | Weight + recency | Higher weight first; ties broken by most recently updated |
+| Sorting | Recency | Most recently updated results rank first |
 | Output | Top N | Default 5 results, configurable |
 
-> 💡 Word-level OR matching provides higher recall than phrase matching — a query like `"saveMemory tool test"` matches memories containing any of `saveMemory`, `tool`, or `test`.
+> 💡 Word-level OR matching provides higher recall than phrase matching — a query like `"saveMemory tool test"` matches memories containing any of `saveMemory`, `tool`, or `test`. The search uses SQL LIKE pattern matching, automatically using ILIKE (case-insensitive) on PostgreSQL.
 
 ## Injection Strategy
 

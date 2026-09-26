@@ -1,6 +1,6 @@
 ---
 title: Agent and LLM Observability
-description: Monitor LLM calls, token consumption, context compression, Sub-Agent management, memory extraction, and other internal Agent behaviors.
+description: Monitor LLM calls, token consumption, context compression, Sub-Agent management, memory extraction, OpenTelemetry distributed tracing, and other internal Agent behaviors.
 ---
 
 The Agent layer is the core of LLM intelligence, including Turn execution flow, LLM calls, token management, context compression, Sub-Agent orchestration, and more. These logs help you understand the Agent's decision-making process and resource consumption.
@@ -242,6 +242,62 @@ histogram_quantile(0.95, sum(rate(rtc_llm_request_duration_seconds_bucket[5m])) 
 # LLM request error rate
 sum(rate(rtc_llm_request_duration_seconds_count{status="error"}[5m])) / sum(rate(rtc_llm_request_duration_seconds_count[5m]))
 ```
+
+## OpenTelemetry Distributed Tracing
+
+In addition to structured logs and Prometheus metrics, the Agent layer automatically creates **OpenTelemetry** Spans for key operations, enabling you to view complete call chains in tracing backends like Grafana Tempo.
+
+> 💡 All structured logs are automatically injected with `trace_id` and `span_id` (from the OpenTelemetry context), allowing you to correlate logs with Spans via Trace ID. See [Common Log Query Patterns — Query by Trace ID](/docs/en/operations/common-query-patterns/) for details.
+
+### Tracing Coverage
+
+| Span Name | Trigger | Key Attributes |
+| --------- | ------- | -------------- |
+| `tool.searchMemory` | searchMemory tool call | `query`, `limit`, `result_count` |
+| `tool.saveMemory` | saveMemory tool call | `category`, `importance` |
+| `tool.updateMemory` | updateMemory tool call | `memory_id` |
+| `tool.deleteMemory` | deleteMemory tool call | `memory_id` |
+| `tool.listMemories` | listMemories tool call | — |
+| `tool.webSearch` | webSearch tool call | `query`, `provider`, `result_count` |
+| `tool.webFetch` | webFetch tool call | `url`, `cached` |
+| `tool.subAgent` | subAgent tool call | `mode` |
+| `tool.stopSubAgent` | stopSubAgent tool call | — |
+| `tool.createGoal` | createGoal tool call | — |
+| `tool.todoWrite` | todoWrite tool call | — |
+| `rtcTool.<name>` | RTC tool calls (ls/read/write/grep/find/script, etc.) | `tool_name` |
+| `goalWorkflow.onTurnComplete` | Goal workflow turn check | — |
+| `loopWorkflow.onTurnComplete` | Loop workflow progress check | — |
+| `loopWorkflow.scheduleNext` | Loop scheduling next execution | — |
+| `gorm.*` | All SQL operations (GORM tracing plugin) | SQL statements, affected rows |
+| `centrifuge-plus.*` | Centrifuge publish/subscribe operations | `channel`, `offset`, `queue` |
+
+### Tracing Architecture
+
+```mermaid
+flowchart LR
+    subgraph SPANS["OpenTelemetry Spans"]
+        direction TB
+        TOOL["Tool Calls<br/>tool.*"]
+        RTC_T["RTC Tools<br/>rtcTool.*"]
+        WF["Workflows<br/>goalWorkflow / loopWorkflow"]
+        DB["Database<br/>gorm.*"]
+        MQ["Message Queue<br/>centrifuge-plus.*"]
+    end
+
+    TOOL --> TRACE["Trace Backend<br/>Grafana Tempo"]
+    RTC_T --> TRACE
+    WF --> TRACE
+    DB --> TRACE
+    MQ --> TRACE
+
+    TRACE --> LOGS["Structured Logs<br/>Auto-injected trace_id"]
+    TRACE --> METRICS["Prometheus Metrics"]
+
+    style SPANS fill:#e8eaf6,stroke:#3f51b5,stroke-width:2px
+    style TRACE fill:#e8f5e9,stroke:#388e3c,stroke-width:2px
+```
+
+> 📌 OpenTelemetry tracing is enabled in production by configuring a `TracerProvider`. When not configured, a no-op tracer is used with zero overhead.
 
 ## Alert Rules
 

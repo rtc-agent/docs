@@ -348,6 +348,8 @@ Prometheus 指标端点，暴露服务运行指标，供监控系统（Prometheu
 **响应**：`Content-Type: application/gzip`，返回 gzip 压缩的 OKF bundle 流。
 
 > 💡 由于采用流式响应，一旦开始写入响应体后发生错误，将无法返回 JSON 错误响应。客户端应通过 HTTP 状态码和 `Content-Length` 判断导出是否成功。
+>
+> 📌 OKF bundle 中的时间戳统一使用 **UTC 时区**，格式为 RFC 3339（如 `2026-09-26T08:30:00Z`）。
 
 ## 下一步
 

@@ -46,14 +46,16 @@ flowchart TD
     style DB fill:#e8f5e9,stroke:#388e3c,stroke-width:2px
 ```
 
-| | Session Memory | User Memory |
-|---|---------------|-------------|
-| **Scope** | `session` | `user` |
-| **作用域** | 单个会话 | 跨所有会话 |
-| **生命周期** | 会话期间 | 长期保留 |
-| **核心用途** | 压缩摘要、跨轮次上下文 | 个性化、知识传承 |
-| **提取方式** | 后台 Agent 自动提取 | Agent 主动保存 |
-| **容量上限** | 20 条，~12K tokens | 1,000 条 |
+| | Session Memory | User Memory | Global Memory |
+|---|---------------|-------------|---------------|
+| **Scope** | `session` | `user` | `global` |
+| **作用域** | 单个会话 | 跨所有会话 | 跨所有用户 |
+| **生命周期** | 会话期间 | 长期保留 | 长期保留 |
+| **核心用途** | 压缩摘要、跨轮次上下文 | 个性化、知识传承 | 团队共享知识（预留） |
+| **提取方式** | 后台 Agent 自动提取 | Agent 主动保存 | — |
+| **容量上限** | 20 条，~12K tokens | 1,000 条 | — |
+
+> 📌 **Global Memory** 目前在 OKF 模型中已定义，但尚未开放 Agent 读写工具。预留用于未来的团队共享知识场景。
 
 ## Session Memory
 
@@ -164,13 +166,11 @@ User Memory 采用 **词级 OR 匹配** 的关键词检索策略，兼顾召回�
 flowchart TD
     Q["🔍 查询"] --> SPLIT["分词<br/>按空格拆分查询词"]
     SPLIT --> KW["🔤 词级 OR 匹配<br/>title / content / description"]
-    KW --> FILTER["⚖️ 重要性加权<br/>critical ×1.5, high ×1.3<br/>medium ×1.0, low ×0.7"]
-    FILTER --> SORT["🔀 排序<br/>权重 → 时间倒序"]
+    KW --> SORT["🔀 排序<br/>更新时间倒序"]
     SORT --> TOP["✅ 返回 Top N"]
 
     style Q fill:#e8eaf6,stroke:#3f51b5,stroke-width:2px
     style KW fill:#fff9c4,stroke:#f9a825,stroke-width:2px
-    style FILTER fill:#f3e5f5,stroke:#7b1fa2,stroke-width:2px
     style SORT fill:#fce4ec,stroke:#c62828,stroke-width:2px
     style TOP fill:#e8f5e9,stroke:#388e3c,stroke-width:2px
 ```
@@ -179,11 +179,10 @@ flowchart TD
 |------|------|------|
 | 分词 | 按空格拆分 | 查询 `"saveMemory tool test"` 拆为 3 个词 |
 | 匹配 | 词级 OR | 每条记忆匹配**任一**词即命中（title/content/description） |
-| 加权 | 重要性权重 | critical ×1.5, high ×1.3, medium ×1.0, low ×0.7 |
-| 排序 | 权重 + 时间 | 权重高者在前；权重相同时，更新时间倒序 |
+| 排序 | 时间倒序 | 最近更新的结果排在前面 |
 | 输出 | Top N | 默认返回 5 条，可配置 |
 
-> 💡 词级 OR 匹配相比短语匹配有更高的召回率——查询 `"saveMemory tool test"` 会匹配包含 `saveMemory`、`tool` 或 `test` 中任意一词的记忆。
+> 💡 词级 OR 匹配相比短语匹配有更高的召回率——查询 `"saveMemory tool test"` 会匹配包含 `saveMemory`、`tool` 或 `test` 中任意一词的记忆。搜索使用 SQL LIKE 模糊匹配，PostgreSQL 下自动使用 ILIKE（不区分大小写）。
 
 ## 注入策略
 

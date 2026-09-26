@@ -348,6 +348,8 @@ Export memory data as an OKF (Open Knowledge Format) bundle. Supports filtering 
 **Response**: `Content-Type: application/gzip`, returns a gzip-compressed OKF bundle stream.
 
 > 💡 Because this uses a streaming response, JSON error responses are no longer possible once writing to the response body begins. Clients should check HTTP status code and `Content-Length` to determine export success.
+>
+> 📌 Timestamps in the OKF bundle use **UTC timezone**, formatted as RFC 3339 (e.g., `2026-09-26T08:30:00Z`).
 
 ## Next Steps
 
