@@ -1,9 +1,185 @@
 ---
 title: Web Component API
-description: A single <rtc-agent> component handles AI conversation, tool calls, and theme switching — configure with attributes, listen with events, and customize with CSS variables.
+description: A single <rtc-agent> component handles AI conversation, tool calls, and theme switching — configure with attributes, listen with events, and customize with CSS variables. Use createRtcAgent() factory function for production applications.
 ---
 
 **`<rtc-agent>`** is the **sole component** exposed by RTC Agent. Built on Lit, it contains 47 sub-components and 19 Controllers internally, but presents only a clean Web Component interface externally — attribute configuration, event listening, and CSS variable customization.
+
+## Creating the Component
+
+### Factory Function (Recommended)
+
+Use `createRtcAgent()` to create a component instance. **This is the recommended integration method**, providing full type safety and lifecycle management:
+
+```typescript
+import { createRtcAgent } from '@rtc-agent/component';
+import type { RtcAgentConfig, RtcAgentWithLifecycle } from '@rtc-agent/component';
+
+const config: RtcAgentConfig = {
+  // Basic configuration
+  appLabel: 'My AI Assistant',
+  theme: 'system',
+  lang: 'en-US',
+  databaseName: 'my-app-rtc',
+  
+  // Server configuration
+  server: {
+    url: 'https://rtc-agent.cherish.chat',
+    redirectUri: '/auth/callback.html',
+  },
+  
+  // SharedWorker URL (required for multi-tab support)
+  workerUrl: '/rtc-agent/shared-worker.js',
+  
+  // Authentication (3 modes, see "Auth Configuration" below)
+  auth: {
+    getToken: async () => localStorage.getItem('token') || '',
+    userId: 'user-123',
+  },
+  
+  // Window configuration
+  window: {
+    defaultMode: 'normal',
+    draggable: true,
+    resizable: true,
+    bubblePosition: {
+      corner: 'bottom-right',
+      offset: { x: -24, y: 24 },
+    },
+  },
+  
+  // Function registration
+  agentName: 'MyApp',
+  agentDescription: 'AI assistant for my application',
+  persona: 'You are a helpful assistant...',
+  groups: [
+    {
+      name: 'editor',
+      description: 'Editor operations',
+      functions: [
+        {
+          name: 'getCode',
+          description: 'Get the current code',
+          handler: () => window.editorAPI.getCode(),
+          returns: { schema: { type: 'string' } },
+        },
+      ],
+    },
+  ],
+  
+  // Event handlers
+  on: {
+    ready: () => {
+      console.log('RTC Agent is ready');
+    },
+  },
+};
+
+const agent: RtcAgentWithLifecycle = createRtcAgent(config);
+
+// ⚠️ Must be manually appended to DOM
+document.body.appendChild(agent);
+
+// Cleanup when done (removes all event listeners and WebSocket connections)
+agent.destroy();
+```
+
+> 💡 **Important**: `createRtcAgent()` returns the component instance but **does not auto-append to DOM**. You must manually call `document.body.appendChild(agent)`.
+
+### HTML Attributes (Simple Scenarios)
+
+For simple scenarios or CDN quick previews, you can use HTML attributes directly:
+
+```html
+<script type="module" src="https://cdn.jsdelivr.net/npm/@rtc-agent/component@0.2.6-rc.1/dist/index.js"></script>
+
+<rtc-agent theme="dark" app-label="My AI Assistant"></rtc-agent>
+```
+
+> ⚠️ HTML attributes cannot configure `auth`, `workerUrl`, and other complex options. Use the factory function for production.
+
+### Lifecycle & Cleanup
+
+The `destroy()` method performs a complete, ordered teardown of the component:
+
+```ts
+const agent = createRtcAgent(config);
+document.body.appendChild(agent);
+
+// When the component is no longer needed:
+agent.destroy();
+```
+
+`destroy()` executes the following steps in order:
+
+1. **Removes the element from the DOM** — calls `this.remove()` on the host element
+2. **Clears pending auth references** — cancels in-flight token requests and drops cached credentials
+3. **Calls all DOM event unsubscribe functions** — every `addEventListener` registered through the config `on` field or the `rtc-agent-*` DOM events is removed
+4. **Calls all EventBus unsubscribe functions** — internal subscriptions (tool call events, session updates, etc.) are torn down
+5. **Nullifies internal arrays** — event handler lists and controller references are set to `null` so the garbage collector can reclaim them
+
+> 💡 **When to call**: Always call `destroy()` before removing the component from the page (e.g., in SPA route changes, modal close, or framework `unmount` hooks). Skipping it leaks event listeners and WebSocket connections.
+>
+> Full integration guide: [Integration Tutorial](/docs/en/integration/integration-tutorial/)
+
+## Auth Configuration
+
+The `auth` field in `RtcAgentConfig` controls how the component obtains authentication credentials. Three modes are supported, from simplest to most flexible:
+
+### StaticTokenAuth
+
+Provide tokens directly. Suitable for demos or environments where tokens are long-lived.
+
+```ts
+const config: RtcAgentConfig = {
+  // ...other config
+  auth: {
+    accessToken: 'eyJhbGciOi...',
+    refreshToken: 'dGhpcyBpcyBh...',  // optional
+    userId: 'user-123',
+    expiresIn: 3600,  // optional, seconds
+  },
+};
+```
+
+### DynamicTokenAuth (Recommended)
+
+Provide callback functions that return tokens on demand. The component calls `getToken()` when it needs a token and `refreshToken()` when the current one expires.
+
+```ts
+const config: RtcAgentConfig = {
+  // ...other config
+  auth: {
+    getToken: async () => {
+      const res = await fetch('/api/auth/token');
+      return res.json();  // { accessToken, refreshToken?, expiresIn? }
+    },
+    refreshToken: async () => {
+      const res = await fetch('/api/auth/refresh');
+      return res.json();
+    },
+    userId: 'user-123',
+  },
+};
+```
+
+### AuthProvider (Advanced)
+
+Full control over the authentication lifecycle. Implement this when your host application already manages auth state and you want the component to integrate with it.
+
+```ts
+const config: RtcAgentConfig = {
+  // ...other config
+  auth: {
+    getToken: async () => myAuthStore.getAccessToken(),
+    refreshToken: async () => myAuthStore.refreshAccessToken(),
+    isLoggedIn: () => myAuthStore.isAuthenticated,
+    logout: async () => { await myAuthStore.signOut(); },
+  },
+};
+```
+
+> For detailed guidance on each auth mode, see [Authentication & Authorization](/docs/en/integration/auth/).
 
 ```mermaid
 flowchart TD
@@ -96,9 +272,82 @@ agent.addEventListener('rtc-agent-ready', () => {
 
 ## Events
 
-| Event | Trigger | Purpose |
-|:----:|:--------:|:----:|
-| 🟢 `rtc-agent-ready` | Component initialization complete | Safe to access the component instance and set attributes at this point |
+All events support two listening patterns: DOM events (with the `rtc-agent-` prefix) and config callbacks (via the `on` field in `RtcAgentConfig`, using the unprefixed name).
+
+### Lifecycle Events
+
+| DOM Event | Config Callback | Trigger | Purpose |
+|:---------:|:---------------:|:-------:|:-------:|
+| 🟢 `rtc-agent-ready` | `on.ready` | Component initialization complete | Safe to access the component instance and set attributes |
+| 🟡 `rtc-agent-beforeDestroy` | `on.beforeDestroy` | `disconnectedCallback` runs, before cleanup | Last chance to read state or cancel teardown |
+| 🎨 `rtc-agent-themeChange` | `on.themeChange` | Theme changes (attribute, JS property, or system preference) | Sync external UI with the component's theme. `event.detail` is `{ theme: 'light' \| 'dark' \| 'system' }` |
+
+### Message Interception Events
+
+| DOM Event | Config Callback | Trigger | Purpose |
+|:---------:|:---------------:|:-------:|:-------:|
+| 📨 `rtc-agent-beforeMessageSend` | `on.beforeMessageSend` | User submits a message, before it is sent | Inspect or modify the message. Return `false` to cancel the send |
+
+The `beforeMessageSend` callback receives `{ message: { content: string, metadata?: Record<string, unknown> } }` and must return `boolean | Promise<boolean>`. Return `false` to cancel the send. You can also mutate `message.content` in place to rewrite the message before it goes out.
+
+### Tool Call Events
+
+These events are bridged from the internal EventBus, giving host applications visibility into tool call progress.
+
+| DOM Event | Config Callback | Trigger | `event.detail` |
+|:---------:|:---------------:|:-------:|:--------------:|
+| ⚡ `rtc-agent-toolCallStart` | `on.toolCallStart` | Tool call begins | `{ path, params }` |
+| ✅ `rtc-agent-toolCallSuccess` | `on.toolCallSuccess` | Tool call completes successfully | `{ path, result }` |
+| ❌ `rtc-agent-toolCallError` | `on.toolCallError` | Tool call fails | `{ path, error }` |
+| 📊 `rtc-agent-toolCallProgress` | `on.toolCallProgress` | Tool call reports intermediate progress | `{ path, progress }` |
+
+### Event Examples
+
+```ts
+const agent = createRtcAgent({
+  // ...other config
+  on: {
+    // Lifecycle
+    ready: () => {
+      console.log('RTC Agent is ready');
+    },
+    beforeDestroy: () => {
+      console.log('Component is about to be destroyed');
+    },
+    themeChange: (detail) => {
+      console.log('Theme changed to:', detail.theme);
+      document.body.dataset.theme = detail.theme;
+    },
+
+    // Message interception — validate before send
+    beforeMessageSend: async ({ message }) => {
+      // Block empty messages
+      if (!message.content.trim()) {
+        return false;
+      }
+      // Append a signature
+      message.content += '\n\n— Sent from My App';
+      return true;
+    },
+
+    // Tool call tracking
+    toolCallStart: ({ path, params }) => {
+      console.log(`Tool call started: ${path}`, params);
+    },
+    toolCallSuccess: ({ path, result }) => {
+      console.log(`Tool call succeeded: ${path}`, result);
+    },
+    toolCallError: ({ path, error }) => {
+      console.error(`Tool call failed: ${path}`, error);
+    },
+    toolCallProgress: ({ path, progress }) => {
+      updateProgressBar(path, progress);
+    },
+  },
+});
+```
+
+The same events can also be listened to via DOM `addEventListener` (useful when you cannot set config callbacks):
 
 ```ts
 const agent = document.querySelector('rtc-agent');
@@ -108,6 +357,21 @@ agent.addEventListener('rtc-agent-ready', () => {
   agent.theme = 'dark';
   agent.lang = 'en-US';
   agent.appLabel = 'Custom Title';
+});
+
+agent.addEventListener('rtc-agent-themeChange', (e) => {
+  console.log('Theme is now:', e.detail.theme);
+});
+
+agent.addEventListener('rtc-agent-beforeMessageSend', (e) => {
+  const { message } = e.detail;
+  if (containsSensitiveWords(message.content)) {
+    e.returnValue = false;  // cancel send
+  }
+});
+
+agent.addEventListener('rtc-agent-toolCallStart', (e) => {
+  console.log('Tool call:', e.detail.path, e.detail.params);
 });
 ```
 

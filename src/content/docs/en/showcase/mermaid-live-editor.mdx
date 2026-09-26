@@ -56,52 +56,68 @@ Design principles behind this API:
 
 ### Step 2: Declare Agent Identity & Tools
 
-Load rtc-agent in your layout and configure `agentConfig`:
+Load rtc-agent in your layout and configure using the factory function:
 
 ```svelte
 <!-- src/routes/+layout.svelte -->
-<script type="module" src="/rtc-agent/index.js"></script>
-
-<rtc-agent app-label="Mermaid AI" scenarios-url="/rtc-agent/scenarios/"></rtc-agent>
-
 <script>
-  onMount(() => {
-    const agent = document.querySelector('rtc-agent');
+  import { z, withMeta, createRtcAgent } from '@rtc-agent/component';
+  import { onMount, onDestroy } from 'svelte';
+  import { base } from '$app/paths';
 
-    agent.addEventListener('rtc-agent-ready', () => {
-      agent.agentConfig = {
-        name: 'MermaidEditor',
-        persona: `You are a helpful Mermaid diagram assistant. Help users create and edit
+  let rtcAgent = null;
+
+  onMount(() => {
+    rtcAgent = createRtcAgent({
+      appLabel: 'Mermaid AI',
+      scenariosUrl: `${base}/rtc-agent/scenarios/`,
+      workerUrl: `${base}/rtc-agent/shared-worker.js`,
+      server: {
+        url: 'https://rtc-agent.cherish.chat',
+        redirectUri: `${base}/auth/callback.html`,
+      },
+      agentName: 'MermaidEditor',
+      persona: `You are a helpful Mermaid diagram assistant. Help users create and edit
 diagrams through natural language. Always call validate after writing code,
 and proactively fix any syntax errors you find.`,
-        groups: [{
-          name: 'editor',
-          functions: [
-            {
-              name: 'getCode',
-              description: 'Get the current Mermaid code from the editor',
-              handler: () => window.editorAPI.getCode(),
-            },
-            {
-              name: 'setCode',
-              description: 'Replace the editor content with new Mermaid code',
-              handler: (p) => { window.editorAPI.setCode(p.code); return { success: true }; },
-              parameters: [{ name: 'code', required: true, schema: { type: 'string' } }],
-            },
-            {
-              name: 'validate',
-              description: 'Validate the current code and return any syntax errors',
-              handler: () => window.editorAPI.validate(),
-            },
-            {
-              name: 'getDiagramType',
-              description: 'Get the current diagram type',
-              handler: () => window.editorAPI.getDiagramType() ?? 'unknown',
-            },
-          ],
-        }],
-      };
-    }, { once: true });
+      groups: [{
+        name: 'editor',
+        functions: [
+          {
+            name: 'getCode',
+            description: 'Get the current Mermaid code from the editor',
+            handler: () => window.editorAPI.getCode(),
+          },
+          {
+            name: 'setCode',
+            description: 'Replace the editor content with new Mermaid code',
+            handler: (p) => { window.editorAPI.setCode(p.code); return { success: true }; },
+            zodSchema: z.object({
+              code: withMeta(z.string(), { example: 'graph TD\n    A-->B' }).describe('The Mermaid code to write to the editor')
+            }),
+          },
+          {
+            name: 'validate',
+            description: 'Validate the current code and return any syntax errors',
+            handler: () => window.editorAPI.validate(),
+          },
+          {
+            name: 'getDiagramType',
+            description: 'Get the current diagram type',
+            handler: () => window.editorAPI.getDiagramType() ?? 'unknown',
+          },
+        ],
+      }],
+    });
+
+    document.body.appendChild(rtcAgent);
+  });
+
+  onDestroy(() => {
+    if (rtcAgent) {
+      rtcAgent.destroy();
+      rtcAgent = null;
+    }
   });
 </script>
 ```

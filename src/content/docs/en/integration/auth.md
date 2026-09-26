@@ -241,9 +241,185 @@ flowchart TD
 
 ## Next Steps
 
+- [Client Authentication Modes](#-client-authentication-modes) — Integrate RTC Agent with your own auth system using StaticTokenAuth, DynamicTokenAuth, or AuthProvider
 - [Web Component API](/docs/en/integration/component-api/) — Learn how to integrate RTC Agent via the `<rtc-agent>` component
 - [Function Registration Guide](/docs/en/integration/function-registration/) — Register custom functions to extend AI capabilities
 - [Core Protocol RTC](/docs/en/concepts/rtc/) — Learn about the full lifecycle of Remote Tool Calling
+
+---
+
+## 🧩 Client Authentication Modes
+
+The built-in OAuth2 flow is great for standalone apps, but many developers integrate RTC Agent into existing products that already have their own auth systems. Starting from **web-components v0.2.5**, the `<rtc-agent>` component supports three client-side authentication modes — configured via the `auth` field in `RtcAgentConfig` when calling `createRtcAgent()`. These modes let you bring your own tokens, your own refresh logic, or even your own full auth provider, without relying on the server-side OAuth2 flow.
+
+```mermaid
+flowchart TD
+    subgraph MODES["🔐 Three Client Auth Modes"]
+        direction TB
+        M1["🏷️ StaticTokenAuth<br/>Fixed tokens<br/>Dev / CI / Testing"]
+        M2["🔄 DynamicTokenAuth<br/>Callback-based refresh<br/>⭐ Production Recommended"]
+        M3["🧩 AuthProvider<br/>Full delegation<br/>Multi-tenant / Custom"]
+    end
+
+    CONFIG["⚙️ RtcAgentConfig<br/>auth: { ... }"] -->|"Field detection"| MODES
+
+    style M1 fill:#fff9c4,stroke:#f9a825,stroke-width:2px
+    style M2 fill:#a5d6a7,stroke:#2e7d32,stroke-width:2px
+    style M3 fill:#e3f2fd,stroke:#1565c0,stroke-width:2px
+    style CONFIG fill:#f3e5f5,stroke:#7b1fa2,stroke-width:2px
+```
+
+| Mode | Detection | Best For | Complexity |
+|:----:|:---------:|:--------:|:----------:|
+| 🏷️ StaticTokenAuth | `'accessToken' in auth` | Dev, CI, testing | ⭐ |
+| 🔄 DynamicTokenAuth | `'getToken' in auth && !('isLoggedIn' in auth)` | Production apps | ⭐⭐ |
+| 🧩 AuthProvider | `'isLoggedIn' in auth` | Multi-tenant, custom flows | ⭐⭐⭐ |
+
+> 💡 **How modes are detected**: The component inspects which fields are present in the `auth` object — no explicit `type` field needed. The detection order is: `accessToken` first, then `isLoggedIn`, and the remaining case falls to DynamicTokenAuth.
+
+### Mode 1: StaticTokenAuth — Fixed Tokens
+
+The simplest integration — provide a fixed Access Token (and optionally a Refresh Token). The component uses these tokens as-is with no refresh logic. Ideal for **local development, CI pipelines, and automated testing**.
+
+```typescript
+import { createRtcAgent } from '@anthropic/rtc-agent';
+
+const agent = createRtcAgent({
+  serverUrl: 'https://your-server.com',
+  auth: {
+    accessToken: 'your-jwt-token',
+    refreshToken: 'optional-refresh-token',
+    userId: 'user-123',
+    expiresIn: 3600, // optional, seconds
+  },
+});
+```
+
+| Field | Required | Description |
+|:-----:|:--------:|-------------|
+| `accessToken` | ✅ | A valid JWT token string |
+| `refreshToken` | Optional | Refresh token for extending session |
+| `userId` | ✅ | Unique user identifier |
+| `expiresIn` | Optional | Token lifetime in seconds (default: server-decided) |
+
+> ⚠️ **Not for production**: Static tokens expire and cannot be refreshed automatically. When the token expires, the user will be disconnected. Use Mode 2 for production deployments.
+
+### Mode 2: DynamicTokenAuth — Callback-Based Refresh (Recommended)
+
+The **recommended mode for production**. You provide `getToken()` and `refreshToken()` callbacks — the component calls them whenever it needs a token or when the current one expires. Your backend handles all token logic; the component just consumes the result.
+
+```typescript
+import { createRtcAgent } from '@anthropic/rtc-agent';
+
+const agent = createRtcAgent({
+  serverUrl: 'https://your-server.com',
+  auth: {
+    userId: 'user-123',
+    getToken: async () => {
+      // Fetch a fresh token from your backend
+      const res = await fetch('/api/auth/token');
+      return res.json();
+    },
+    refreshToken: async () => {
+      // Called when the current token has expired
+      const res = await fetch('/api/auth/refresh', { method: 'POST' });
+      return res.json();
+    },
+  },
+});
+```
+
+```mermaid
+sequenceDiagram
+    participant Comp as 🖥️ RTC Agent Component
+    participant CB as 📞 Your Callbacks
+    participant BE as ⚙️ Your Backend
+
+    Comp->>CB: getToken()
+    CB->>BE: GET /api/auth/token
+    BE-->>CB: { accessToken, expiresIn }
+    CB-->>Comp: Token data
+
+    Note over Comp: ⏱️ ... time passes, token expires ...
+
+    Comp->>CB: refreshToken()
+    CB->>BE: POST /api/auth/refresh
+    BE-->>CB: { accessToken, expiresIn }
+    CB-->>Comp: New token data
+```
+
+| Callback | Called When | Expected Return |
+|:--------:|:-----------:|:---------------:|
+| `getToken()` | Component needs a token (initial connection, reconnection) | `{ accessToken: string, expiresIn?: number }` |
+| `refreshToken()` | Current token has expired or is about to expire | `{ accessToken: string, expiresIn?: number }` |
+
+> 💡 **Why this mode is recommended**: Your backend retains full control over token issuance and revocation. The component never stores long-lived credentials — it fetches fresh tokens on demand. This follows the same security model as server-side OAuth2, but without requiring an OAuth2 provider.
+
+### Mode 3: AuthProvider — Full Delegation (Advanced)
+
+The most flexible mode — delegate **all** authentication concerns to your own provider. In addition to token management, you control login state checks (`isLoggedIn`) and logout behavior. Ideal for **multi-tenant platforms, SSO integrations, or apps with complex auth requirements**.
+
+```typescript
+import { createRtcAgent } from '@anthropic/rtc-agent';
+
+const agent = createRtcAgent({
+  serverUrl: 'https://your-server.com',
+  auth: {
+    getToken: async () => {
+      // Your custom token retrieval logic
+      return myAuthStore.getToken();
+    },
+    refreshToken: async () => {
+      // Your custom refresh logic
+      return myAuthStore.refresh();
+    },
+    isLoggedIn: () => {
+      // Synchronous check — is the user currently authenticated?
+      return myAuthStore.isAuthenticated();
+    },
+    logout: async () => {
+      // Optional: clean up session, redirect to login page, etc.
+      await myAuthStore.clearSession();
+      window.location.href = '/login';
+    },
+  },
+});
+```
+
+| Method | Required | Description |
+|:------:|:--------:|-------------|
+| `getToken()` | ✅ | Async — returns the current auth token |
+| `refreshToken()` | ✅ | Async — refreshes the token when expired |
+| `isLoggedIn()` | ✅ | **Synchronous** — returns `boolean` indicating whether the user is authenticated |
+| `logout()` | Optional | Async — called when the component needs to terminate the session |
+
+> 📌 **Key difference from Mode 2**: The `isLoggedIn` field is the telltale sign of Mode 3. It enables the component to proactively check auth state (e.g., before attempting a connection) rather than discovering it has expired mid-request.
+
+### Choosing the Right Mode
+
+```mermaid
+flowchart TD
+    Q1{"Integrating into an existing<br/>app with its own auth?"}
+    Q1 -->|"No"| Q2{"Need automatic<br/>token refresh?"}
+    Q1 -->|"Yes"| Q3{"Need to control<br/>login state & logout?"}
+    Q2 -->|"No"| M1["🏷️ Mode 1: StaticTokenAuth"]
+    Q2 -->|"Yes"| M2["🔄 Mode 2: DynamicTokenAuth"]
+    Q3 -->|"No"| M2
+    Q3 -->|"Yes"| M3["🧩 Mode 3: AuthProvider"]
+
+    style M1 fill:#fff9c4,stroke:#f9a825,stroke-width:2px
+    style M2 fill:#a5d6a7,stroke:#2e7d32,stroke-width:2px
+    style M3 fill:#e3f2fd,stroke:#1565c0,stroke-width:2px
+```
+
+| Scenario | Recommended Mode |
+|:---------|:----------------:|
+| Local development or CI/CD testing | 🏷️ Mode 1 |
+| Production app with a token-issuing backend | 🔄 Mode 2 |
+| Multi-tenant SaaS with SSO / custom session management | 🧩 Mode 3 |
+| Quick prototype or demo | 🏷️ Mode 1 |
+
+> 💡 You can always start with Mode 1 for prototyping and migrate to Mode 2 or 3 later — the `auth` field is the only thing that changes.
 
 ---
 

@@ -26,8 +26,10 @@ export default defineConfig({
 				},
 			},
 			head: [
-				{ tag: 'script', attrs: { type: 'module', src: 'https://cdn.jsdelivr.net/npm/@rtc-agent/component@0.2.5/dist/index.js' } },
+				{ tag: 'script', attrs: { type: 'module', src: 'https://cdn.jsdelivr.net/npm/@rtc-agent/component@0.2.6/dist/index.js' } },
 				{ tag: 'script', attrs: { type: 'module' }, content: `
+					import { z, withMeta, createRtcAgent } from 'https://cdn.jsdelivr.net/npm/@rtc-agent/component@0.2.6/dist/index.js';
+
 					let DOCS_INDEX = null;
 					const loadIndex = () => DOCS_INDEX || fetch('/docs/docs-index.json').then(r => r.json()).then(d => DOCS_INDEX = d);
 
@@ -77,39 +79,59 @@ export default defineConfig({
 					const syncTheme = () => { const a = document.querySelector('rtc-agent'); if (a) a.theme = document.documentElement.getAttribute('data-theme') || 'system'; };
 					new MutationObserver(syncTheme).observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] });
 
-					const initRtcAgent = () => {
+					const initRtcAgent = async () => {
 						// 如果已经初始化过，直接返回
 						if (document.querySelector('#rtc-agent-global')) return;
 
-						const agent = document.createElement('rtc-agent');
 						const loc = locale();
 						const rtcLang = loc === 'en' ? 'en-US' : 'zh-CN';
-						Object.entries({ 'server-url': 'https://rtc-agent.cherish.chat', 'app-label': loc === 'en' ? 'RTC Agent Assistant' : 'RTC Agent 助手', theme: 'system', lang: rtcLang, 'redirect-uri': '/docs/auth/callback.html', 'database-name': 'docs-rtc-agent' }).forEach(([k, v]) => agent.setAttribute(k, v));
+
+						// 加载文档索引，注入到 persona
+						const idx = await loadIndex();
+						const docList = Object.entries(idx).map(([path, p]) => "- '" + path + "': " + p.title).join('\\n');
+
+						const agent = createRtcAgent({
+							appLabel: loc === 'en' ? 'RTC Agent Assistant' : 'RTC Agent 助手',
+							theme: 'system',
+							lang: rtcLang,
+							server: {
+								url: 'https://rtc-agent.cherish.chat',
+								redirectUri: '/docs/auth/callback.html',
+							},
+							databaseName: 'docs-rtc-agent',
+							window: {
+								defaultMode: 'minimized',
+								draggable: true,
+								resizable: true,
+								bubblePosition: {
+									corner: 'bottom-right',
+									offset: { x: -24, y: 24 },
+								},
+							},
+							agentName: 'DocsAssistant',
+							agentDescription: 'RTC Agent Documentation Assistant',
+							persona: 'You are a patient and proactive RTC Agent documentation teacher. Your goal is to guide users through learning RTC Agent, not just answer questions.\\n\\nTeaching approach:\\n- Guide users through learning paths, suggest related topics after answering\\n- When explaining a concept, use getPageMarkdown({ path }) to navigate to relevant docs so users can see full context\\n- Use getCurrentPageInfo to understand what the user is currently viewing and provide contextual guidance\\n- Break complex topics into digestible steps with examples\\n- Ask clarifying questions to understand the user\\'s goal before diving deep\\n- Start with \"why\" before \"how\" - explain purpose before implementation\\n\\nAvailable documentation pages:\\n' + docList,
+							groups: [{
+								name: 'docs',
+								description: 'Documentation functions',
+								functions: [
+									{ name: 'searchDocs', description: 'Search documentation by keywords. Parameter: query (string) - search keywords, space-separated for multiple terms', zodSchema: z.object({ query: withMeta(z.string(), { example: 'RTC Agent setup' }).describe('Search keywords, space-separated for multiple terms') }), returns: { schema: { type: 'array', items: { type: 'object', properties: { path: { type: 'string' }, title: { type: 'string' }, description: { type: 'string' } } } } }, handler: searchDocs },
+									{ name: 'getPageMarkdown', description: 'Get full Markdown content of a documentation page and optionally navigate to it. Parameters: path (string) - the page path from the documentation index, e.g. /introduction/ or /getting-started/;', zodSchema: z.object({ path: withMeta(z.string(), { example: '/getting-started/' }).describe('The page path from the documentation index') }), returns: { schema: { type: 'object' } }, handler: getPageMarkdown },
+									{ name: 'listPages', description: 'List pages in a documentation section. Parameter: section (string) - the section name from the path, e.g. "getting-started" for /getting-started/ pages, or empty to list all', zodSchema: z.object({ section: withMeta(z.string(), { example: 'getting-started' }).describe('The section name from the path, or empty to list all') }), returns: { schema: { type: 'array', items: { type: 'object', properties: { path: { type: 'string' }, title: { type: 'string' } } } } }, handler: listPages },
+									{ name: 'navigateTo', description: 'Navigate the browser to a documentation page. Parameter: path (string) - the page path, e.g. /introduction/', zodSchema: z.object({ path: withMeta(z.string(), { example: '/introduction/' }).describe('The page path to navigate to') }), returns: { schema: { type: 'object' } }, handler: navigateTo },
+									{ name: 'getCurrentPageInfo', description: 'Get information about the current documentation page being viewed. No parameters required.', zodSchema: z.object({}), returns: { schema: { type: 'object' } }, handler: getCurrentPageInfo },
+									{ name: 'getCodeExamples', description: 'Extract all code examples from the current page. No parameters required. Returns array of code blocks with index, language, and code content.', zodSchema: z.object({}), returns: { schema: { type: 'array', items: { type: 'object', properties: { index: { type: 'number' }, language: { type: 'string' }, code: { type: 'string' } } } } }, handler: getCodeExamples },
+								],
+							}],
+							on: {
+								ready: () => syncTheme(),
+							},
+						});
 
 						const container = document.createElement('div');
 						container.id = 'rtc-agent-global';
 						container.appendChild(agent);
 						document.body.appendChild(container);
-
-						agent.addEventListener('rtc-agent-ready', async () => {
-							agent.windowConfig = { defaultMode: 'minimized', draggable: true, resizable: true, bubblePosition: { corner: 'bottom-right', offset: { x: -24, y: 24 } } };
-							// 加载文档索引，注入到 persona
-							const idx = await loadIndex();
-							const docList = Object.entries(idx).map(([path, p]) => "- '" + path + "': " + p.title).join('\\n');
-							agent.agentConfig = {
-								name: 'DocsAssistant', description: 'RTC Agent Documentation Assistant',
-								persona: 'You are a patient and proactive RTC Agent documentation teacher. Your goal is to guide users through learning RTC Agent, not just answer questions.\\n\\nTeaching approach:\\n- Guide users through learning paths, suggest related topics after answering\\n- When explaining a concept, use getPageMarkdown({ path }) to navigate to relevant docs so users can see full context\\n- Use getCurrentPageInfo to understand what the user is currently viewing and provide contextual guidance\\n- Break complex topics into digestible steps with examples\\n- Ask clarifying questions to understand the user\\'s goal before diving deep\\n- Start with \"why\" before \"how\" - explain purpose before implementation\\n\\nAvailable documentation pages:\\n' + docList,
-								groups: [{ name: 'docs', description: 'Documentation functions', functions: [
-									{ name: 'searchDocs', description: 'Search documentation by keywords. Parameter: query (string) - search keywords, space-separated for multiple terms', parameters: [{ name: 'query', schema: { type: 'string' } }], returns: { schema: { type: 'array', items: { type: 'object', properties: { path: { type: 'string' }, title: { type: 'string' }, description: { type: 'string' } } } } }, handler: searchDocs },
-									{ name: 'getPageMarkdown', description: 'Get full Markdown content of a documentation page and optionally navigate to it. Parameters: path (string) - the page path from the documentation index, e.g. /introduction/ or /getting-started/;', parameters: [{ name: 'path', schema: { type: 'string' } }], returns: { schema: { type: 'object' } }, handler: getPageMarkdown },
-									{ name: 'listPages', description: 'List pages in a documentation section. Parameter: section (string) - the section name from the path, e.g. "getting-started" for /getting-started/ pages, or empty to list all', parameters: [{ name: 'section', schema: { type: 'string' } }], returns: { schema: { type: 'array', items: { type: 'object', properties: { path: { type: 'string' }, title: { type: 'string' } } } } }, handler: listPages },
-									{ name: 'navigateTo', description: 'Navigate the browser to a documentation page. Parameter: path (string) - the page path, e.g. /introduction/', parameters: [{ name: 'path', schema: { type: 'string' } }], returns: { schema: { type: 'object' } }, handler: navigateTo },
-									{ name: 'getCurrentPageInfo', description: 'Get information about the current documentation page being viewed. No parameters required.', parameters: [], returns: { schema: { type: 'object' } }, handler: getCurrentPageInfo },
-									{ name: 'getCodeExamples', description: 'Extract all code examples from the current page. No parameters required. Returns array of code blocks with index, language, and code content.', parameters: [], returns: { schema: { type: 'array', items: { type: 'object', properties: { index: { type: 'number' }, language: { type: 'string' }, code: { type: 'string' } } } } }, handler: getCodeExamples },
-								] }]
-							};
-							syncTheme();
-						}, { once: true });
 
 						const style = document.createElement('style');
 						style.textContent = '#rtc-agent-global{position:fixed;bottom:0;right:0;z-index:9999;pointer-events:none}#rtc-agent-global rtc-agent{pointer-events:auto}';
@@ -117,7 +139,7 @@ export default defineConfig({
 					};
 
 					// 初始页面加载
-					document.addEventListener('DOMContentLoaded', initRtcAgent);
+					document.addEventListener('DOMContentLoaded', () => initRtcAgent());
 				` },
 			],
 			logo: {
@@ -143,7 +165,7 @@ export default defineConfig({
 						{ label: 'What is RTC Agent', link: '/introduction/', translations: { 'zh-CN': '什么是 RTC Agent' } },
 						{ label: 'Quick Start', link: '/getting-started/', translations: { 'zh-CN': '快速开始' } },
 						{ label: 'Build from Source', link: '/deployment/source-build/', translations: { 'zh-CN': '源码构建' } },
-						{ label: 'CDN Deployment', link: '/deployment/cdn/', translations: { 'zh-CN': 'CDN 部署' } },
+						{ label: 'CDN Integration', link: '/deployment/cdn/', translations: { 'zh-CN': 'CDN 接入' } },
 						{ label: 'Distributed Cluster', link: '/deployment/distributed-deploy/', translations: { 'zh-CN': '分布式集群' } },
 					],
 				},

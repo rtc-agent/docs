@@ -83,11 +83,15 @@ curl http://localhost:28080/healthz
 
 ## Step 2: Embed the Frontend Component
 
-With the Server running, add the `<rtc-agent>` component to your web page to get an AI assistant:
+With the Server running, add the `<rtc-agent>` component to your web page to get an AI assistant.
+
+### Quick Start (CDN)
+
+For documentation sites or quick demos:
 
 ```html
 <!-- Import the component -->
-<script type="module" src="https://cdn.jsdelivr.net/npm/@rtc-agent/component@0.2.3/dist/index.js"></script>
+<script type="module" src="https://cdn.jsdelivr.net/npm/@rtc-agent/component@0.2.6-rc.1/dist/index.js"></script>
 
 <!-- Minimal setup -->
 <rtc-agent></rtc-agent>
@@ -101,6 +105,46 @@ Customize theme and title:
 
 The component automatically connects to the Server on the current page's domain (defaults to `localhost:28080`).
 
+### Production Integration (NPM)
+
+For production applications with full control and multi-tab support:
+
+```bash
+pnpm add @rtc-agent/component
+```
+
+Setup SharedWorker (required for multi-tab synchronization):
+
+```bash
+npx rtc-agent-setup
+```
+
+Use the `createRtcAgent()` factory function:
+
+```typescript
+import { createRtcAgent } from '@rtc-agent/component';
+
+const agent = createRtcAgent({
+  appLabel: 'My AI Assistant',
+  theme: 'system',
+  server: {
+    url: 'https://rtc-agent.cherish.chat',
+    redirectUri: '/auth/callback.html',
+  },
+  workerUrl: '/rtc-agent/shared-worker.js',
+  // ... other configuration
+});
+
+document.body.appendChild(agent);
+
+// When your app unmounts the agent:
+agent.destroy();
+```
+
+`destroy()` cleans up all event listeners and subscriptions, ensuring no resource leaks when the agent is no longer needed.
+
+> Full integration guide: [Integration Tutorial](/docs/en/integration/integration-tutorial/)
+>
 > Full attribute, event, and CSS variable reference: [Web Component API](/docs/en/integration/component-api/).
 
 ## Other Deployment Options

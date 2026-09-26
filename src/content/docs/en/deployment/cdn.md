@@ -1,11 +1,11 @@
 ---
-title: CDN Deployment
-description: Distribute RTC Agent Web Component via CDN — cross-origin configuration, SharedWorker handling, and troubleshooting.
+title: CDN Integration
+description: Embed RTC Agent Web Component via CDN — cross-origin configuration, SharedWorker handling, and troubleshooting.
 ---
 
 RTC Agent's Web Component can be distributed via CDN and embedded in any web page. Since the component runs inside the host page, cross-origin deployment requires attention to **SharedWorker same-origin policy** and **CORS configuration**.
 
-## Deployment Architecture
+## Integration Architecture
 
 ```mermaid
 flowchart LR
@@ -42,11 +42,34 @@ flowchart LR
 Add the following code to your web page:
 
 ```html
-<script type="module" src="https://cdn.jsdelivr.net/npm/@rtc-agent/component@0.2.3/dist/index.js"></script>
+<script type="module" src="https://cdn.jsdelivr.net/npm/@rtc-agent/component@0.2.6-rc.1/dist/index.js"></script>
 <rtc-agent server-url="https://your-rtc-server.com"></rtc-agent>
 ```
 
-> 💡 Replace `your-rtc-server.com` with your actual RTC Agent Server address. To use the latest version, replace `@0.2.3` with the latest version number or remove the version to use the latest.
+> 💡 Replace `your-rtc-server.com` with your actual RTC Agent Server address. To use the latest version, replace `@0.2.6-rc.1` with the latest version number or remove the version to use the latest.
+
+## Using `createRtcAgent()` with CDN
+
+If you need programmatic control (instead of HTML attributes), you can use the `createRtcAgent()` factory function directly from the CDN package:
+
+```html
+<script type="module">
+  import { createRtcAgent } from 'https://cdn.jsdelivr.net/npm/@rtc-agent/component@latest/dist/index.js';
+
+  const agent = createRtcAgent({
+    server: { url: 'https://rtc-agent.example.com' },
+    workerUrl: '/rtc-agent/shared-worker.js',
+    theme: 'system',
+    appLabel: 'My App',
+  });
+
+  document.body.appendChild(agent);
+</script>
+```
+
+> 💡 For CDN usage, the SharedWorker file is already bundled in the package. Copy `shared-worker.js` (or the versioned `shared-worker-xxx.js`) from the CDN package to your public directory (e.g., `/rtc-agent/`), and set `workerUrl` to that path so the worker is same-origin with your page.
+
+All TypeScript types are available via the module export — you can import them alongside `createRtcAgent` for type-safe configuration.
 
 ## Cross-Origin SharedWorker Handling
 
@@ -102,7 +125,7 @@ Access-Control-Allow-Origin: *
 Use `curl` to check if the CDN correctly returns CORS headers:
 
 ```bash
-curl -I https://cdn.jsdelivr.net/npm/@rtc-agent/component@0.2.3/dist/assets/shared-worker-xxx.js
+curl -I https://cdn.jsdelivr.net/npm/@rtc-agent/component@0.2.6-rc.1/dist/assets/shared-worker-xxx.js
 # Should include: Access-Control-Allow-Origin: *
 ```
 

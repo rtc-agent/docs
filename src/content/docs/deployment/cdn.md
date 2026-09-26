@@ -1,11 +1,11 @@
 ---
-title: CDN 部署
-description: 通过 CDN 分发 RTC Agent Web Component——跨域配置、SharedWorker 处理与常见问题排查。
+title: CDN 接入
+description: 通过 CDN 接入 RTC Agent Web Component——跨域配置、SharedWorker 处理与常见问题排查。
 ---
 
 RTC Agent 的 Web Component 可以通过 CDN 分发，嵌入到任意网页中。由于组件运行在宿主页面内，跨域部署需要注意 **SharedWorker 同源策略**和 **CORS 配置**。
 
-## 部署架构
+## 接入架构
 
 ```mermaid
 flowchart LR
@@ -47,6 +47,29 @@ flowchart LR
 ```
 
 > 💡 将 `your-rtc-server.com` 替换为实际的 RTC Agent Server 地址。如需使用最新版本，可将 `@0.2.3` 替换为最新版本号或移除版本号以使用最新版。
+
+## 使用 `createRtcAgent()` 工厂函数
+
+如果需要编程式控制（而非 HTML 属性），可以直接从 CDN 包中使用 `createRtcAgent()` 工厂函数：
+
+```html
+<script type="module">
+  import { createRtcAgent } from 'https://cdn.jsdelivr.net/npm/@rtc-agent/component@latest/dist/index.js';
+
+  const agent = createRtcAgent({
+    server: { url: 'https://rtc-agent.example.com' },
+    workerUrl: '/rtc-agent/shared-worker.js',
+    theme: 'system',
+    appLabel: 'My App',
+  });
+
+  document.body.appendChild(agent);
+</script>
+```
+
+> 💡 CDN 使用时，SharedWorker 文件已包含在包中。将 `shared-worker.js`（或带版本号的 `shared-worker-xxx.js`）从 CDN 包复制到你的公共目录（如 `/rtc-agent/`），并将 `workerUrl` 设置为该路径，使 Worker 与页面同源。
+
+所有 TypeScript 类型均可通过模块导出使用——可以与 `createRtcAgent` 一起导入以实现类型安全的配置。
 
 ## 跨域 SharedWorker 处理
 

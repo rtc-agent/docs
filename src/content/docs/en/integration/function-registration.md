@@ -33,6 +33,8 @@ flowchart TD
 The simplest approach — just set the `agentConfig` attribute:
 
 ```ts
+import { z, withMeta } from '@rtc-agent/component';
+
 const agent = document.querySelector('rtc-agent');
 
 agent.agentConfig = {
@@ -46,10 +48,10 @@ agent.agentConfig = {
         {
           name: 'create',
           description: 'Create a new order',
-          parameters: [
-            { name: 'productId', schema: { type: 'string' }, required: true, description: 'Product ID' },
-            { name: 'quantity', schema: { type: 'number' }, description: 'Purchase quantity' }
-          ],
+          zodSchema: z.object({
+            productId: withMeta(z.string(), { example: 'PROD-001' }).describe('Product ID'),
+            quantity: withMeta(z.number().int().positive(), { example: 2 }).optional().describe('Purchase quantity')
+          }),
           returns: { schema: { type: 'object' }, description: 'Order info, including orderId' },
           handler: async (params) => {
             const res = await api.createOrder(params.productId, params.quantity);
@@ -99,22 +101,54 @@ Each function consists of the following fields:
 |:----:|:----:|:----:|:----:|
 | 📛 `name` | `string` | ✅ | Function name; combined with group name to form the full path (e.g., `order.create`) |
 | 📝 `description` | `string` | ✅ | Function description, **written into auto-generated documentation**; AI uses this to decide when to call |
-| 📐 `parameters` | `ParameterDef[]` | — | Array of parameter definitions, each with `{name, schema, required?, description?}`; `schema` is OpenAPI Schema |
+| 🎯 `zodSchema` | `ZodType` | — | **Recommended** Zod schema for parameter validation and type inference. Provides runtime validation and automatic TypeScript types |
+| 📐 `parameters` | `ParameterDef[]` | — | Legacy OpenAPI-style parameter definitions. Use `zodSchema` instead for new code |
 | 🔙 `returns` | `ReturnDef` | — | Return value definition `{schema, description?}`, helping AI understand the output |
 | ⚡ `handler` | `function` | ✅ | Execution function; supports `async`, receives `params` argument |
 | 🪝 `hooks` | `object` | — | UI hooks (`onStart` / `onSuccess` / `onError` / `onProgress`) |
 
+### Using Zod Schema (Recommended)
+
+Zod schemas provide runtime validation, type safety, and better developer experience:
+
+```ts
+import { z, withMeta } from '@rtc-agent/component';
+
+{
+  name: 'createOrder',
+  description: 'Create a new order',
+  zodSchema: z.object({
+    productId: withMeta(z.string(), { example: 'PROD-001' }).describe('Product ID'),
+    quantity: withMeta(z.number().int().positive(), { example: 2 }).describe('Purchase quantity'),
+    couponCode: withMeta(z.string(), { example: 'SAVE10' }).optional().describe('Optional coupon code')
+  }),
+  handler: async (params) => {
+    // params is fully typed: { productId: string; quantity: number; couponCode?: string }
+    return await api.createOrder(params.productId, params.quantity, params.couponCode);
+  }
+}
+```
+
+**Benefits of Zod Schema:**
+- ✅ **Runtime validation**: Parameters are automatically validated before handler execution
+- ✅ **Type inference**: TypeScript automatically infers parameter types from the schema
+- ✅ **Composable**: Easy to combine and reuse schemas
+- ✅ **Descriptive**: Use `.describe()` to add parameter descriptions for documentation
+- ✅ **Example values**: Use `withMeta(schema, { example })` to add example values for auto-generated docs
+
 ### Complete Function Example
 
 ```ts
+import { z, withMeta } from '@rtc-agent/component';
+
 {
   name: 'refund',
   description: 'Initiate a refund for a specified order, supporting full and partial refunds',
-  parameters: [
-    { name: 'orderId', schema: { type: 'string' }, required: true, description: 'Order ID' },
-    { name: 'amount', schema: { type: 'number' }, description: 'Refund amount (omit for full refund)' },
-    { name: 'reason', schema: { type: 'string' }, required: true, description: 'Refund reason' }
-  ],
+  zodSchema: z.object({
+    orderId: withMeta(z.string(), { example: 'ORD-20240101-001' }).describe('Order ID'),
+    amount: withMeta(z.number().positive(), { example: 99.99 }).optional().describe('Refund amount (omit for full refund)'),
+    reason: withMeta(z.string(), { example: 'Product defective' }).describe('Refund reason')
+  }),
   returns: { schema: { type: 'object' }, description: 'Refund result, including refundId and status' },
   handler: async (params, onProgress) => {
     onProgress?.(30);
@@ -130,6 +164,24 @@ Each function consists of the following fields:
   }
 }
 ```
+
+### Legacy OpenAPI-Style Parameters (Not Recommended)
+
+For backward compatibility, you can still use OpenAPI-style parameters:
+
+```ts
+{
+  name: 'refund',
+  description: 'Initiate a refund',
+  parameters: [
+    { name: 'orderId', schema: { type: 'string' }, required: true, description: 'Order ID' },
+    { name: 'amount', schema: { type: 'number' }, description: 'Refund amount' }
+  ],
+  handler: async (params) => { /* ... */ }
+}
+```
+
+> ⚠️ **Migration Note**: We recommend migrating to `zodSchema` for new functions. Zod provides better type safety, runtime validation, and a more concise syntax.
 
 ## Group Naming Conventions
 

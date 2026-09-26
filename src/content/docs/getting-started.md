@@ -101,7 +101,47 @@ Server 跑起来后，在你的网页中添加 `<rtc-agent>` 组件即可获得 
 
 组件会自动连接当前页面所在域名的 Server（默认 `localhost:28080`）。
 
-> 📖 完整的属性、事件、CSS 变量说明见 [Web Component API](/docs/integration/component-api/)。
+### 生产接入（NPM）
+
+对于需要完整控制和多 Tab 支持的生产应用：
+
+```bash
+pnpm add @rtc-agent/component
+```
+
+安装 SharedWorker（多 Tab 同步所需）：
+
+```bash
+npx rtc-agent-setup
+```
+
+使用 `createRtcAgent()` 工厂函数：
+
+```typescript
+import { createRtcAgent } from '@rtc-agent/component';
+
+const agent = createRtcAgent({
+  appLabel: '我的 AI 助手',
+  theme: 'system',
+  server: {
+    url: 'https://rtc-agent.cherish.chat',
+    redirectUri: '/auth/callback.html',
+  },
+  workerUrl: '/rtc-agent/shared-worker.js',
+  // ... 其他配置
+});
+
+document.body.appendChild(agent);
+
+// 当应用不再需要 agent 时：
+agent.destroy();
+```
+
+`destroy()` 会清理事件监听器和订阅，确保 agent 不再需要时不会发生资源泄漏。
+
+> 完整接入指南：[接入实战](/docs/integration/integration-tutorial/)
+>
+> 完整的属性、事件、CSS 变量说明见 [Web Component API](/docs/integration/component-api/)。
 
 ## 其他部署方式
 

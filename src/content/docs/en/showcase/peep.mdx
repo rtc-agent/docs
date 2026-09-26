@@ -106,17 +106,17 @@ export async function createRtcAgentConfig(): Promise<RtcAgentConfig> {
 Every function carries **Schema validation + natural-language description + example values**:
 
 ```typescript
-import { z } from 'zod';
+import { z, withMeta } from '@rtc-agent/component';
 
 const personCreateSchema = z.object({
-  name: z.string().min(1).describe('Person name, used for display and search.'),
-  birthDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/)
+  name: withMeta(z.string().min(1), { example: 'Zhang San' }).describe('Person name, used for display and search.'),
+  birthDate: withMeta(z.string().regex(/^\d{4}-\d{2}-\d{2}$/), { example: '1990-01-15' })
     .describe('Birth date in ISO 8601 format (YYYY-MM-DD).'),
-  gender: z.enum(['male', 'female']).describe('Gender, affects Da Yun direction.'),
-  birthHour: z.number().min(0).max(23)
+  gender: withMeta(z.enum(['male', 'female']), { example: 'male' }).describe('Gender, affects Da Yun direction.'),
+  birthHour: withMeta(z.number().min(0).max(23), { example: 14 })
     .optional().describe('Birth hour (0-23), optional.'),
-  birthDateType: z.enum(['solar', 'lunar'])
-    .default('solar').describe('Solar / lunar calendar, auto-converted.'),
+  birthDateType: withMeta(z.enum(['solar', 'lunar']).default('solar'), { example: 'solar' })
+    .describe('Solar / lunar calendar, auto-converted.'),
 });
 ```
 

@@ -1,9 +1,185 @@
 ---
 title: Web Component API
-description: 一个 <rtc-agent> 组件，搞定 AI 对话、工具调用、主题切换——用属性配置，用事件监听，用 CSS 变量定制。
+description: 一个 <rtc-agent> 组件，搞定 AI 对话、工具调用、主题切换——用属性配置，用事件监听，用 CSS 变量定制。使用 createRtcAgent() 工厂函数实现生产级集成。
 ---
 
 **`<rtc-agent>`** 是 RTC Agent 对外暴露的**唯一组件**。它基于 Lit 构建，内部包含 47 个子组件和 19 个 Controller，但对外只呈现一个简洁的 Web Component 接口——属性配置、事件监听、CSS 变量定制。
+
+## 创建组件
+
+### 工厂函数（推荐）
+
+使用 `createRtcAgent()` 工厂函数创建组件实例。**这是推荐的接入方式**，提供完整的类型安全和生命周期管理：
+
+```typescript
+import { createRtcAgent } from '@rtc-agent/component';
+import type { RtcAgentConfig, RtcAgentWithLifecycle } from '@rtc-agent/component';
+
+const config: RtcAgentConfig = {
+  // 基础配置
+  appLabel: '我的 AI 助手',
+  theme: 'system',
+  lang: 'zh-CN',
+  databaseName: 'my-app-rtc',
+  
+  // 服务端配置
+  server: {
+    url: 'https://rtc-agent.cherish.chat',
+    redirectUri: '/auth/callback.html',
+  },
+  
+  // SharedWorker URL（多标签页支持所需）
+  workerUrl: '/rtc-agent/shared-worker.js',
+  
+  // 认证配置（3 种模式，见下方"认证配置"章节）
+  auth: {
+    getToken: async () => localStorage.getItem('token') || '',
+    userId: 'user-123',
+  },
+  
+  // 窗口配置
+  window: {
+    defaultMode: 'normal',
+    draggable: true,
+    resizable: true,
+    bubblePosition: {
+      corner: 'bottom-right',
+      offset: { x: -24, y: 24 },
+    },
+  },
+  
+  // 函数注册
+  agentName: 'MyApp',
+  agentDescription: '我的应用 AI 助手',
+  persona: '你是一个有帮助的助手...',
+  groups: [
+    {
+      name: 'editor',
+      description: '编辑器操作',
+      functions: [
+        {
+          name: 'getCode',
+          description: '获取当前代码',
+          handler: () => window.editorAPI.getCode(),
+          returns: { schema: { type: 'string' } },
+        },
+      ],
+    },
+  ],
+  
+  // 事件处理器
+  on: {
+    ready: () => {
+      console.log('RTC Agent 已就绪');
+    },
+  },
+};
+
+const agent: RtcAgentWithLifecycle = createRtcAgent(config);
+
+// ⚠️ 必须手动添加到 DOM
+document.body.appendChild(agent);
+
+// 不再需要时销毁（清理所有事件监听器和 WebSocket 连接）
+agent.destroy();
+```
+
+> 💡 **重要**：`createRtcAgent()` 返回组件实例，但**不会自动添加到 DOM**。你必须手动调用 `document.body.appendChild(agent)`。
+
+### HTML 属性（简单场景）
+
+对于简单场景或 CDN 快速预览，可以直接使用 HTML 属性：
+
+```html
+<script type="module" src="https://cdn.jsdelivr.net/npm/@rtc-agent/component@0.2.6-rc.1/dist/index.js"></script>
+
+<rtc-agent theme="dark" app-label="我的 AI 助手"></rtc-agent>
+```
+
+> ⚠️ HTML 属性方式无法配置 `auth`、`workerUrl` 等复杂选项。生产环境请使用工厂函数。
+
+### 生命周期与清理
+
+`destroy()` 方法执行完整的、有序的组件拆解：
+
+```ts
+const agent = createRtcAgent(config);
+document.body.appendChild(agent);
+
+// 当组件不再需要时：
+agent.destroy();
+```
+
+`destroy()` 按以下顺序执行：
+
+1. **从 DOM 中移除元素** — 在宿主元素上调用 `this.remove()`
+2. **清除待处理的认证引用** — 取消进行中的令牌请求并丢弃缓存的凭据
+3. **调用所有 DOM 事件取消订阅函数** — 通过配置 `on` 字段或 `rtc-agent-*` DOM 事件注册的每个 `addEventListener` 都会被移除
+4. **调用所有 EventBus 取消订阅函数** — 内部订阅（工具调用事件、会话更新等）被拆除
+5. **置空内部数组** — 事件处理器列表和 Controller 引用被设为 `null`，以便垃圾回收器回收
+
+> 💡 **何时调用**：在从页面移除组件之前，始终调用 `destroy()`（例如 SPA 路由切换、模态框关闭、或框架的 `unmount` 钩子）。跳过此步骤会导致事件监听器和 WebSocket 连接泄漏。
+>
+> 完整集成指南：[集成教程](/docs/integration/integration-tutorial/)
+
+## 认证配置
+
+`RtcAgentConfig` 中的 `auth` 字段控制组件如何获取认证凭据。支持三种模式，从最简单到最灵活：
+
+### StaticTokenAuth
+
+直接提供令牌。适用于演示或令牌长期有效的环境。
+
+```ts
+const config: RtcAgentConfig = {
+  // ...其他配置
+  auth: {
+    accessToken: 'eyJhbGciOi...',
+    refreshToken: 'dGhpcyBpcyBh...',  // 可选
+    userId: 'user-123',
+    expiresIn: 3600,  // 可选，秒数
+  },
+};
+```
+
+### DynamicTokenAuth（推荐）
+
+提供按需返回令牌的回调函数。组件在需要令牌时调用 `getToken()`，在当前令牌过期时调用 `refreshToken()`。
+
+```ts
+const config: RtcAgentConfig = {
+  // ...其他配置
+  auth: {
+    getToken: async () => {
+      const res = await fetch('/api/auth/token');
+      return res.json();  // { accessToken, refreshToken?, expiresIn? }
+    },
+    refreshToken: async () => {
+      const res = await fetch('/api/auth/refresh');
+      return res.json();
+    },
+    userId: 'user-123',
+  },
+};
+```
+
+### AuthProvider（高级）
+
+完全控制认证生命周期。当宿主应用已经管理认证状态，且你希望组件与之集成时使用。
+
+```ts
+const config: RtcAgentConfig = {
+  // ...其他配置
+  auth: {
+    getToken: async () => myAuthStore.getAccessToken(),
+    refreshToken: async () => myAuthStore.refreshAccessToken(),
+    isLoggedIn: () => myAuthStore.isAuthenticated,
+    logout: async () => { await myAuthStore.signOut(); },
+  },
+};
+```
+
+> 各认证模式的详细指南，请参阅[认证与授权](/docs/integration/auth/)。
 
 ```mermaid
 flowchart TD
@@ -96,9 +272,82 @@ agent.addEventListener('rtc-agent-ready', () => {
 
 ## 事件
 
-| 事件 | 触发时机 | 用途 |
-|:----:|:--------:|:----:|
-| 🟢 `rtc-agent-ready` | 组件完成初始化 | 此时可安全访问组件实例、设置属性 |
+所有事件支持两种监听方式：DOM 事件（带 `rtc-agent-` 前缀）和配置回调（通过 `RtcAgentConfig` 的 `on` 字段，使用无前缀的名称）。
+
+### 生命周期事件
+
+| DOM 事件 | 配置回调 | 触发时机 | 用途 |
+|:---------:|:---------------:|:-------:|:----:|
+| 🟢 `rtc-agent-ready` | `on.ready` | 组件完成初始化 | 此时可安全访问组件实例、设置属性 |
+| 🟡 `rtc-agent-beforeDestroy` | `on.beforeDestroy` | `disconnectedCallback` 执行时，清理之前 | 最后读取状态或取消拆解的机会 |
+| 🎨 `rtc-agent-themeChange` | `on.themeChange` | 主题变化（属性、JS 属性或系统偏好） | 将外部 UI 与组件主题同步。`event.detail` 为 `{ theme: 'light' \| 'dark' \| 'system' }` |
+
+### 消息拦截事件
+
+| DOM 事件 | 配置回调 | 触发时机 | 用途 |
+|:---------:|:---------------:|:-------:|:----:|
+| 📨 `rtc-agent-beforeMessageSend` | `on.beforeMessageSend` | 用户提交消息，发送之前 | 检查或修改消息。返回 `false` 取消发送 |
+
+`beforeMessageSend` 回调接收 `{ message: { content: string, metadata?: Record<string, unknown> } }`，必须返回 `boolean | Promise<boolean>`。返回 `false` 取消发送。你也可以就地修改 `message.content` 来在消息发出前重写内容。
+
+### 工具调用事件
+
+这些事件从内部 EventBus 桥接而来，让宿主应用能够感知工具调用的进度。
+
+| DOM 事件 | 配置回调 | 触发时机 | `event.detail` |
+|:---------:|:---------------:|:-------:|:--------------:|
+| ⚡ `rtc-agent-toolCallStart` | `on.toolCallStart` | 工具调用开始 | `{ path, params }` |
+| ✅ `rtc-agent-toolCallSuccess` | `on.toolCallSuccess` | 工具调用成功完成 | `{ path, result }` |
+| ❌ `rtc-agent-toolCallError` | `on.toolCallError` | 工具调用失败 | `{ path, error }` |
+| 📊 `rtc-agent-toolCallProgress` | `on.toolCallProgress` | 工具调用报告中间进度 | `{ path, progress }` |
+
+### 事件示例
+
+```ts
+const agent = createRtcAgent({
+  // ...其他配置
+  on: {
+    // 生命周期
+    ready: () => {
+      console.log('RTC Agent 已就绪');
+    },
+    beforeDestroy: () => {
+      console.log('组件即将销毁');
+    },
+    themeChange: (detail) => {
+      console.log('主题已切换为:', detail.theme);
+      document.body.dataset.theme = detail.theme;
+    },
+
+    // 消息拦截 — 发送前验证
+    beforeMessageSend: async ({ message }) => {
+      // 阻止空消息
+      if (!message.content.trim()) {
+        return false;
+      }
+      // 追加签名
+      message.content += '\n\n— 来自我的应用';
+      return true;
+    },
+
+    // 工具调用追踪
+    toolCallStart: ({ path, params }) => {
+      console.log(`工具调用开始: ${path}`, params);
+    },
+    toolCallSuccess: ({ path, result }) => {
+      console.log(`工具调用成功: ${path}`, result);
+    },
+    toolCallError: ({ path, error }) => {
+      console.error(`工具调用失败: ${path}`, error);
+    },
+    toolCallProgress: ({ path, progress }) => {
+      updateProgressBar(path, progress);
+    },
+  },
+});
+```
+
+同样的事件也可以通过 DOM `addEventListener` 监听（适用于无法设置配置回调的场景）：
 
 ```ts
 const agent = document.querySelector('rtc-agent');
@@ -108,6 +357,21 @@ agent.addEventListener('rtc-agent-ready', () => {
   agent.theme = 'dark';
   agent.lang = 'en-US';
   agent.appLabel = '自定义标题';
+});
+
+agent.addEventListener('rtc-agent-themeChange', (e) => {
+  console.log('当前主题:', e.detail.theme);
+});
+
+agent.addEventListener('rtc-agent-beforeMessageSend', (e) => {
+  const { message } = e.detail;
+  if (containsSensitiveWords(message.content)) {
+    e.returnValue = false;  // 取消发送
+  }
+});
+
+agent.addEventListener('rtc-agent-toolCallStart', (e) => {
+  console.log('工具调用:', e.detail.path, e.detail.params);
 });
 ```
 

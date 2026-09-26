@@ -230,7 +230,470 @@ agent.addEventListener('rtc-agent-ready', () => {
 - [astro.config.mjs](https://github.com/rtc-agent/rtc-agent/blob/main/docs/astro.config.mjs) — CDN 注入配置
 - [public/auth/callback.html](https://github.com/rtc-agent/rtc-agent/blob/main/docs/public/auth/callback.html) — OAuth 回调页面
 
+## 生产级集成：NPM + createRtcAgent()
+
+对于生产应用，使用 `createRtcAgent()` 工厂函数，获得完整类型安全和 SharedWorker 多 Tab 同步支持。
+
+### 第一步：安装包
+
+```bash
+pnpm add @rtc-agent/component
+# 或
+npm install @rtc-agent/component
+# 或
+yarn add @rtc-agent/component
+```
+
+### 第二步：配置 SharedWorker（多 Tab 所需）
+
+RTC Agent 使用 SharedWorker 在浏览器标签页之间复用 WebSocket 连接。Worker 文件必须在浏览器可访问的公共目录中。
+
+#### 自动配置（推荐）
+
+运行 CLI 工具自动将 SharedWorker 文件复制到正确位置：
+
+```bash
+npx rtc-agent-setup
+```
+
+工具会自动：
+
+- 检测项目类型（Vite、Webpack、SvelteKit 等）
+- 将 SharedWorker 文件复制到正确目录（`static/rtc-agent/` 或 `public/rtc-agent/`）
+- 创建稳定文件名 `shared-worker.js` 便于引用
+- 生成包含版本信息的 `manifest.json`
+- 清理旧 Worker 文件防止堆积
+
+#### 安装时自动配置（最佳实践）
+
+将 setup 工具添加到 `postinstall` 脚本，在 `npm install` 后自动运行：
+
+```json
+{
+  "scripts": {
+    "postinstall": "rtc-agent-setup"
+  }
+}
+```
+
+这确保：
+
+- 新开发者克隆项目后自动配置 SharedWorker 文件
+- 升级 `@rtc-agent/component` 时 Worker 文件同步更新
+- 依赖变更后无需手动操作
+
+> 💡 如果已有 `postinstall` 脚本，在其后追加 `&& rtc-agent-setup`：
+>
+> ```json
+> {
+>   "scripts": {
+>     "postinstall": "your-existing-script && rtc-agent-setup"
+>   }
+> }
+> ```
+
+#### 手动配置
+
+如果 CLI 工具不适用于你的项目，手动复制 Worker 文件：
+
+```bash
+# 创建目标目录
+mkdir -p public/rtc-agent
+
+# 复制 Worker 文件
+cp node_modules/@rtc-agent/component/dist/assets/shared-worker*.js public/rtc-agent/
+
+# 创建稳定链接（可选，但推荐）
+cd public/rtc-agent
+ln -sf shared-worker-*.js shared-worker.js
+```
+
+### 第三步：配置 createRtcAgent()
+
+使用工厂函数创建并配置组件：
+
+```typescript
+import { z, withMeta, createRtcAgent } from '@rtc-agent/component';
+import type { RtcAgentWithLifecycle } from '@rtc-agent/component';
+
+// 创建 agent 实例
+const agent: RtcAgentWithLifecycle = createRtcAgent({
+  // 基础配置
+  appLabel: '我的 AI 助手',
+  theme: 'system',
+  lang: 'zh-CN',
+  
+  // Server 配置
+  server: {
+    url: 'https://rtc-agent.cherish.chat',
+    redirectUri: '/auth/callback.html',
+  },
+  
+  // SharedWorker URL（多 Tab 支持所需）
+  workerUrl: '/rtc-agent/shared-worker.js',
+  
+  // 场景文档
+  scenariosUrl: '/scenarios/',
+  
+  // 窗口配置
+  window: {
+    defaultMode: 'normal',
+    bubblePosition: {
+      corner: 'bottom-right',
+      offset: { x: -24, y: 24 },
+    },
+  },
+  
+  // 函数注册（使用 Zod schema - 推荐）
+  agentName: 'MyApp',
+  agentDescription: '我的应用 AI 助手',
+  persona: '你是一个有帮助的助手...',
+  groups: [
+    {
+      name: 'editor',
+      description: '编辑器操作',
+      functions: [
+        {
+          name: 'getCode',
+          description: '获取当前代码',
+          handler: () => window.editorAPI.getCode(),
+          returns: { schema: { type: 'string' } },
+        },
+        {
+          name: 'setCode',
+          description: '设置编辑器代码',
+          zodSchema: z.object({
+            code: withMeta(z.string(), { example: 'console.log("hello")' }).describe('要设置的代码'),
+          }),
+          handler: (params) => {
+            window.editorAPI.setCode(params.code);
+            return { success: true };
+          },
+        },
+      ],
+    },
+  ],
+  
+  // 事件处理
+  on: {
+    ready: () => {
+      console.log('RTC Agent 已就绪');
+    },
+  },
+});
+
+// 添加到 DOM
+document.body.appendChild(agent);
+
+// 清理
+agent.destroy();
+```
+
+### 第三步（续）：认证配置
+
+`createRtcAgent()` 中的 `auth` 属性控制组件如何与 Server 进行认证。选择适合你应用的模式：
+
+#### 模式一：静态令牌（开发 / CI / 测试）
+
+直接传入固定的 access token。简单但不适用于生产环境——令牌会过期且无法刷新。
+
+```typescript
+const agent = createRtcAgent({
+  server: { url: 'https://rtc-agent.example.com' },
+  workerUrl: '/rtc-agent/shared-worker.js',
+  auth: {
+    accessToken: 'your-jwt-token',
+    userId: 'user-123',
+  },
+});
+```
+
+#### 模式二：动态令牌（生产环境推荐）
+
+提供 `getToken` 和 `refreshToken` 回调，让组件按需获取和刷新令牌。这是大多数生产应用的推荐方式。
+
+```typescript
+const agent = createRtcAgent({
+  server: { url: 'https://rtc-agent.example.com' },
+  workerUrl: '/rtc-agent/shared-worker.js',
+  auth: {
+    userId: 'user-123',
+    getToken: async () => {
+      const res = await fetch('/api/auth/token');
+      const data = await res.json();
+      return data.accessToken;
+    },
+    refreshToken: async () => {
+      const res = await fetch('/api/auth/refresh', { method: 'POST' });
+      return res.json();
+    },
+  },
+});
+```
+
+#### 模式三：认证提供者（高级 / 多租户）
+
+实现完整的 auth 接口，包含 `isLoggedIn` 和 `logout` 钩子。适用于已有认证系统或需要多租户支持的场景。
+
+```typescript
+const agent = createRtcAgent({
+  server: { url: 'https://rtc-agent.example.com' },
+  workerUrl: '/rtc-agent/shared-worker.js',
+  auth: {
+    getToken: async () => myAuthProvider.getToken(),
+    refreshToken: async () => myAuthProvider.refresh(),
+    isLoggedIn: () => myAuthProvider.isLoggedIn(),
+    logout: async () => myAuthProvider.logout(),
+  },
+});
+```
+
+> 详见 [认证与授权](/docs/integration/auth/) 了解登录流程、令牌生命周期和安全最佳实践的完整说明。
+
+### 第四步：框架集成
+
+#### SvelteKit 示例
+
+```svelte
+<script lang="ts">
+  import { onMount, onDestroy } from 'svelte';
+  import { base } from '$app/paths';
+  import { createRtcAgent } from '@rtc-agent/component';
+  import type { RtcAgentWithLifecycle } from '@rtc-agent/component';
+
+  let rtcAgent: RtcAgentWithLifecycle | null = null;
+
+  onMount(() => {
+    rtcAgent = createRtcAgent({
+      appLabel: 'My App',
+      theme: 'system',
+      server: {
+        url: 'https://rtc-agent.cherish.chat',
+        redirectUri: `${base}/auth/callback.html`,
+      },
+      workerUrl: `${base}/rtc-agent/shared-worker.js`,
+      scenariosUrl: `${base}/scenarios/`,
+      // ... 其他配置
+    });
+
+    document.body.appendChild(rtcAgent);
+  });
+
+  onDestroy(() => {
+    if (rtcAgent) {
+      rtcAgent.destroy();
+      rtcAgent = null;
+    }
+  });
+</script>
+```
+
+#### React 示例
+
+```tsx
+import { useEffect, useRef } from 'react';
+import { createRtcAgent } from '@rtc-agent/component';
+import type { RtcAgentWithLifecycle } from '@rtc-agent/component';
+
+function RtcAgentWrapper() {
+  const agentRef = useRef<RtcAgentWithLifecycle | null>(null);
+
+  useEffect(() => {
+    agentRef.current = createRtcAgent({
+      appLabel: 'My App',
+      theme: 'system',
+      server: {
+        url: 'https://rtc-agent.cherish.chat',
+        redirectUri: '/auth/callback.html',
+      },
+      workerUrl: '/rtc-agent/shared-worker.js',
+      // ... 其他配置
+    });
+
+    document.body.appendChild(agentRef.current);
+
+    return () => {
+      if (agentRef.current) {
+        agentRef.current.destroy();
+        agentRef.current = null;
+      }
+    };
+  }, []);
+
+  return null;
+}
+```
+
+#### Vue 示例
+
+```vue
+<script setup lang="ts">
+import { onMounted, onUnmounted, ref } from 'vue';
+import { createRtcAgent } from '@rtc-agent/component';
+import type { RtcAgentWithLifecycle } from '@rtc-agent/component';
+
+const agentRef = ref<RtcAgentWithLifecycle | null>(null);
+
+onMounted(() => {
+  agentRef.value = createRtcAgent({
+    appLabel: 'My App',
+    theme: 'system',
+    server: {
+      url: 'https://rtc-agent.cherish.chat',
+      redirectUri: '/auth/callback.html',
+    },
+    workerUrl: '/rtc-agent/shared-worker.js',
+    // ... 其他配置
+  });
+
+  document.body.appendChild(agentRef.value);
+});
+
+onUnmounted(() => {
+  if (agentRef.value) {
+    agentRef.value.destroy();
+    agentRef.value = null;
+  }
+});
+</script>
+```
+
+## createRtcAgent() 配置参考
+
+### 基础配置
+
+| 属性 | 类型 | 默认值 | 说明 |
+| --- | --- | --- | --- |
+| `appLabel` | `string` | `"RTC Agent"` | 标题栏文字和提示 |
+| `theme` | `"light"` \| `"dark"` \| `"system"` | `"system"` | 主题模式 |
+| `lang` | `"zh-CN"` \| `"en-US"` | `"zh-CN"` | UI 语言 |
+| `databaseName` | `string` | `"rtc-agent"` | IndexedDB 名称前缀 |
+
+### Server 配置
+
+| 属性 | 类型 | 默认值 | 说明 |
+| --- | --- | --- | --- |
+| `server.url` | `string` | `""` | Server 地址（回退到当前域名） |
+| `server.redirectUri` | `string` | `"/auth/callback.html"` | OAuth 回调 URL |
+
+### SharedWorker 配置
+
+| 属性 | 类型 | 默认值 | 说明 |
+| --- | --- | --- | --- |
+| `workerUrl` | `string` | `undefined` | SharedWorker 文件 URL（多 Tab 支持所需） |
+
+### 认证配置
+
+| 属性 | 类型 | 默认值 | 说明 |
+| --- | --- | --- | --- |
+| `auth.accessToken` | `string` | — | 静态 JWT 令牌（模式一） |
+| `auth.userId` | `string` | — | 用户标识 |
+| `auth.getToken` | `() => Promise<string>` | — | 异步获取 access token 的回调（模式二/三） |
+| `auth.refreshToken` | `() => Promise<object>` | — | 异步刷新令牌的回调（模式二/三） |
+| `auth.isLoggedIn` | `() => boolean` | — | 检查用户是否已认证（模式三） |
+| `auth.logout` | `() => Promise<void>` | — | 用户登出（模式三） |
+
+### 窗口配置
+
+| 属性 | 类型 | 默认值 | 说明 |
+| --- | --- | --- | --- |
+| `window.defaultMode` | `"normal"` \| `"maximized"` \| `"minimized"` | `"normal"` | 初始窗口模式 |
+| `window.embedded` | `boolean` | `false` | 嵌入模式（无拖拽/缩放/按钮） |
+| `window.draggable` | `boolean` | `true` | 是否可拖拽 |
+| `window.resizable` | `boolean` | `true` | 是否可缩放 |
+| `window.bubblePosition.corner` | `"top-left"` \| `"top-right"` \| `"bottom-left"` \| `"bottom-right"` | `"bottom-right"` | 气泡位置角落 |
+| `window.bubblePosition.offset.x` | `number` | `-20` | 水平偏移 |
+| `window.bubblePosition.offset.y` | `number` | `20` | 垂直偏移 |
+
+### 函数注册
+
+| 属性 | 类型 | 默认值 | 说明 |
+| --- | --- | --- | --- |
+| `agentName` | `string` | — | 应用名称 |
+| `agentDescription` | `string` | — | 应用描述 |
+| `persona` | `string` | — | AI 人设/指令 |
+| `groups` | `FunctionGroup[]` | `[]` | 函数注册组 |
+
+### 事件处理
+
+| 属性 | 类型 | 说明 |
+| --- | --- | --- |
+| `on.ready` | `() => void` | 组件就绪时调用 |
+| `on.destroy` | `() => void` | 组件销毁时调用 |
+
+## 升级 SharedWorker
+
+升级 `@rtc-agent/component` 后，重新运行 setup 工具更新 SharedWorker 文件：
+
+```bash
+npx rtc-agent-setup
+```
+
+工具会：
+
+1. 复制新的 Worker 文件
+2. 更新 `manifest.json` 中的版本信息
+3. 覆盖旧的 `shared-worker.js`
+
+### 缓存管理
+
+对于生产部署，使用基于版本的缓存清除：
+
+```typescript
+// 读取 manifest.json
+const manifest = await fetch('/rtc-agent/manifest.json').then(r => r.json());
+const workerUrl = `/rtc-agent/shared-worker.js?v=${manifest.version}`;
+
+// 在 createRtcAgent() 中使用
+const agent = createRtcAgent({
+  workerUrl,
+  // ...
+});
+```
+
+或配置 Web 服务器对 Worker 文件禁用缓存：
+
+```nginx
+location /rtc-agent/shared-worker.js {
+  add_header Cache-Control "no-cache, must-revalidate";
+}
+```
+
+## 常见问题
+
+### SharedWorker 404 错误
+
+**现象**：控制台显示 SharedWorker 文件 404 错误
+
+**解决**：
+1. 验证 Worker 文件存在：`ls public/rtc-agent/` 或 `ls static/rtc-agent/`
+2. 检查 `workerUrl` 路径与实际文件位置匹配
+3. 重启开发服务器
+4. 重新运行 `npx rtc-agent-setup`
+
+### 多 Tab 不同步
+
+**现象**：一个标签页的变更不显示在其他标签页
+
+**解决**：
+1. 确保 `createRtcAgent()` 中配置了 `workerUrl`
+2. 检查浏览器控制台是否有 SharedWorker 错误
+3. 验证所有标签页在同一 origin（协议 + 域名 + 端口）
+4. 检查 SharedWorker 是否被浏览器扩展阻止
+
+### 导入解析错误
+
+**现象**：`Cannot find module '@rtc-agent/component'`
+
+**解决**：
+1. 验证包已安装：`pnpm list @rtc-agent/component`
+2. 检查 `node_modules/@rtc-agent/component` 是否存在
+3. 重新安装：`pnpm install`
+
 ## 下一步
 
 - [常见问题](/docs/integration/faq/) — 解决集成过程中遇到的问题
 - [Web Component API](/docs/integration/component-api/) — 完整的 API 参考
+- [函数注册指南](/docs/integration/function-registration/) — 通过 `agentConfig` 注册自定义函数
+- [Scenario 编写指南](/docs/integration/scenario-authoring/) — 编写场景文档引导 AI 行为
+- [认证与授权](/docs/integration/auth/) — 了解登录流程和令牌机制

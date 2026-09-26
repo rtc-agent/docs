@@ -89,14 +89,14 @@ Each function consists of the following fields:
 Instead of manually writing OpenAPI Schema, you can use **Zod schema** to define function parameters — more concise, type-safe, and with automatic runtime validation.
 
 ```ts
-import { z } from 'zod';
+import { z, withMeta } from '@rtc-agent/component';
 
 {
   name: 'createOrder',
   description: 'Create a new order',
   zodSchema: z.object({
-    productId: z.string().describe('Product ID'),
-    quantity: z.number().int().min(1).default(1).describe('Quantity'),
+    productId: withMeta(z.string(), { example: 'PROD-001' }).describe('Product ID'),
+    quantity: withMeta(z.number().int().min(1), { example: 2 }).default(1).describe('Quantity'),
   }),
   handler: async ({ productId, quantity }) => {
     return await api.createOrder(productId, quantity);
@@ -134,8 +134,7 @@ import { z } from 'zod';
 **Adding Example Values**: Use `withMeta` to add OpenAPI-specific example values to Zod schema:
 
 ```ts
-import { z } from 'zod';
-import { withMeta } from '@rtc-agent/component';
+import { z, withMeta } from '@rtc-agent/component';
 
 zodSchema: z.object({
   name: withMeta(z.string(), { example: 'John Doe' }),
