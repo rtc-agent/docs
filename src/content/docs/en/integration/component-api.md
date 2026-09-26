@@ -594,7 +594,7 @@ RTC Agent includes complete internationalization support, implemented with `@lit
 Switch the interface language using the `switchLocale()` API:
 
 ```ts
-import { switchLocale } from '@rtc-agent/component/core/i18n.js';
+import { switchLocale } from '@rtc-agent/component';
 
 // Switch to English
 await switchLocale('en-US');
@@ -614,7 +614,7 @@ Use the `@localized()` decorator and `msg()` function in components:
 ```ts
 import { localized, msg } from '@lit/localize';
 import { consume } from '@lit/context';
-import { localeContext } from '@rtc-agent/component/core/i18n.js';
+import { localeContext } from '@rtc-agent/component';
 
 @localized()
 @customElement('my-component')
@@ -641,6 +641,65 @@ export class MyComponent extends LitElement {
 4. **Build translations**: Run `npm run localize:build` to generate language packs
 
 For detailed guidance, see [Internationalization Integration Guide](/docs/en/integration/i18n).
+
+## Theme
+
+RTC Agent supports light, dark, and system-follow themes, switchable at runtime via the `switchTheme()` API.
+
+### Switching Theme
+
+```ts
+import { switchTheme } from '@rtc-agent/component';
+
+// Switch to dark theme
+switchTheme('dark');
+
+// Switch to light theme
+switchTheme('light');
+
+// Follow system preference
+switchTheme('system');
+```
+
+`switchTheme()` simultaneously:
+
+1. Updates the `theme` property on all `<rtc-agent>` elements
+2. Persists to `localStorage` (key: `rtc-agent-theme`)
+3. Sets the `data-theme` attribute on `document.documentElement` (resolved effective theme)
+
+### Querying Theme
+
+```ts
+import { getStoredTheme, getEffectiveTheme } from '@rtc-agent/component';
+
+// User preference (may be 'system')
+const preference = getStoredTheme(); // 'light' | 'dark' | 'system'
+
+// Resolved effective theme (always 'light' or 'dark')
+const effective = getEffectiveTheme(); // 'light' | 'dark'
+```
+
+### Initializing Theme
+
+Call `initTheme()` at app startup to restore the theme preference from localStorage:
+
+```ts
+import { initTheme } from '@rtc-agent/component';
+
+initTheme();
+```
+
+### Theme Events
+
+Listen for the `rtc-agent-themeChange` event to sync external UI:
+
+```ts
+agent.addEventListener('rtc-agent-themeChange', (e) => {
+  console.log('Theme switched to:', e.detail.theme);
+});
+```
+
+For detailed guidance, see [Settings System](/docs/en/features/settings).
 
 ## CSS Variables
 

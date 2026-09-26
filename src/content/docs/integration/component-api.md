@@ -594,7 +594,7 @@ RTC Agent 内置完整的国际化支持，基于 `@lit/localize` 实现运行�
 通过 `switchLocale()` API 切换界面语言：
 
 ```ts
-import { switchLocale } from '@rtc-agent/component/core/i18n.js';
+import { switchLocale } from '@rtc-agent/component';
 
 // 切换到英文
 await switchLocale('en-US');
@@ -614,7 +614,7 @@ await switchLocale('zh-CN');
 ```ts
 import { localized, msg } from '@lit/localize';
 import { consume } from '@lit/context';
-import { localeContext } from '@rtc-agent/component/core/i18n.js';
+import { localeContext } from '@rtc-agent/component';
 
 @localized()
 @customElement('my-component')
@@ -641,6 +641,65 @@ export class MyComponent extends LitElement {
 4. **构建翻译**：运行 `npm run localize:build` 生成语言包
 
 详细指南见 [国际化集成指南](/docs/integration/i18n)。
+
+## 主题（Theme）
+
+RTC Agent 支持亮色、暗色和跟随系统三种主题模式，通过 `switchTheme()` API 运行时切换。
+
+### 切换主题
+
+```ts
+import { switchTheme } from '@rtc-agent/component';
+
+// 切换到暗色主题
+switchTheme('dark');
+
+// 切换到亮色主题
+switchTheme('light');
+
+// 跟随系统
+switchTheme('system');
+```
+
+`switchTheme()` 会同时：
+
+1. 更新所有 `<rtc-agent>` 元素的 `theme` 属性
+2. 持久化到 `localStorage`（键：`rtc-agent-theme`）
+3. 设置 `document.documentElement` 的 `data-theme` 属性（解析后的实际主题）
+
+### 查询主题
+
+```ts
+import { getStoredTheme, getEffectiveTheme } from '@rtc-agent/component';
+
+// 用户设置的偏好（可能是 'system'）
+const preference = getStoredTheme(); // 'light' | 'dark' | 'system'
+
+// 解析后的实际主题（始终是 'light' 或 'dark'）
+const effective = getEffectiveTheme(); // 'light' | 'dark'
+```
+
+### 初始化主题
+
+在应用启动时调用 `initTheme()` 从 localStorage 恢复主题偏好：
+
+```ts
+import { initTheme } from '@rtc-agent/component';
+
+initTheme();
+```
+
+### 主题事件
+
+监听 `rtc-agent-themeChange` 事件同步外部 UI：
+
+```ts
+agent.addEventListener('rtc-agent-themeChange', (e) => {
+  console.log('主题已切换为:', e.detail.theme);
+});
+```
+
+详细指南见 [全局设置系统](/docs/features/settings)。
 
 ## CSS 变量
 
