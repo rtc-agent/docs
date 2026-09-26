@@ -192,6 +192,7 @@ flowchart TD
     B --> B3["database-name: IndexedDB 前缀"]
     B --> B4["app-label: 标题文字"]
     B --> B5["bubble-icon: 气泡图标"]
+    B --> B5b["logo: 品牌 Logo"]
     B --> B6["scenarios-url: 场景文档"]
     B --> B7["server-url: 服务端地址"]
     B --> B8["redirect-uri: OAuth 回调地址"]
@@ -230,6 +231,7 @@ flowchart TD
 | 📦 `registry` | `FunctionRegistry` | `null` | 命令式函数注册（通过 `defineRegistry` 创建） |
 | 🪟 `windowConfig` | `WindowConfig` | `null` | 窗口行为配置（模式、尺寸、交互限制） |
 | 🎛️ `activityBarConfig` | `ActivityBarConfig` | `null` | Activity Bar 按钮显隐配置 |
+| 🖼️ `logo` | `{ light?: string; dark?: string }` | `null` | 自定义 Logo，替换登录页、空状态、设置页的默认 Logo。支持亮/暗两套 SVG |
 
 ### 快速接入
 
@@ -748,47 +750,56 @@ rtc-agent {
 
 ## Logo 定制
 
-RTC Agent 提供品牌 Logo 的 Lit 渲染辅助，支持亮色和暗色两个版本。
+通过 `logo` 属性可以替换登录页、空状态、设置页的默认品牌 Logo，支持亮色和暗色两套主题自动切换。
 
-### 使用 renderLogo()
+### 使用方式
 
 ```ts
-import { renderLogo, renderBubbleLogo } from '@rtc-agent/component/icons/logo.js';
-
-@customElement('my-component')
-export class MyComponent extends LitElement {
-  @property({ type: String })
-  theme: 'light' | 'dark' | 'system' = 'system';
-
-  render() {
-    const isDark = this.theme === 'dark';
-    
-    return html`
-      <div class="header">
-        <!-- 完整 Logo（用于登录页、空状态等） -->
-        <div class="logo">${renderLogo(isDark)}</div>
-        
-        <!-- 气泡 Logo（用于最小化气泡） -->
-        <div class="bubble-logo">${renderBubbleLogo(isDark)}</div>
-      </div>
-    `;
-  }
-}
+const agent = createRtcAgent({
+  // ...其他配置
+  logo: {
+    light: '<svg viewBox="0 0 80 80" xmlns="http://www.w3.org/2000/svg"><circle cx="40" cy="40" r="36" fill="#2741FE"/><text x="40" y="52" text-anchor="middle" fill="white" font-size="32" font-weight="bold">窥</text></svg>',
+    dark: '<svg viewBox="0 0 80 80" xmlns="http://www.w3.org/2000/svg"><circle cx="40" cy="40" r="36" fill="#1A7AB0"/><text x="40" y="52" text-anchor="middle" fill="white" font-size="32" font-weight="bold">窥</text></svg>',
+  },
+});
 ```
 
-### Logo 文件
+也可以只设置其中一个，缺失的版本会回退到默认 Logo：
+
+```ts
+agent.logo = {
+  light: '<svg>...</svg>',  // 仅替换亮色主题下的 Logo
+  // dark 未设置，暗色主题使用默认 Logo
+};
+```
+
+### 内部机制
+
+组件内部通过 `<rtc-logo>` 子组件 + Lit Context API 实现主题自动切换：
+
+- `<rtc-logo>` 消费 `LogoContext`，根据当前主题（`light` / `dark`）渲染对应版本的 Logo
+- 支持 `theme` 属性：`'light'` | `'dark'` | `'system'`，其中 `system` 会监听 `prefers-color-scheme` 媒体查询
+- 如果未提供自定义 Logo，则渲染默认的 RTC Agent Logo
+
+### 气泡图标（bubbleIcon）
+
+`bubbleIcon` 与 `logo` 是独立的两个概念：
+
+| 属性 | 作用位置 | 用途 |
+| --- | --- | --- |
+| `bubbleIcon` | 最小化气泡 | 窗口最小化后，右下角圆形气泡内的图标 |
+| `logo` | 登录页、空状态、设置页 | 品牌标识，用于展示公司/产品品牌 |
+
+两者都可以自定义 SVG，但应用场景不同。
+
+### 默认 Logo 文件
+
+如需修改默认 Logo，替换以下 SVG 文件：
 
 | 文件 | 说明 | 使用场景 |
-|:----:|:----:|:--------:|
+| --- | --- | --- |
 | `logo.svg` | 蓝天版 Logo | 亮色主题 |
 | `logo-dark.svg` | 夜空版 Logo | 暗色主题 |
-
-### 定制 Logo
-
-如需替换品牌 Logo，可以：
-
-1. **替换 SVG 文件**：修改 `src/assets/logo.svg` 和 `src/assets/logo-dark.svg`
-2. **使用自定义渲染**：在组件中直接渲染自定义 Logo
 
 ## 连接与重试
 
