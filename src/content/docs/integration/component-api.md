@@ -91,12 +91,83 @@ agent.destroy();
 对于简单场景或 CDN 快速预览，可以直接使用 HTML 属性：
 
 ```html
-<script type="module" src="https://cdn.jsdelivr.net/npm/@rtc-agent/component@0.2.6-rc.1/dist/index.js"></script>
+<script type="module" src="https://cdn.jsdelivr.net/npm/@rtc-agent/component@0.2.7-rc.4/dist/index.js"></script>
 
 <rtc-agent theme="dark" app-label="我的 AI 助手"></rtc-agent>
 ```
 
 > ⚠️ HTML 属性方式无法配置 `auth`、`workerUrl` 等复杂选项。生产环境请使用工厂函数。
+
+### TypeScript 支持
+
+组件包内置完整的 `.d.ts` 类型声明，**无需额外安装 `@types` 包**。安装 `@rtc-agent/component` 后，TypeScript 自动识别类型。
+
+#### 主要导出类型
+
+```ts
+import type {
+  // 工厂函数配置与返回值
+  RtcAgentConfig,        // createRtcAgent() 的配置对象类型
+  RtcAgentWithLifecycle, // createRtcAgent() 的返回值类型（含 destroy()）
+
+  // 认证配置（3 种模式）
+  AuthConfig,
+  StaticTokenAuth,
+  DynamicTokenAuth,
+  AuthProvider,
+
+  // 事件回调
+  EventCallbacks,
+
+  // 窗口与 Activity Bar
+  WindowConfig,
+  ActivityBarConfig,
+
+  // Agent 声明式配置
+  AgentConfig,
+  AgentFunctionGroup,
+
+  // 数据模型
+  Session,
+  Message,
+
+  // 函数注册与校验
+  FunctionDef,
+  FunctionGroupDef,
+  ValidationError,
+  ValidationResult,
+} from '@rtc-agent/component';
+```
+
+#### 类型安全的组件访问
+
+通过 `querySelector` 获取组件时，使用 `RtcAgent` 类型获得完整的属性提示：
+
+```ts
+import type { RtcAgent } from '@rtc-agent/component';
+
+const agent = document.querySelector<RtcAgent>('rtc-agent');
+
+// ✅ 完整的属性和事件类型提示
+agent!.theme = 'dark';
+agent!.windowConfig = { embedded: true };
+agent!.addEventListener('rtc-agent-ready', () => {
+  // ...
+});
+```
+
+#### 事件类型安全
+
+组件扩展了 `HTMLElementEventMap`，`addEventListener` 的 `detail` 自动推导：
+
+```ts
+const agent = document.querySelector('rtc-agent')!;
+
+agent.addEventListener('rtc-agent-themeChange', (e) => {
+  // e.detail 自动推导为 { theme: 'light' | 'dark' | 'system' }
+  console.log(e.detail.theme);
+});
+```
 
 ### 生命周期与清理
 
