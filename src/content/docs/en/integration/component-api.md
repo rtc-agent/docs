@@ -715,9 +715,6 @@ agent.activityBarConfig = {
 
   // Default active activity
   defaultActivity: 'chat',
-
-  // Whether to enable the Function Debugger panel (default: true)
-  enableFunctionDebugger: true,
 };
 ```
 
@@ -725,7 +722,7 @@ agent.activityBarConfig = {
 |:----:|:----:|:------:|
 | 💬 `chat` | Chat interface | ❌ Always visible |
 | 📁 `files` | File manager | ✅ via `disabledActivities` |
-| 🛠️ `functions` | Function Debugger panel | ✅ via `enableFunctionDebugger: false` |
+| 🛠️ `functions` | Function Debugger panel | ✅ via `disabledActivities` |
 | ⚙️ `settings` | Settings panel | ✅ via `disabledActivities` |
 
 #### Function Debugger
@@ -738,7 +735,7 @@ The Function Debugger is an optional panel in the Activity Bar that provides a c
 - **Execution History**: Bottom drawer panel with pagination, per-function filtering, and full details (params, logs, result) for each entry
 - **Parameter Docs**: Recursively expanded parameter table reusing `schemaToTypeString` for type strings
 
-Set `enableFunctionDebugger: false` to hide the Function Debugger button (suitable for end-user scenarios where debugging is not needed).
+Add `'functions'` to `disabledActivities` to hide the Function Debugger button (suitable for end-user scenarios where debugging is not needed).
 
 ## State Management
 

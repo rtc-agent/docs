@@ -105,6 +105,8 @@ flowchart TD
 | `server-url` | 服务端地址 | `"https://rtc.example.com"` |
 | `redirect-uri` | OAuth 回调地址 | `"/auth/callback.html"` |
 | `bubble-icon` | 最小化气泡内的 SVG/HTML | 自定义图标 |
+| `logo` | 自定义品牌 Logo（light/dark 两套） | `{ light: '<svg>...', dark: '<svg>...' }` |
+| `worker-url` | SharedWorker 文件 URL | `"/rtc-agent/shared-worker.js"` |
 | `scenarios-url` | 场景文档 URL | `"https://..."` |
 | `agentConfig` | 声明式函数注册（推荐） | JSON 配置对象 |
 

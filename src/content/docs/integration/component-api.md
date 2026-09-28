@@ -715,9 +715,6 @@ agent.activityBarConfig = {
 
   // 默认激活的活动
   defaultActivity: 'chat',
-
-  // 是否启用函数调试器面板（默认: true）
-  enableFunctionDebugger: true,
 };
 ```
 
@@ -725,7 +722,7 @@ agent.activityBarConfig = {
 |:----:|:----:|:------:|
 | 💬 `chat` | 聊天界面 | ❌ 始终显示 |
 | 📁 `files` | 文件管理 | ✅ 通过 `disabledActivities` |
-| 🛠️ `functions` | 函数调试器面板 | ✅ 通过 `enableFunctionDebugger: false` |
+| 🛠️ `functions` | 函数调试器面板 | ✅ 通过 `disabledActivities` |
 | ⚙️ `settings` | 设置面板 | ✅ 通过 `disabledActivities` |
 
 #### 函数调试器（Function Debugger）
@@ -738,7 +735,7 @@ agent.activityBarConfig = {
 - **执行历史**：底部抽屉式面板，支持分页、按函数名过滤，每条记录包含完整的参数、日志、结果详情
 - **参数文档**：递归展开的参数表格，复用 `schemaToTypeString` 生成类型字符串
 
-通过 `enableFunctionDebugger: false` 可以隐藏函数调试器按钮（适用于不需要调试功能的最终用户场景）。
+在 `disabledActivities` 中添加 `'functions'` 可以隐藏函数调试器按钮（适用于不需要调试功能的最终用户场景）。
 
 ## 状态管理
 

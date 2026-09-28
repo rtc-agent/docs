@@ -105,6 +105,8 @@ flowchart TD
 | `server-url` | Server address | `"https://rtc.example.com"` |
 | `redirect-uri` | OAuth callback address | `"/auth/callback.html"` |
 | `bubble-icon` | SVG/HTML inside the minimized bubble | Custom icon |
+| `logo` | Custom brand Logo (separate light/dark variants) | `{ light: '<svg>...', dark: '<svg>...' }` |
+| `worker-url` | SharedWorker file URL | `"/rtc-agent/shared-worker.js"` |
 | `scenarios-url` | Scenarios document URL | `"https://..."` |
 | `agentConfig` | Declarative function registration (recommended) | JSON config object |
 
