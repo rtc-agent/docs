@@ -12,7 +12,7 @@ description: A single <rtc-agent> component handles AI conversation, tool calls,
 Use `createRtcAgent()` to create a component instance. **This is the recommended integration method**, providing full type safety and lifecycle management:
 
 ```typescript
-import { createRtcAgent } from '@rtc-agent/component';
+import { createRtcAgent, z } from '@rtc-agent/component';
 import type { RtcAgentConfig, RtcAgentWithLifecycle } from '@rtc-agent/component';
 
 const config: RtcAgentConfig = {
@@ -61,7 +61,7 @@ const config: RtcAgentConfig = {
           name: 'getCode',
           description: 'Get the current code',
           handler: () => window.editorAPI.getCode(),
-          returns: { schema: { type: 'string' } },
+          returns: { zodSchema: z.string().describe('Current code in the editor') },
         },
       ],
     },
@@ -144,7 +144,7 @@ const config: RtcAgentConfig = {
 
 ### DynamicTokenAuth (Recommended)
 
-Provide callback functions that return tokens on demand. The component calls `getToken()` when it needs a token and `refreshToken()` when the current one expires.
+Provide callback functions that return tokens on demand. The component calls `getToken()` (returns a token string) when it needs a token, and `refreshToken()` (optional, returns new token and metadata) when the current one expires.
 
 ```ts
 const config: RtcAgentConfig = {
@@ -152,11 +152,12 @@ const config: RtcAgentConfig = {
   auth: {
     getToken: async () => {
       const res = await fetch('/api/auth/token');
-      return res.json();  // { accessToken, refreshToken?, expiresIn? }
+      const data = await res.json();
+      return data.accessToken;  // returns the token string
     },
     refreshToken: async () => {
       const res = await fetch('/api/auth/refresh');
-      return res.json();
+      return res.json();  // { accessToken: string, refreshToken?: string, expiresIn?: number }
     },
     userId: 'user-123',
   },

@@ -257,7 +257,7 @@ const agent: RtcAgentWithLifecycle = createRtcAgent({
           name: 'getCode',
           description: 'Get the current code',
           handler: () => window.editorAPI.getCode(),
-          returns: { schema: { type: 'string' } },
+          returns: { zodSchema: z.string().describe('Current code in the editor') },
         },
         {
           name: 'setCode',
@@ -310,7 +310,7 @@ const agent = createRtcAgent({
 
 #### Mode 2: Dynamic Token (Recommended for Production)
 
-Provide `getToken` and `refreshToken` callbacks so the component can fetch and renew tokens on demand. This is the recommended approach for most production applications.
+Provide a `getToken` callback (required) and an optional `refreshToken` callback so the component can fetch and renew tokens on demand. This is the recommended approach for most production applications.
 
 ```typescript
 const agent = createRtcAgent({
@@ -489,7 +489,7 @@ onUnmounted(() => {
 | `auth.accessToken` | `string` | — | Static JWT token (Mode 1) |
 | `auth.userId` | `string` | — | User identifier |
 | `auth.getToken` | `() => Promise<string>` | — | Async callback to obtain an access token (Mode 2/3) |
-| `auth.refreshToken` | `() => Promise<object>` | — | Async callback to refresh the token (Mode 2/3) |
+| `auth.refreshToken` | `() => Promise<object>` | — | Async callback to refresh the token (optional in Mode 2, required in Mode 3) |
 | `auth.isLoggedIn` | `() => boolean` | — | Check whether the user is authenticated (Mode 3) |
 | `auth.logout` | `() => Promise<void>` | — | Log the user out (Mode 3) |
 

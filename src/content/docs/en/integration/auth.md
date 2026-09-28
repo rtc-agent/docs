@@ -282,10 +282,10 @@ flowchart TD
 The simplest integration — provide a fixed Access Token (and optionally a Refresh Token). The component uses these tokens as-is with no refresh logic. Ideal for **local development, CI pipelines, and automated testing**.
 
 ```typescript
-import { createRtcAgent } from '@anthropic/rtc-agent';
+import { createRtcAgent } from '@rtc-agent/component';
 
 const agent = createRtcAgent({
-  serverUrl: 'https://your-server.com',
+  server: { url: 'https://your-server.com' },
   auth: {
     accessToken: 'your-jwt-token',
     refreshToken: 'optional-refresh-token',
@@ -306,24 +306,25 @@ const agent = createRtcAgent({
 
 ### Mode 2: DynamicTokenAuth — Callback-Based Refresh (Recommended)
 
-The **recommended mode for production**. You provide `getToken()` and `refreshToken()` callbacks — the component calls them whenever it needs a token or when the current one expires. Your backend handles all token logic; the component just consumes the result.
+The **recommended mode for production**. You provide a `getToken()` callback (required) and a `refreshToken()` callback (optional) — the component calls `getToken()` whenever it needs a token string, and `refreshToken()` when the current one expires. Your backend handles all token logic; the component just consumes the result.
 
 ```typescript
-import { createRtcAgent } from '@anthropic/rtc-agent';
+import { createRtcAgent } from '@rtc-agent/component';
 
 const agent = createRtcAgent({
-  serverUrl: 'https://your-server.com',
+  server: { url: 'https://your-server.com' },
   auth: {
     userId: 'user-123',
     getToken: async () => {
-      // Fetch a fresh token from your backend
+      // Fetch a fresh token string from your backend
       const res = await fetch('/api/auth/token');
-      return res.json();
+      const data = await res.json();
+      return data.accessToken;
     },
     refreshToken: async () => {
-      // Called when the current token has expired
+      // Called when the current token has expired (returns new token + optional metadata)
       const res = await fetch('/api/auth/refresh', { method: 'POST' });
-      return res.json();
+      return res.json(); // { accessToken: string, refreshToken?: string, expiresIn?: number }
     },
   },
 });
@@ -337,8 +338,8 @@ sequenceDiagram
 
     Comp->>CB: getToken()
     CB->>BE: GET /api/auth/token
-    BE-->>CB: { accessToken, expiresIn }
-    CB-->>Comp: Token data
+    BE-->>CB: { accessToken: "eyJ..." }
+    CB-->>Comp: Token string
 
     Note over Comp: ⏱️ ... time passes, token expires ...
 
@@ -348,30 +349,30 @@ sequenceDiagram
     CB-->>Comp: New token data
 ```
 
-| Callback | Called When | Expected Return |
-|:--------:|:-----------:|:---------------:|
-| `getToken()` | Component needs a token (initial connection, reconnection) | `{ accessToken: string, expiresIn?: number }` |
-| `refreshToken()` | Current token has expired or is about to expire | `{ accessToken: string, expiresIn?: number }` |
+| Callback | Required | Called When | Expected Return |
+|:--------:|:--------:|:-----------:|:---------------:|
+| `getToken()` | ✅ | Component needs a token (initial connection, API requests) | `string` (the token string) |
+| `refreshToken()` | Optional | Current token has expired or is about to expire | `{ accessToken: string, refreshToken?: string, expiresIn?: number }` |
 
-> 💡 **Why this mode is recommended**: Your backend retains full control over token issuance and revocation. The component never stores long-lived credentials — it fetches fresh tokens on demand. This follows the same security model as server-side OAuth2, but without requiring an OAuth2 provider.
+> 💡 **Why this mode is recommended**: Your backend retains full control over token issuance and revocation. The component never stores long-lived credentials — it fetches fresh tokens on demand. This follows the same security model as server-side OAuth2, but without requiring an OAuth2 provider. The `refreshToken` callback is optional — if your backend tokens are long-lived or managed by an external mechanism, you can provide only `getToken()`.
 
 ### Mode 3: AuthProvider — Full Delegation (Advanced)
 
 The most flexible mode — delegate **all** authentication concerns to your own provider. In addition to token management, you control login state checks (`isLoggedIn`) and logout behavior. Ideal for **multi-tenant platforms, SSO integrations, or apps with complex auth requirements**.
 
 ```typescript
-import { createRtcAgent } from '@anthropic/rtc-agent';
+import { createRtcAgent } from '@rtc-agent/component';
 
 const agent = createRtcAgent({
-  serverUrl: 'https://your-server.com',
+  server: { url: 'https://your-server.com' },
   auth: {
     getToken: async () => {
-      // Your custom token retrieval logic
-      return myAuthStore.getToken();
+      // Your custom token retrieval logic (returns a token string)
+      return await myAuthStore.getToken();
     },
     refreshToken: async () => {
       // Your custom refresh logic
-      return myAuthStore.refresh();
+      return await myAuthStore.refresh();
     },
     isLoggedIn: () => {
       // Synchronous check — is the user currently authenticated?

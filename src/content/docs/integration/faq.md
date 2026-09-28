@@ -252,7 +252,7 @@ localStorage.setItem('debug', 'rtc-agent:*');
 const agent = document.querySelector('rtc-agent');
 console.log({
   theme: agent.theme,
-  serverUrl: agent.serverUrl,
+  serverURL: agent.serverURL,
   windowConfig: agent.windowConfig,
 });
 ```

@@ -282,10 +282,10 @@ flowchart TD
 最简单的集成方式——提供一个固定的 Access Token（以及可选的 Refresh Token）。组件直接使用这些令牌，不包含刷新逻辑。适用于**本地开发、CI 流水线和自动化测试**。
 
 ```typescript
-import { createRtcAgent } from '@anthropic/rtc-agent';
+import { createRtcAgent } from '@rtc-agent/component';
 
 const agent = createRtcAgent({
-  serverUrl: 'https://your-server.com',
+  server: { url: 'https://your-server.com' },
   auth: {
     accessToken: 'your-jwt-token',
     refreshToken: 'optional-refresh-token',
@@ -306,24 +306,25 @@ const agent = createRtcAgent({
 
 ### 模式 2：DynamicTokenAuth — 回调式刷新（推荐）
 
-**生产环境推荐模式**。你提供 `getToken()` 和 `refreshToken()` 回调——组件在需要令牌或当前令牌过期时调用它们。你的后端处理所有令牌逻辑，组件只消费结果。
+**生产环境推荐模式**。你提供 `getToken()` 回调（必选）和 `refreshToken()` 回调（可选）——组件在需要令牌时调用 `getToken()` 获取新的令牌字符串，在当前令牌过期时调用 `refreshToken()` 获取新令牌。你的后端处理所有令牌逻辑，组件只消费结果。
 
 ```typescript
-import { createRtcAgent } from '@anthropic/rtc-agent';
+import { createRtcAgent } from '@rtc-agent/component';
 
 const agent = createRtcAgent({
-  serverUrl: 'https://your-server.com',
+  server: { url: 'https://your-server.com' },
   auth: {
     userId: 'user-123',
     getToken: async () => {
-      // 从你的后端获取新令牌
+      // 从你的后端获取新令牌（返回令牌字符串）
       const res = await fetch('/api/auth/token');
-      return res.json();
+      const data = await res.json();
+      return data.accessToken;
     },
     refreshToken: async () => {
-      // 当前令牌过期时调用
+      // 当前令牌过期时调用（返回新令牌和可选的元数据）
       const res = await fetch('/api/auth/refresh', { method: 'POST' });
-      return res.json();
+      return res.json(); // { accessToken: string, refreshToken?: string, expiresIn?: number }
     },
   },
 });
@@ -337,8 +338,8 @@ sequenceDiagram
 
     Comp->>CB: getToken()
     CB->>BE: GET /api/auth/token
-    BE-->>CB: { accessToken, expiresIn }
-    CB-->>Comp: 令牌数据
+    BE-->>CB: { accessToken: "eyJ..." }
+    CB-->>Comp: 令牌字符串
 
     Note over Comp: ⏱️ ... 时间流逝，令牌过期 ...
 
@@ -348,30 +349,30 @@ sequenceDiagram
     CB-->>Comp: 新令牌数据
 ```
 
-| 回调 | 调用时机 | 期望返回值 |
-|:--------:|:-----------:|:---------------:|
-| `getToken()` | 组件需要令牌时（初始连接、重连） | `{ accessToken: string, expiresIn?: number }` |
-| `refreshToken()` | 当前令牌已过期或即将过期 | `{ accessToken: string, expiresIn?: number }` |
+| 回调 | 必选 | 调用时机 | 期望返回值 |
+|:--------:|:--------:|:-----------:|:---------------:|
+| `getToken()` | ✅ | 组件需要令牌时（初始连接、API 请求） | `string`（令牌字符串） |
+| `refreshToken()` | 可选 | 当前令牌已过期或即将过期 | `{ accessToken: string, refreshToken?: string, expiresIn?: number }` |
 
-> 💡 **为什么推荐此模式**：你的后端完全控制令牌的签发和撤销。组件不存储长期凭证——按需获取新令牌。这与服务端 OAuth2 遵循相同的安全模型，但无需 OAuth2 Provider。
+> 💡 **为什么推荐此模式**：你的后端完全控制令牌的签发和撤销。组件不存储长期凭证——按需获取新令牌。这与服务端 OAuth2 遵循相同的安全模型，但无需 OAuth2 Provider。`refreshToken` 回调是可选的——如果你的后端令牌长期有效或由外部机制管理，可以只提供 `getToken()`。
 
 ### 模式 3：AuthProvider — 完全委托（高级）
 
 最灵活的模式——将**所有**认证关注点委托给你自己的 Provider。除了令牌管理，你还可以控制登录状态检查（`isLoggedIn`）和登出行为。适用于**多租户平台、SSO 集成或具有复杂认证需求的应用**。
 
 ```typescript
-import { createRtcAgent } from '@anthropic/rtc-agent';
+import { createRtcAgent } from '@rtc-agent/component';
 
 const agent = createRtcAgent({
-  serverUrl: 'https://your-server.com',
+  server: { url: 'https://your-server.com' },
   auth: {
     getToken: async () => {
-      // 你的自定义令牌获取逻辑
-      return myAuthStore.getToken();
+      // 你的自定义令牌获取逻辑（返回令牌字符串）
+      return await myAuthStore.getToken();
     },
     refreshToken: async () => {
       // 你的自定义刷新逻辑
-      return myAuthStore.refresh();
+      return await myAuthStore.refresh();
     },
     isLoggedIn: () => {
       // 同步检查——用户当前是否已认证？

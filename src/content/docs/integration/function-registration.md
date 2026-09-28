@@ -33,6 +33,8 @@ flowchart TD
 最简单的方式——只需设置 `agentConfig` 属性：
 
 ```ts
+import { z } from '@rtc-agent/component';
+
 const agent = document.querySelector('rtc-agent');
 
 agent.agentConfig = {
@@ -46,11 +48,11 @@ agent.agentConfig = {
         {
           name: 'create',
           description: '创建一个新订单',
-          parameters: [
-            { name: 'productId', schema: { type: 'string' }, required: true, description: '商品 ID' },
-            { name: 'quantity', schema: { type: 'number' }, description: '购买数量' }
-          ],
-          returns: { schema: { type: 'object' }, description: '订单信息，包含 orderId' },
+          zodSchema: z.object({
+            productId: z.string().describe('商品 ID'),
+            quantity: z.number().optional().describe('购买数量'),
+          }),
+          returns: { zodSchema: z.object({ orderId: z.string() }).describe('订单信息，包含 orderId') },
           handler: async (params) => {
             const res = await api.createOrder(params.productId, params.quantity);
             return { orderId: res.id, status: res.status };
@@ -100,22 +102,30 @@ orderGroup.register({
 | 📛 `name` | `string` | ✅ | 函数名称，与分组名组合成完整路径（如 `order.create`） |
 | 📝 `description` | `string` | ✅ | 函数描述，**写入自动生成的文档**，AI 据此决定何时调用 |
 | 📐 `parameters` | `ParameterDef[]` | — | 参数定义数组，每项含 `{name, schema, required?, description?}`，`schema` 为 OpenAPI Schema |
-| 🔙 `returns` | `ReturnDef` | — | 返回值定义 `{schema, description?}`，帮助 AI 理解输出 |
+| 🔗 `zodSchema` | `ZodType` | — | Zod Schema（推荐），自动转换为参数定义，同时提供运行时校验 |
+| 🔙 `returns` | `ReturnDef` | — | 返回值定义 `{schema?, zodSchema?, description?}`，帮助 AI 理解输出。**推荐使用 `zodSchema`** |
 | ⚡ `handler` | `function` | ✅ | 执行函数，支持 `async`，接收 `params` 参数 |
 | 🪝 `hooks` | `object` | — | UI 钩子（`onStart` / `onSuccess` / `onError` / `onProgress`） |
 
 ### 完整函数示例
 
 ```ts
+import { z, withMeta } from '@rtc-agent/component';
+
 {
   name: 'refund',
   description: '对指定订单发起退款，支持全额和部分退款',
-  parameters: [
-    { name: 'orderId', schema: { type: 'string' }, required: true, description: '订单 ID' },
-    { name: 'amount', schema: { type: 'number' }, description: '退款金额（留空则全额退款）' },
-    { name: 'reason', schema: { type: 'string' }, required: true, description: '退款原因' }
-  ],
-  returns: { schema: { type: 'object' }, description: '退款结果，包含 refundId 和状态' },
+  zodSchema: z.object({
+    orderId: z.string().describe('订单 ID'),
+    amount: z.number().optional().describe('退款金额（留空则全额退款）'),
+    reason: z.string().describe('退款原因'),
+  }),
+  returns: {
+    zodSchema: z.object({
+      refundId: z.string(),
+      status: z.string(),
+    }).describe('退款结果，包含 refundId 和状态'),
+  },
   handler: async (params, onProgress) => {
     onProgress?.(30);
     await validateOrder(params.orderId);

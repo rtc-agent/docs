@@ -357,7 +357,7 @@ const agent: RtcAgentWithLifecycle = createRtcAgent({
           name: 'getCode',
           description: '获取当前代码',
           handler: () => window.editorAPI.getCode(),
-          returns: { schema: { type: 'string' } },
+          returns: { zodSchema: z.string().describe('当前编辑器中的代码') },
         },
         {
           name: 'setCode',
@@ -410,7 +410,7 @@ const agent = createRtcAgent({
 
 #### 模式二：动态令牌（生产环境推荐）
 
-提供 `getToken` 和 `refreshToken` 回调，让组件按需获取和刷新令牌。这是大多数生产应用的推荐方式。
+提供 `getToken` 回调（必选）和 `refreshToken` 回调（可选），让组件按需获取和刷新令牌。这是大多数生产应用的推荐方式。
 
 ```typescript
 const agent = createRtcAgent({
@@ -589,7 +589,7 @@ onUnmounted(() => {
 | `auth.accessToken` | `string` | — | 静态 JWT 令牌（模式一） |
 | `auth.userId` | `string` | — | 用户标识 |
 | `auth.getToken` | `() => Promise<string>` | — | 异步获取 access token 的回调（模式二/三） |
-| `auth.refreshToken` | `() => Promise<object>` | — | 异步刷新令牌的回调（模式二/三） |
+| `auth.refreshToken` | `() => Promise<object>` | — | 异步刷新令牌的回调（模式二可选，模式三必选） |
 | `auth.isLoggedIn` | `() => boolean` | — | 检查用户是否已认证（模式三） |
 | `auth.logout` | `() => Promise<void>` | — | 用户登出（模式三） |
 

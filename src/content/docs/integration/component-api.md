@@ -12,7 +12,7 @@ description: 一个 <rtc-agent> 组件，搞定 AI 对话、工具调用、主�
 使用 `createRtcAgent()` 工厂函数创建组件实例。**这是推荐的接入方式**，提供完整的类型安全和生命周期管理：
 
 ```typescript
-import { createRtcAgent } from '@rtc-agent/component';
+import { createRtcAgent, z } from '@rtc-agent/component';
 import type { RtcAgentConfig, RtcAgentWithLifecycle } from '@rtc-agent/component';
 
 const config: RtcAgentConfig = {
@@ -61,7 +61,7 @@ const config: RtcAgentConfig = {
           name: 'getCode',
           description: '获取当前代码',
           handler: () => window.editorAPI.getCode(),
-          returns: { schema: { type: 'string' } },
+          returns: { zodSchema: z.string().describe('当前编辑器中的代码') },
         },
       ],
     },
@@ -215,7 +215,7 @@ const config: RtcAgentConfig = {
 
 ### DynamicTokenAuth（推荐）
 
-提供按需返回令牌的回调函数。组件在需要令牌时调用 `getToken()`，在当前令牌过期时调用 `refreshToken()`。
+提供按需返回令牌的回调函数。组件在需要令牌时调用 `getToken()`（返回令牌字符串），在当前令牌过期时调用 `refreshToken()`（可选，返回新令牌及元数据）。
 
 ```ts
 const config: RtcAgentConfig = {
@@ -223,11 +223,12 @@ const config: RtcAgentConfig = {
   auth: {
     getToken: async () => {
       const res = await fetch('/api/auth/token');
-      return res.json();  // { accessToken, refreshToken?, expiresIn? }
+      const data = await res.json();
+      return data.accessToken;  // 返回令牌字符串
     },
     refreshToken: async () => {
       const res = await fetch('/api/auth/refresh');
-      return res.json();
+      return res.json();  // { accessToken: string, refreshToken?: string, expiresIn?: number }
     },
     userId: 'user-123',
   },

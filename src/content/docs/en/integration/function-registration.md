@@ -52,7 +52,7 @@ agent.agentConfig = {
             productId: withMeta(z.string(), { example: 'PROD-001' }).describe('Product ID'),
             quantity: withMeta(z.number().int().positive(), { example: 2 }).optional().describe('Purchase quantity')
           }),
-          returns: { schema: { type: 'object' }, description: 'Order info, including orderId' },
+          returns: { zodSchema: z.object({ orderId: z.string() }).describe('Order info, including orderId') },
           handler: async (params) => {
             const res = await api.createOrder(params.productId, params.quantity);
             return { orderId: res.id, status: res.status };
@@ -103,7 +103,7 @@ Each function consists of the following fields:
 | 📝 `description` | `string` | ✅ | Function description, **written into auto-generated documentation**; AI uses this to decide when to call |
 | 🎯 `zodSchema` | `ZodType` | — | **Recommended** Zod schema for parameter validation and type inference. Provides runtime validation and automatic TypeScript types |
 | 📐 `parameters` | `ParameterDef[]` | — | Legacy OpenAPI-style parameter definitions. Use `zodSchema` instead for new code |
-| 🔙 `returns` | `ReturnDef` | — | Return value definition `{schema, description?}`, helping AI understand the output |
+| 🔙 `returns` | `ReturnDef` | — | Return value definition `{schema?, zodSchema?, description?}`, helping AI understand the output. **`zodSchema` is recommended** |
 | ⚡ `handler` | `function` | ✅ | Execution function; supports `async`, receives `params` argument |
 | 🪝 `hooks` | `object` | — | UI hooks (`onStart` / `onSuccess` / `onError` / `onProgress`) |
 
@@ -149,7 +149,12 @@ import { z, withMeta } from '@rtc-agent/component';
     amount: withMeta(z.number().positive(), { example: 99.99 }).optional().describe('Refund amount (omit for full refund)'),
     reason: withMeta(z.string(), { example: 'Product defective' }).describe('Refund reason')
   }),
-  returns: { schema: { type: 'object' }, description: 'Refund result, including refundId and status' },
+  returns: {
+    zodSchema: z.object({
+      refundId: z.string(),
+      status: z.string(),
+    }).describe('Refund result, including refundId and status'),
+  },
   handler: async (params, onProgress) => {
     onProgress?.(30);
     await validateOrder(params.orderId);
