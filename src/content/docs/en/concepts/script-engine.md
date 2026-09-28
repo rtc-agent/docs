@@ -193,7 +193,8 @@ The sandbox blocks "gray-area APIs" like `setTimeout` and `crypto.randomUUID`. T
 | `rtcAgent.system.uuid(count?)` | Generate UUID v4 (supports batch) | crypto.randomUUID |
 | `rtcAgent.system.now()` | Get current timestamp (milliseconds) | Date.now |
 | `rtcAgent.system.random(opts?)` | Generate random numbers (supports range/integer) | Math.random |
-| `rtcAgent.system.time(format?)` | Get formatted time (iso/locale/ts) | Date |
+| `rtcAgent.system.time(format?)` | Get formatted time (iso/locale/ts, default `locale`) | Date |
+| `rtcAgent.system.timezone()` | Get local timezone info (IANA name + UTC offset) | Intl.DateTimeFormat |
 
 > 📌 These tools follow the standard FunctionDef specification. AI discovers them through virtual documentation, using the same approach as user-defined Function Groups.
 

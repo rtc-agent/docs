@@ -3,7 +3,7 @@ title: Web Component API
 description: A single <rtc-agent> component handles AI conversation, tool calls, and theme switching — configure with attributes, listen with events, and customize with CSS variables. Use createRtcAgent() factory function for production applications.
 ---
 
-**`<rtc-agent>`** is the **sole component** exposed by RTC Agent. Built on Lit, it contains 47 sub-components and 19 Controllers internally, but presents only a clean Web Component interface externally — attribute configuration, event listening, and CSS variable customization.
+**`<rtc-agent>`** is the **sole component** exposed by RTC Agent. Built on Lit, it contains 54 sub-components and 23 Controllers internally, but presents only a clean Web Component interface externally — attribute configuration, event listening, and CSS variable customization.
 
 ## Creating the Component
 
@@ -97,6 +97,85 @@ For simple scenarios or CDN quick previews, you can use HTML attributes directly
 ```
 
 > ⚠️ HTML attributes cannot configure `auth`, `workerUrl`, and other complex options. Use the factory function for production.
+
+### TypeScript Support
+
+The component package includes `.d.ts` type declarations — **no extra `@types` package is needed**. Once you install `@rtc-agent/component`, TypeScript recognizes the types automatically.
+
+#### Main Exported Types
+
+```ts
+import type {
+  // Factory function config and return type
+  RtcAgentConfig,        // Config object type for createRtcAgent()
+  RtcAgentWithLifecycle, // Return type of createRtcAgent() (includes destroy())
+
+  // Auth configuration (3 modes)
+  AuthConfig,
+  StaticTokenAuth,
+  DynamicTokenAuth,
+  AuthProvider,
+
+  // Event callbacks
+  EventCallbacks,
+
+  // Window & Activity Bar
+  WindowConfig,
+  ActivityBarConfig,
+  Activity,              // 'chat' | 'files' | 'functions' | 'settings'
+
+  // Agent declarative config
+  AgentConfig,
+  AgentFunctionGroup,
+
+  // Data models
+  Session,
+  Message,
+  ConnectionState,       // Connection state (for connectionStateChange callback)
+
+  // Function registration and validation
+  FunctionDef,
+  FunctionGroupDef,
+  ValidationError,
+  ValidationResult,
+
+  // Function Debugger
+  DebugHistoryItem,
+  FunctionDebugState,
+  LogEntry,
+  LogLevel,
+} from '@rtc-agent/component';
+```
+
+#### Type-Safe Component Access
+
+Use the `RtcAgent` type with `querySelector` to get full property hints:
+
+```ts
+import type { RtcAgent } from '@rtc-agent/component';
+
+const agent = document.querySelector<RtcAgent>('rtc-agent');
+
+// ✅ Full property and event type hints
+agent!.theme = 'dark';
+agent!.windowConfig = { embedded: true };
+agent!.addEventListener('rtc-agent-ready', () => {
+  // ...
+});
+```
+
+#### Event Type Safety
+
+The component extends `HTMLElementEventMap`, so `addEventListener` automatically infers the `detail` type:
+
+```ts
+const agent = document.querySelector('rtc-agent')!;
+
+agent.addEventListener('rtc-theme-change', (e) => {
+  // e.detail is automatically inferred as { theme: 'light' | 'dark' | 'system' }
+  console.log(e.detail.theme);
+});
+```
 
 ### Lifecycle & Cleanup
 
@@ -193,6 +272,7 @@ flowchart TD
     B --> B3["database-name: IndexedDB prefix"]
     B --> B4["app-label: title text"]
     B --> B5["bubble-icon: bubble icon"]
+    B --> B5b["logo: brand Logo"]
     B --> B6["scenarios-url: scenario docs"]
     B --> B7["server-url: server address"]
     B --> B8["redirect-uri: OAuth callback URL"]
@@ -231,6 +311,7 @@ flowchart TD
 | 📦 `registry` | `FunctionRegistry` | `null` | Imperative function registration (created via `defineRegistry`) |
 | 🪟 `windowConfig` | `WindowConfig` | `null` | Window behavior configuration (mode, size, interaction limits) |
 | 🎛️ `activityBarConfig` | `ActivityBarConfig` | `null` | Activity Bar button visibility configuration |
+| 🖼️ `logo` | `{ light?: string; dark?: string }` | `null` | Custom logo replacing the default Logo on the login page, empty state, and settings page. Supports separate light/dark SVG variants |
 
 ### Quick Integration
 
@@ -273,34 +354,60 @@ agent.addEventListener('rtc-agent-ready', () => {
 
 ## Events
 
-All events support two listening patterns: DOM events (with the `rtc-agent-` prefix) and config callbacks (via the `on` field in `RtcAgentConfig`, using the unprefixed name).
+All events support two listening patterns: DOM events (via `addEventListener`) and config callbacks (via the `on` field in `RtcAgentConfig`).
+
+> 💡 **Event naming convention**: DOM event names use the `rtc-` prefix with kebab-case (e.g. `rtc-theme-change`). Config callback names use camelCase (e.g. `themeChange`). The factory function internally maps callbacks to the corresponding DOM events.
 
 ### Lifecycle Events
 
 | DOM Event | Config Callback | Trigger | Purpose |
-|:---------:|:---------------:|:-------:|:-------:|
+| --- | --- | --- | --- |
 | 🟢 `rtc-agent-ready` | `on.ready` | Component initialization complete | Safe to access the component instance and set attributes |
-| 🟡 `rtc-agent-beforeDestroy` | `on.beforeDestroy` | `disconnectedCallback` runs, before cleanup | Last chance to read state or cancel teardown |
-| 🎨 `rtc-agent-themeChange` | `on.themeChange` | Theme changes (attribute, JS property, or system preference) | Sync external UI with the component's theme. `event.detail` is `{ theme: 'light' \| 'dark' \| 'system' }` |
+| 🟡 `rtc-before-destroy` | `on.beforeDestroy` | `disconnectedCallback` runs, before cleanup | Last chance to read state or cancel teardown |
+| 🎨 `rtc-theme-change` | `on.themeChange` | Theme changes (attribute, JS property, or system preference) | Sync external UI with the component's theme. `event.detail` is `{ theme: 'light' \| 'dark' \| 'system' }` |
 
 ### Message Interception Events
 
 | DOM Event | Config Callback | Trigger | Purpose |
-|:---------:|:---------------:|:-------:|:-------:|
-| 📨 `rtc-agent-beforeMessageSend` | `on.beforeMessageSend` | User submits a message, before it is sent | Inspect or modify the message. Return `false` to cancel the send |
+| --- | --- | --- | --- |
+| 📨 `rtc-before-message-send` | `on.beforeMessageSend` | User submits a message, before it is sent | Inspect or modify the message. Return `false` to cancel the send |
 
 The `beforeMessageSend` callback receives `{ message: { content: string, metadata?: Record<string, unknown> } }` and must return `boolean | Promise<boolean>`. Return `false` to cancel the send. You can also mutate `message.content` in place to rewrite the message before it goes out.
 
-### Tool Call Events
-
-These events are bridged from the internal EventBus, giving host applications visibility into tool call progress.
+### Connection & Auth Events
 
 | DOM Event | Config Callback | Trigger | `event.detail` |
-|:---------:|:---------------:|:-------:|:--------------:|
-| ⚡ `rtc-agent-toolCallStart` | `on.toolCallStart` | Tool call begins | `{ path, params }` |
-| ✅ `rtc-agent-toolCallSuccess` | `on.toolCallSuccess` | Tool call completes successfully | `{ path, result }` |
-| ❌ `rtc-agent-toolCallError` | `on.toolCallError` | Tool call fails | `{ path, error }` |
-| 📊 `rtc-agent-toolCallProgress` | `on.toolCallProgress` | Tool call reports intermediate progress | `{ path, progress }` |
+| --- | --- | --- | --- |
+| 🔌 `rtc-connection-retry` | `on.connectionRetry` | User clicks the retry button | `void` |
+| 🔐 `rtc-auth-login-requested` | `on.authLoginRequested` | User requests login | `void` |
+| ❌ `rtc-auth-refresh-failed` | `on.authError` | Auth refresh failed | `void` |
+| 🚪 `rtc-auth-logout` | `on.authLogout` | User logs out | `void` |
+| 📡 `rtc-connection-state-change` | `on.connectionStateChange` | Connection state transitions | `{ state: ConnectionState }` |
+| ✅ `rtc-auth-login` | `on.authLogin` | Login successful (incl. initial load, refresh, manual login) | `{ userId: string }` |
+
+### Session & Message Events
+
+| DOM Event | Config Callback | Trigger | `event.detail` |
+| --- | --- | --- | --- |
+| 📝 `rtc-session-created` | `on.sessionCreated` | New session created | `{ session: Session }` |
+| 🔀 `rtc-session-switched` | `on.sessionSwitched` | Session switched | `{ id: string }` |
+| ✏️ `rtc-session-renamed` | `on.sessionRenamed` | Session renamed | `{ id: string, title: string }` |
+| 🗑️ `rtc-session-deleted` | `on.sessionDeleted` | Session deleted | `{ id: string }` |
+| 📥 `rtc-message-received` | `on.messageReceived` | AI message received | `{ message: Message }` |
+| 📤 `rtc-message-sent` | `on.messageSent` | User message sent | `{ message: Message }` |
+
+### Tool Call Events (Config Callbacks Only)
+
+Tool call events are bridged from the internal EventBus and **only support the `on.*` config callback pattern** — they are not dispatched as DOM events. This avoids putting high-frequency tool call events on the DOM event system.
+
+| Config Callback | Trigger | Callback Args | EventBus Source |
+| --- | --- | --- | --- |
+| `on.toolCallStart` | Tool call begins | `{ path, params }` | `function:start` |
+| `on.toolCallSuccess` | Tool call completes successfully | `{ path, result }` | `function:success` |
+| `on.toolCallError` | Tool call fails | `{ path, error }` | `function:error` |
+| `on.toolCallProgress` | Tool call reports intermediate progress | `{ path, progress }` | `function:progress` |
+
+`path` is the full function path (e.g. `"myGroup.myFunction"`); `params` are the validated input arguments.
 
 ### Event Examples
 
@@ -331,7 +438,7 @@ const agent = createRtcAgent({
       return true;
     },
 
-    // Tool call tracking
+    // Tool call tracking (config callbacks only, not DOM events)
     toolCallStart: ({ path, params }) => {
       console.log(`Tool call started: ${path}`, params);
     },
@@ -348,7 +455,7 @@ const agent = createRtcAgent({
 });
 ```
 
-The same events can also be listened to via DOM `addEventListener` (useful when you cannot set config callbacks):
+The same lifecycle events can also be listened to via DOM `addEventListener` (useful when you cannot set config callbacks):
 
 ```ts
 const agent = document.querySelector('rtc-agent');
@@ -360,19 +467,15 @@ agent.addEventListener('rtc-agent-ready', () => {
   agent.appLabel = 'Custom Title';
 });
 
-agent.addEventListener('rtc-agent-themeChange', (e) => {
+agent.addEventListener('rtc-theme-change', (e) => {
   console.log('Theme is now:', e.detail.theme);
 });
 
-agent.addEventListener('rtc-agent-beforeMessageSend', (e) => {
+agent.addEventListener('rtc-before-message-send', (e) => {
   const { message } = e.detail;
   if (containsSensitiveWords(message.content)) {
-    e.returnValue = false;  // cancel send
+    e.preventDefault();  // cancel send
   }
-});
-
-agent.addEventListener('rtc-agent-toolCallStart', (e) => {
-  console.log('Tool call:', e.detail.path, e.detail.params);
 });
 ```
 
@@ -528,7 +631,10 @@ agent.activityBarConfig = {
   disabledActivities: ['files', 'settings'],
 
   // Default active activity
-  defaultActivity: 'chat',  // 'chat' | 'files' | 'settings'
+  defaultActivity: 'chat',
+
+  // Whether to enable the Function Debugger panel (default: true)
+  enableFunctionDebugger: true,
 };
 ```
 
@@ -536,16 +642,29 @@ agent.activityBarConfig = {
 |:----:|:----:|:------:|
 | 💬 `chat` | Chat interface | ❌ Always visible |
 | 📁 `files` | File manager | ✅ |
+| 🛠️ `functions` | Function Debugger panel | ✅ |
 | ⚙️ `settings` | Settings panel | ✅ |
+
+#### Function Debugger
+
+The Function Debugger is an optional panel in the Activity Bar that provides a complete function debugging interface:
+
+- **Function Tree**: Displays all registered functions grouped by their function groups, with expand/collapse state persisted to localStorage
+- **Parameter Editor**: JSON syntax highlighting + validation, with Zod schema auto-derivation for parameter templates
+- **Execution Console**: Color-coded log output (info/warn/error/debug) with real-time execution results
+- **Execution History**: Bottom drawer panel with pagination, per-function filtering, and full details (params, logs, result) for each entry
+- **Parameter Docs**: Recursively expanded parameter table reusing `schemaToTypeString` for type strings
+
+Set `enableFunctionDebugger: false` to hide the Function Debugger button (suitable for end-user scenarios where debugging is not needed).
 
 ## State Management
 
-The component uses 19 **Controllers** internally to manage state. 9 core state Controllers handle business logic, and 10 UI Controllers handle interface interactions. Controllers do not reference each other directly; instead, the root component `<rtc-agent>` acts as the central hub orchestrating cross-Controller communication:
+The component uses 23 **Controllers** internally to manage state. 11 core state Controllers handle business logic, and 12 UI Controllers handle interface interactions. Controllers do not reference each other directly; instead, the root component `<rtc-agent>` acts as the central hub orchestrating cross-Controller communication:
 
 ```mermaid
 flowchart TD
-    ROOT["🧩 &lt;rtc-agent&gt;<br/>Central Orchestration"] --> CORE["📦 9 Core Controllers"]
-    ROOT --> UI["🎨 10 UI Controllers"]
+    ROOT["🧩 &lt;rtc-agent&gt;<br/>Central Orchestration"] --> CORE["📦 11 Core Controllers"]
+    ROOT --> UI["🎨 12 UI Controllers"]
 
     CORE --> C1["🪟 WindowState"]
     CORE --> C2["🔐 Auth"]
@@ -555,7 +674,9 @@ flowchart TD
     CORE --> C6["⚡ ToolCall"]
     CORE --> C7["💾 Persistence"]
     CORE --> C8["📚 Skill"]
-    CORE --> C9["🖱️ WindowInteraction"]
+    CORE --> C9["🔗 EventBinding"]
+    CORE --> C10["🛠️ Functions"]
+    CORE --> C11["🐛 FunctionDebug"]
 
     UI --> U1["Activity"]
     UI --> U2["EditorArea / Editor"]
@@ -564,6 +685,7 @@ flowchart TD
     UI --> U5["Notification / Toast"]
     UI --> U6["SessionTab / SessionTree"]
     UI --> U7["Settings / StatusBar"]
+    UI --> U8["TurnCount"]
 
     style ROOT fill:#e3f2fd,stroke:#1565c0,stroke-width:3px
     style C1 fill:#e8f5e9,stroke:#388e3c
@@ -575,6 +697,8 @@ flowchart TD
     style C7 fill:#e8f5e9,stroke:#388e3c
     style C8 fill:#e8f5e9,stroke:#388e3c
     style C9 fill:#e8f5e9,stroke:#388e3c
+    style C10 fill:#e8f5e9,stroke:#388e3c
+    style C11 fill:#e8f5e9,stroke:#388e3c
 ```
 
 > 💡 **Design Principle**: Controllers are decoupled from each other; all cross-Controller communication goes through the root component. Sub-components obtain state via `@lit/context` and do not hold direct Controller references.
@@ -692,10 +816,10 @@ initTheme();
 
 ### Theme Events
 
-Listen for the `rtc-agent-themeChange` event to sync external UI:
+Listen for the `rtc-theme-change` event to sync external UI:
 
 ```ts
-agent.addEventListener('rtc-agent-themeChange', (e) => {
+agent.addEventListener('rtc-theme-change', (e) => {
   console.log('Theme switched to:', e.detail.theme);
 });
 ```
@@ -749,47 +873,56 @@ Setting `--rtc-font-size-user` proportionally scales all font sizes:
 
 ## Logo Customization
 
-RTC Agent provides Lit rendering helpers for brand logos, supporting both light and dark variants.
+Use the `logo` property to replace the default brand Logo on the login page, empty state, and settings page. It supports separate light and dark SVG variants that automatically switch with the theme.
 
-### Using renderLogo()
+### Usage
 
 ```ts
-import { renderLogo, renderBubbleLogo } from '@rtc-agent/component/icons/logo.js';
-
-@customElement('my-component')
-export class MyComponent extends LitElement {
-  @property({ type: String })
-  theme: 'light' | 'dark' | 'system' = 'system';
-
-  render() {
-    const isDark = this.theme === 'dark';
-    
-    return html`
-      <div class="header">
-        <!-- Full Logo (for login page, empty state, etc.) -->
-        <div class="logo">${renderLogo(isDark)}</div>
-        
-        <!-- Bubble Logo (for minimized bubble) -->
-        <div class="bubble-logo">${renderBubbleLogo(isDark)}</div>
-      </div>
-    `;
-  }
-}
+const agent = createRtcAgent({
+  // ...other config
+  logo: {
+    light: '<svg viewBox="0 0 80 80" xmlns="http://www.w3.org/2000/svg"><circle cx="40" cy="40" r="36" fill="#2741FE"/><text x="40" y="52" text-anchor="middle" fill="white" font-size="32" font-weight="bold">M</text></svg>',
+    dark: '<svg viewBox="0 0 80 80" xmlns="http://www.w3.org/2000/svg"><circle cx="40" cy="40" r="36" fill="#1A7AB0"/><text x="40" y="52" text-anchor="middle" fill="white" font-size="32" font-weight="bold">M</text></svg>',
+  },
+});
 ```
 
-### Logo Files
+You can also set only one variant — missing variants fall back to the default Logo:
+
+```ts
+agent.logo = {
+  light: '<svg>...</svg>',  // only replace the Logo in light theme
+  // dark is not set — dark theme uses the default Logo
+};
+```
+
+### Internal Mechanism
+
+The component internally uses the `<rtc-logo>` sub-component + Lit Context API to implement automatic theme switching:
+
+- `<rtc-logo>` consumes `LogoContext` and renders the corresponding Logo variant based on the current theme (`light` / `dark`)
+- Supports the `theme` attribute: `'light'` | `'dark'` | `'system'`, where `system` listens to the `prefers-color-scheme` media query
+- If no custom Logo is provided, it renders the default RTC Agent Logo
+
+### Bubble Icon (bubbleIcon)
+
+`bubbleIcon` and `logo` are two independent concepts:
+
+| Property | Location | Purpose |
+| --- | --- | --- |
+| `bubbleIcon` | Minimized bubble | Icon inside the circular bubble after the window is minimized |
+| `logo` | Login page, empty state, settings page | Brand identity for displaying company/product branding |
+
+Both can be customized with SVG, but they serve different purposes.
+
+### Default Logo Files
+
+To modify the default Logo, replace the following SVG files:
 
 | File | Description | Usage |
-|:----:|:-----------:|:-----:|
-| `logo.svg` | Blue sky logo | Light theme |
-| `logo-dark.svg` | Night sky logo | Dark theme |
-
-### Customizing the Logo
-
-To replace the brand logo, you can:
-
-1. **Replace SVG files**: Modify `src/assets/logo.svg` and `src/assets/logo-dark.svg`
-2. **Use custom rendering**: Render your own logo directly in components
+| --- | --- | --- |
+| `logo.svg` | Blue sky Logo | Light theme |
+| `logo-dark.svg` | Night sky Logo | Dark theme |
 
 ## Connection & Retry
 
@@ -999,6 +1132,7 @@ test('send message and get response', async ({ page }) => {
 | 📨 **Message List** | Auto-scrolls to bottom; "New messages" button shown when user scrolls away; supports Markdown rendering and code highlighting |
 | ⚡ **Tool Confirmation Dialog** | Displays tool name and parameters; Yes / No buttons; clicking the background is equivalent to rejecting |
 | 🔄 **Connection Retry** | A retry button is displayed when the connection fails; you can also call `agent.reconnect()` programmatically to reconnect |
+| 🗂️ **Tool Call Cards** | Each tool call is displayed as a timeline card. **Clicking the timeline dot copies the current content to the clipboard** (input cards copy parameters, reply cards copy output). For the `todoWrite` tool, cards render as a task list with status icons (✓ completed / ● in progress / ○ pending) instead of raw JSON |
 
 ## Next Steps
 

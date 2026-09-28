@@ -3,7 +3,7 @@ title: Web Component API
 description: 一个 <rtc-agent> 组件，搞定 AI 对话、工具调用、主题切换——用属性配置，用事件监听，用 CSS 变量定制。使用 createRtcAgent() 工厂函数实现生产级集成。
 ---
 
-**`<rtc-agent>`** 是 RTC Agent 对外暴露的**唯一组件**。它基于 Lit 构建，内部包含 47 个子组件和 19 个 Controller，但对外只呈现一个简洁的 Web Component 接口——属性配置、事件监听、CSS 变量定制。
+**`<rtc-agent>`** 是 RTC Agent 对外暴露的**唯一组件**。它基于 Lit 构建，内部包含 54 个子组件和 23 个 Controller，但对外只呈现一个简洁的 Web Component 接口——属性配置、事件监听、CSS 变量定制。
 
 ## 创建组件
 
@@ -122,6 +122,7 @@ import type {
   // 窗口与 Activity Bar
   WindowConfig,
   ActivityBarConfig,
+  Activity,              // 'chat' | 'files' | 'functions' | 'settings'
 
   // Agent 声明式配置
   AgentConfig,
@@ -130,12 +131,19 @@ import type {
   // 数据模型
   Session,
   Message,
+  ConnectionState,       // 连接状态（用于 connectionStateChange 回调）
 
   // 函数注册与校验
   FunctionDef,
   FunctionGroupDef,
   ValidationError,
   ValidationResult,
+
+  // 函数调试器
+  DebugHistoryItem,
+  FunctionDebugState,
+  LogEntry,
+  LogLevel,
 } from '@rtc-agent/component';
 ```
 
@@ -163,7 +171,7 @@ agent!.addEventListener('rtc-agent-ready', () => {
 ```ts
 const agent = document.querySelector('rtc-agent')!;
 
-agent.addEventListener('rtc-agent-themeChange', (e) => {
+agent.addEventListener('rtc-theme-change', (e) => {
   // e.detail 自动推导为 { theme: 'light' | 'dark' | 'system' }
   console.log(e.detail.theme);
 });
@@ -346,34 +354,60 @@ agent.addEventListener('rtc-agent-ready', () => {
 
 ## 事件
 
-所有事件支持两种监听方式：DOM 事件（带 `rtc-agent-` 前缀）和配置回调（通过 `RtcAgentConfig` 的 `on` 字段，使用无前缀的名称）。
+所有事件支持两种监听方式：DOM 事件（通过 `addEventListener` 监听）和配置回调（通过 `RtcAgentConfig` 的 `on` 字段）。
+
+> 💡 **事件命名规范**：DOM 事件名统一使用 `rtc-` 前缀加 kebab-case 命名（如 `rtc-theme-change`）。配置回调名使用 camelCase（如 `themeChange`）。工厂函数内部自动将回调映射到对应的 DOM 事件。
 
 ### 生命周期事件
 
 | DOM 事件 | 配置回调 | 触发时机 | 用途 |
-|:---------:|:---------------:|:-------:|:----:|
+| --- | --- | --- | --- |
 | 🟢 `rtc-agent-ready` | `on.ready` | 组件完成初始化 | 此时可安全访问组件实例、设置属性 |
-| 🟡 `rtc-agent-beforeDestroy` | `on.beforeDestroy` | `disconnectedCallback` 执行时，清理之前 | 最后读取状态或取消拆解的机会 |
-| 🎨 `rtc-agent-themeChange` | `on.themeChange` | 主题变化（属性、JS 属性或系统偏好） | 将外部 UI 与组件主题同步。`event.detail` 为 `{ theme: 'light' \| 'dark' \| 'system' }` |
+| 🟡 `rtc-before-destroy` | `on.beforeDestroy` | `disconnectedCallback` 执行时，清理之前 | 最后读取状态或取消拆解的机会 |
+| 🎨 `rtc-theme-change` | `on.themeChange` | 主题变化（属性、JS 属性或系统偏好） | 将外部 UI 与组件主题同步。`event.detail` 为 `{ theme: 'light' \| 'dark' \| 'system' }` |
 
 ### 消息拦截事件
 
 | DOM 事件 | 配置回调 | 触发时机 | 用途 |
-|:---------:|:---------------:|:-------:|:----:|
-| 📨 `rtc-agent-beforeMessageSend` | `on.beforeMessageSend` | 用户提交消息，发送之前 | 检查或修改消息。返回 `false` 取消发送 |
+| --- | --- | --- | --- |
+| 📨 `rtc-before-message-send` | `on.beforeMessageSend` | 用户提交消息，发送之前 | 检查或修改消息。返回 `false` 取消发送 |
 
 `beforeMessageSend` 回调接收 `{ message: { content: string, metadata?: Record<string, unknown> } }`，必须返回 `boolean | Promise<boolean>`。返回 `false` 取消发送。你也可以就地修改 `message.content` 来在消息发出前重写内容。
 
-### 工具调用事件
-
-这些事件从内部 EventBus 桥接而来，让宿主应用能够感知工具调用的进度。
+### 连接与认证事件
 
 | DOM 事件 | 配置回调 | 触发时机 | `event.detail` |
-|:---------:|:---------------:|:-------:|:--------------:|
-| ⚡ `rtc-agent-toolCallStart` | `on.toolCallStart` | 工具调用开始 | `{ path, params }` |
-| ✅ `rtc-agent-toolCallSuccess` | `on.toolCallSuccess` | 工具调用成功完成 | `{ path, result }` |
-| ❌ `rtc-agent-toolCallError` | `on.toolCallError` | 工具调用失败 | `{ path, error }` |
-| 📊 `rtc-agent-toolCallProgress` | `on.toolCallProgress` | 工具调用报告中间进度 | `{ path, progress }` |
+| --- | --- | --- | --- |
+| 🔌 `rtc-connection-retry` | `on.connectionRetry` | 用户点击重连按钮 | `void` |
+| 🔐 `rtc-auth-login-requested` | `on.authLoginRequested` | 用户请求登录 | `void` |
+| ❌ `rtc-auth-refresh-failed` | `on.authError` | 认证刷新失败 | `void` |
+| 🚪 `rtc-auth-logout` | `on.authLogout` | 用户登出 | `void` |
+| 📡 `rtc-connection-state-change` | `on.connectionStateChange` | 连接状态变化 | `{ state: ConnectionState }` |
+| ✅ `rtc-auth-login` | `on.authLogin` | 登录成功（含初始加载、刷新、手动登录） | `{ userId: string }` |
+
+### 会话与消息事件
+
+| DOM 事件 | 配置回调 | 触发时机 | `event.detail` |
+| --- | --- | --- | --- |
+| 📝 `rtc-session-created` | `on.sessionCreated` | 新会话创建 | `{ session: Session }` |
+| 🔀 `rtc-session-switched` | `on.sessionSwitched` | 切换会话 | `{ id: string }` |
+| ✏️ `rtc-session-renamed` | `on.sessionRenamed` | 会话重命名 | `{ id: string, title: string }` |
+| 🗑️ `rtc-session-deleted` | `on.sessionDeleted` | 会话删除 | `{ id: string }` |
+| 📥 `rtc-message-received` | `on.messageReceived` | 收到 AI 消息 | `{ message: Message }` |
+| 📤 `rtc-message-sent` | `on.messageSent` | 用户消息已发送 | `{ message: Message }` |
+
+### 工具调用事件（仅配置回调）
+
+工具调用事件通过内部 EventBus 桥接，**仅支持 `on.*` 配置回调方式**，不作为 DOM 事件派发。这避免了大量工具调用事件对 DOM 事件系统的压力。
+
+| 配置回调 | 触发时机 | 回调参数 | EventBus 来源 |
+| --- | --- | --- | --- |
+| `on.toolCallStart` | 工具调用开始 | `{ path, params }` | `function:start` |
+| `on.toolCallSuccess` | 工具调用成功完成 | `{ path, result }` | `function:success` |
+| `on.toolCallError` | 工具调用失败 | `{ path, error }` | `function:error` |
+| `on.toolCallProgress` | 工具调用报告中间进度 | `{ path, progress }` | `function:progress` |
+
+`path` 为函数完整路径（如 `"myGroup.myFunction"`），`params` 为校验后的入参。
 
 ### 事件示例
 
@@ -404,7 +438,7 @@ const agent = createRtcAgent({
       return true;
     },
 
-    // 工具调用追踪
+    // 工具调用追踪（仅通过 on 回调，非 DOM 事件）
     toolCallStart: ({ path, params }) => {
       console.log(`工具调用开始: ${path}`, params);
     },
@@ -421,7 +455,7 @@ const agent = createRtcAgent({
 });
 ```
 
-同样的事件也可以通过 DOM `addEventListener` 监听（适用于无法设置配置回调的场景）：
+同样的生命周期事件也可以通过 DOM `addEventListener` 监听（适用于无法设置配置回调的场景）：
 
 ```ts
 const agent = document.querySelector('rtc-agent');
@@ -433,19 +467,15 @@ agent.addEventListener('rtc-agent-ready', () => {
   agent.appLabel = '自定义标题';
 });
 
-agent.addEventListener('rtc-agent-themeChange', (e) => {
+agent.addEventListener('rtc-theme-change', (e) => {
   console.log('当前主题:', e.detail.theme);
 });
 
-agent.addEventListener('rtc-agent-beforeMessageSend', (e) => {
+agent.addEventListener('rtc-before-message-send', (e) => {
   const { message } = e.detail;
   if (containsSensitiveWords(message.content)) {
-    e.returnValue = false;  // 取消发送
+    e.preventDefault();  // 取消发送
   }
-});
-
-agent.addEventListener('rtc-agent-toolCallStart', (e) => {
-  console.log('工具调用:', e.detail.path, e.detail.params);
 });
 ```
 
@@ -601,7 +631,10 @@ agent.activityBarConfig = {
   disabledActivities: ['files', 'settings'],
 
   // 默认激活的活动
-  defaultActivity: 'chat',  // 'chat' | 'files' | 'settings'
+  defaultActivity: 'chat',
+
+  // 是否启用函数调试器面板（默认: true）
+  enableFunctionDebugger: true,
 };
 ```
 
@@ -609,16 +642,29 @@ agent.activityBarConfig = {
 |:----:|:----:|:------:|
 | 💬 `chat` | 聊天界面 | ❌ 始终显示 |
 | 📁 `files` | 文件管理 | ✅ |
+| 🛠️ `functions` | 函数调试器面板 | ✅ |
 | ⚙️ `settings` | 设置面板 | ✅ |
+
+#### 函数调试器（Function Debugger）
+
+函数调试器是 Activity Bar 中的一个可选面板，提供完整的函数调试界面：
+
+- **函数树**：按分组展示所有已注册的函数，支持展开/折叠，状态持久化到 localStorage
+- **参数编辑器**：JSON 语法高亮 + 校验，支持 Zod schema 自动推导参数模板
+- **执行控制台**：彩色日志输出（info/warn/error/debug），实时显示执行结果
+- **执行历史**：底部抽屉式面板，支持分页、按函数名过滤，每条记录包含完整的参数、日志、结果详情
+- **参数文档**：递归展开的参数表格，复用 `schemaToTypeString` 生成类型字符串
+
+通过 `enableFunctionDebugger: false` 可以隐藏函数调试器按钮（适用于不需要调试功能的最终用户场景）。
 
 ## 状态管理
 
-组件内部使用 19 个 **Controller** 管理状态。其中 9 个核心状态 Controller 负责业务逻辑，10 个 UI 辅助 Controller 负责界面交互。Controller 之间不直接引用，由根组件 `<rtc-agent>` 作为中枢编排跨 Controller 通信：
+组件内部使用 23 个 **Controller** 管理状态。其中 11 个核心状态 Controller 负责业务逻辑，12 个 UI 辅助 Controller 负责界面交互。Controller 之间不直接引用，由根组件 `<rtc-agent>` 作为中枢编排跨 Controller 通信：
 
 ```mermaid
 flowchart TD
-    ROOT["🧩 &lt;rtc-agent&gt;<br/>中枢编排"] --> CORE["📦 9 个核心 Controller"]
-    ROOT --> UI["🎨 10 个 UI Controller"]
+    ROOT["🧩 &lt;rtc-agent&gt;<br/>中枢编排"] --> CORE["📦 11 个核心 Controller"]
+    ROOT --> UI["🎨 12 个 UI Controller"]
 
     CORE --> C1["🪟 WindowState"]
     CORE --> C2["🔐 Auth"]
@@ -628,7 +674,9 @@ flowchart TD
     CORE --> C6["⚡ ToolCall"]
     CORE --> C7["💾 Persistence"]
     CORE --> C8["📚 Skill"]
-    CORE --> C9["🖱️ WindowInteraction"]
+    CORE --> C9["🔗 EventBinding"]
+    CORE --> C10["🛠️ Functions"]
+    CORE --> C11["🐛 FunctionDebug"]
 
     UI --> U1["Activity"]
     UI --> U2["EditorArea / Editor"]
@@ -637,6 +685,7 @@ flowchart TD
     UI --> U5["Notification / Toast"]
     UI --> U6["SessionTab / SessionTree"]
     UI --> U7["Settings / StatusBar"]
+    UI --> U8["TurnCount"]
 
     style ROOT fill:#e3f2fd,stroke:#1565c0,stroke-width:3px
     style C1 fill:#e8f5e9,stroke:#388e3c
@@ -648,6 +697,8 @@ flowchart TD
     style C7 fill:#e8f5e9,stroke:#388e3c
     style C8 fill:#e8f5e9,stroke:#388e3c
     style C9 fill:#e8f5e9,stroke:#388e3c
+    style C10 fill:#e8f5e9,stroke:#388e3c
+    style C11 fill:#e8f5e9,stroke:#388e3c
 ```
 
 > 💡 **设计原则**：Controller 之间解耦，所有跨 Controller 通信都经过根组件中转。子组件通过 `@lit/context` 获取状态，不直接持有 Controller 引用。
@@ -765,10 +816,10 @@ initTheme();
 
 ### 主题事件
 
-监听 `rtc-agent-themeChange` 事件同步外部 UI：
+监听 `rtc-theme-change` 事件同步外部 UI：
 
 ```ts
-agent.addEventListener('rtc-agent-themeChange', (e) => {
+agent.addEventListener('rtc-theme-change', (e) => {
   console.log('主题已切换为:', e.detail.theme);
 });
 ```
@@ -1081,6 +1132,7 @@ test('send message and get response', async ({ page }) => {
 | 📨 **消息列表** | 自动滚动到底部；用户滚动离开时显示"新消息"按钮；支持 Markdown 渲染和代码高亮 |
 | ⚡ **工具确认弹窗** | 显示工具名和参数；Yes / No 按钮；点击背景等同于拒绝 |
 | 🔄 **连接失败重试** | 连接断开时显示重试按钮，也可通过 JS 调用 `agent.reconnect()` 方法手动重连 |
+| 🗂️ **工具调用卡片** | 每个工具调用显示为带时间线的卡片。**点击时间线圆点可将当前内容复制到剪贴板**（输入卡片复制参数，回复卡片复制输出）。对于 `todoWrite` 工具，卡片会渲染为带状态图标的任务列表（✓ 完成 / ● 进行中 / ○ 未开始），而非原始 JSON |
 
 ## 下一步
 

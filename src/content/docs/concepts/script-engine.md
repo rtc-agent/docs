@@ -193,7 +193,8 @@ flowchart TD
 | `rtcAgent.system.uuid(count?)` | 生成 UUID v4（支持批量） | crypto.randomUUID |
 | `rtcAgent.system.now()` | 获取当前时间戳（毫秒） | Date.now |
 | `rtcAgent.system.random(opts?)` | 生成随机数（支持范围/整数） | Math.random |
-| `rtcAgent.system.time(format?)` | 获取格式化时间（iso/locale/ts） | Date |
+| `rtcAgent.system.time(format?)` | 获取格式化时间（iso/locale/ts，默认 `locale`） | Date |
+| `rtcAgent.system.timezone()` | 获取本地时区信息（IANA 名称 + UTC 偏移） | Intl.DateTimeFormat |
 
 > 📌 这些工具遵循标准 FunctionDef 规范，AI 通过虚拟文档自动发现，与用户自定义的 Function Group 使用方式一致。
 
