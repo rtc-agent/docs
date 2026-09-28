@@ -33,7 +33,7 @@ flowchart TD
 最简单的方式——只需设置 `agentConfig` 属性：
 
 ```ts
-import { z } from '@rtc-agent/component';
+import { z, withMeta } from '@rtc-agent/component';
 
 const agent = document.querySelector('rtc-agent');
 
@@ -49,8 +49,8 @@ agent.agentConfig = {
           name: 'create',
           description: '创建一个新订单',
           zodSchema: z.object({
-            productId: z.string().describe('商品 ID'),
-            quantity: z.number().optional().describe('购买数量'),
+            productId: withMeta(z.string(), { example: 'PROD-001' }).describe('商品 ID'),
+            quantity: withMeta(z.number().int().positive(), { example: 2 }).optional().describe('购买数量'),
           }),
           returns: { zodSchema: z.object({ orderId: z.string() }).describe('订单信息，包含 orderId') },
           handler: async (params) => {
@@ -101,8 +101,8 @@ orderGroup.register({
 |:----:|:----:|:----:|:----:|
 | 📛 `name` | `string` | ✅ | 函数名称，与分组名组合成完整路径（如 `order.create`） |
 | 📝 `description` | `string` | ✅ | 函数描述，**写入自动生成的文档**，AI 据此决定何时调用 |
-| 📐 `parameters` | `ParameterDef[]` | — | 参数定义数组，每项含 `{name, schema, required?, description?}`，`schema` 为 OpenAPI Schema |
 | 🔗 `zodSchema` | `ZodType` | — | Zod Schema（推荐），自动转换为参数定义，同时提供运行时校验 |
+| 📐 `parameters` | `ParameterDef[]` | — | 旧版 OpenAPI 风格参数定义。新代码请使用 `zodSchema` |
 | 🔙 `returns` | `ReturnDef` | — | 返回值定义 `{schema?, zodSchema?, description?}`，帮助 AI 理解输出。**推荐使用 `zodSchema`** |
 | ⚡ `handler` | `function` | ✅ | 执行函数，支持 `async`，接收 `params` 参数 |
 | 🪝 `hooks` | `object` | — | UI 钩子（`onStart` / `onSuccess` / `onError` / `onProgress`） |
