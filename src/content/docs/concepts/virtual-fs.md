@@ -87,7 +87,7 @@ flowchart LR
 |:----:|------|----------|:----:|
 | `ls` | 列出目录内容 | `path`（默认 `/`） | ✅ 可用 |
 | `read` | 读取文件内容 | `path`（必填），`offset` / `limit`（分页） | ✅ 可用 |
-| `write` | 创建或写入文件 | `path`、`content`（必填） | ✅ 可用 |
+| `write` | 创建或写入文件 | `path`、`content`（必填），`mode`（可选，见下方） | ✅ 可用 |
 | `edit` | 精确字符串替换 | `path`、`old_string`、`new_string`（必填），`replace_all` | ✅ 可用 |
 | `find` | 按文件名搜索 | `pattern`（glob），`path` | ✅ 可用 |
 | `grep` | 按文件内容搜索 | `pattern`（正则），详见下方参数表 | ✅ 可用 |
@@ -114,6 +114,16 @@ flowchart LR
 | `path` | string | 是 | 文件的绝对路径 |
 | `offset` | integer | 否 | 起始行号（1-indexed），仅在文件过大时提供 |
 | `limit` | integer | 否 | 读取行数，仅在文件过大时提供 |
+
+### write — 写入模式
+
+`write` 支持三种写入模式，通过 `mode` 参数控制：
+
+| 模式 | 说明 | 返回值 |
+|------|------|--------|
+| `overwrite` | 覆盖写入（默认），文件不存在则创建 | 写入后总字符数 |
+| `append` | 追加写入，内容添加到文件末尾 | 写入后总字符数 |
+| `create-new` | 仅新建，文件已存在则跳过写入 | 已存在时返回原文件字符数 |
 
 ### edit — 精确字符串替换
 

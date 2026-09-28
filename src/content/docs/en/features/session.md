@@ -65,7 +65,7 @@ flowchart TD
 | Operation | Description |
 |-----------|-------------|
 | **Create** | Auto-created when sending the first message — no dedicated RPC; can also click the new button to create an empty session (purely frontend-local) |
-| **List** | Reverse chronological by creation time, cursor-paginated |
+| **List** | Reverse chronological by update time, cursor-paginated (returns all active sessions by default) |
 | **Switch** | Pure frontend behavior, no RPC — loads message history from local IndexedDB |
 | **Rename** | Modify the session title |
 | **Fork** | Copy history based on a specific message, replace that message's content, and trigger a new AI flow |

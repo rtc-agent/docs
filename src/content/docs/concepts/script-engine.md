@@ -273,8 +273,11 @@ flowchart LR
 | `logs` | console.log | AI 查看调试信息 |
 | `warnings` | console.warn | AI 识别潜在问题 |
 | `errors` | console.error | AI 处理异常情况 |
+| `duration_ms` | 执行耗时（毫秒） | AI 评估脚本性能 |
 
 > 💡 `console` 是劫持版本——输出正常显示给用户的同时，也会被收集并返回给 AI，让 AI 能"看到"脚本的运行过程。
+>
+> 💡 每类输出最多保留 100 条。如果 `console.log` 的参数本身是 JSON 字符串（如 `console.log(JSON.stringify(obj))`），引擎会自动解析为对象，避免双重序列化。
 
 ## 异步支持
 

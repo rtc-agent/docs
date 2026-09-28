@@ -87,7 +87,7 @@ flowchart LR
 |:----:|------|----------|:----:|
 | `ls` | List directory contents | `path` (default `/`) | ✅ Available |
 | `read` | Read file contents | `path` (required), `offset` / `limit` (pagination) | ✅ Available |
-| `write` | Create or write to file | `path`, `content` (required) | ✅ Available |
+| `write` | Create or write to file | `path`, `content` (required), `mode` (optional, see below) | ✅ Available |
 | `edit` | Exact string replacement | `path`, `old_string`, `new_string` (required), `replace_all` | ✅ Available |
 | `find` | Search by file name | `pattern` (glob), `path` | ✅ Available |
 | `grep` | Search by file content | `pattern` (regex), see parameter table below | ✅ Available |
@@ -114,6 +114,16 @@ flowchart LR
 | `path` | string | Yes | Absolute path to the file |
 | `offset` | integer | No | Starting line number (1-indexed), only provide for large files |
 | `limit` | integer | No | Number of lines to read, only provide for large files |
+
+### write — Write Modes
+
+`write` supports three write modes controlled by the `mode` parameter:
+
+| Mode | Description | Return value |
+|------|-------------|--------------|
+| `overwrite` | Overwrite (default); creates the file if it does not exist | Total character count after write |
+| `append` | Append; content is added to the end of the file | Total character count after write |
+| `create-new` | Create only; skips writing if the file already exists | Existing file character count when file exists |
 
 ### edit — Exact String Replacement
 

@@ -273,8 +273,11 @@ flowchart LR
 | `logs` | console.log | AI reviews debug information |
 | `warnings` | console.warn | AI identifies potential issues |
 | `errors` | console.error | AI handles error conditions |
+| `duration_ms` | Execution duration (ms) | AI evaluates script performance |
 
 > 💡 `console` is a hijacked version — output is displayed normally to the user while also being collected and returned to the AI, allowing the AI to "see" the script's execution process.
+>
+> 💡 Each output category retains up to 100 entries. If a `console.log` argument is already a JSON string (e.g. `console.log(JSON.stringify(obj))`), the engine parses it into an object automatically to avoid double serialization.
 
 ## Async Support
 
