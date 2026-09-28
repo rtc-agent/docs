@@ -191,13 +191,14 @@ agent.destroy();
 
 `destroy()` 按以下顺序执行：
 
-1. **从 DOM 中移除元素** — 在宿主元素上调用 `this.remove()`
-2. **清除待处理的认证引用** — 取消进行中的令牌请求并丢弃缓存的凭据
-3. **调用所有 DOM 事件取消订阅函数** — 通过配置 `on` 字段或 `rtc-agent-*` DOM 事件注册的每个 `addEventListener` 都会被移除
-4. **调用所有 EventBus 取消订阅函数** — 内部订阅（工具调用事件、会话更新等）被拆除
-5. **置空内部数组** — 事件处理器列表和 Controller 引用被设为 `null`，以便垃圾回收器回收
+1. **从 DOM 中移除元素** — 在宿主元素上调用 `this.remove()`，触发 `disconnectedCallback`（清理 DOM 事件监听器、UIUpdateBus 订阅、RTC processor、auth 回调、auto-save 定时器等）
+2. **清除待处理的认证配置引用** — 释放工厂捕获的 `_pendingAuthConfig` / `_pendingDynamicAuth` / `_pendingAuthProvider`
+3. **调用所有 DOM 事件取消订阅函数** — 通过配置 `on` 字段注册的每个 `addEventListener` 都会被移除
+4. **调用所有 EventBus 取消订阅函数** — 内部订阅（工具调用事件桥接等）被拆除
 
 > 💡 **何时调用**：在从页面移除组件之前，始终调用 `destroy()`（例如 SPA 路由切换、模态框关闭、或框架的 `unmount` 钩子）。跳过此步骤会导致事件监听器和 WebSocket 连接泄漏。
+>
+> **注意**：`destroy()` **不会** 清除 localStorage 中的认证 token（为了兼容 Vite HMR，避免开发时每次保存都导致登出）。如需主动登出，请调用 `auth.logout()`。
 >
 > 完整集成指南：[集成教程](/docs/integration/integration-tutorial/)
 

@@ -191,13 +191,14 @@ agent.destroy();
 
 `destroy()` executes the following steps in order:
 
-1. **Removes the element from the DOM** — calls `this.remove()` on the host element
-2. **Clears pending auth references** — cancels in-flight token requests and drops cached credentials
-3. **Calls all DOM event unsubscribe functions** — every `addEventListener` registered through the config `on` field or the `rtc-agent-*` DOM events is removed
-4. **Calls all EventBus unsubscribe functions** — internal subscriptions (tool call events, session updates, etc.) are torn down
-5. **Nullifies internal arrays** — event handler lists and controller references are set to `null` so the garbage collector can reclaim them
+1. **Removes the element from the DOM** — calls `this.remove()` on the host element, which triggers `disconnectedCallback` (clears DOM event listeners, UIUpdateBus subscriptions, RTC processor, auth callbacks, auto-save timers, etc.)
+2. **Clears pending auth configuration references** — releases factory-captured `_pendingAuthConfig` / `_pendingDynamicAuth` / `_pendingAuthProvider`
+3. **Calls all DOM event unsubscribe functions** — every `addEventListener` registered through the config `on` field is removed
+4. **Calls all EventBus unsubscribe functions** — internal subscriptions (tool call event bridging, etc.) are torn down
 
 > 💡 **When to call**: Always call `destroy()` before removing the component from the page (e.g., in SPA route changes, modal close, or framework `unmount` hooks). Skipping it leaks event listeners and WebSocket connections.
+>
+> **Note**: `destroy()` does **not** clear authentication tokens from localStorage (to support Vite HMR — clearing tokens would log the user out on every code change during development). To log out explicitly, call `auth.logout()`.
 >
 > Full integration guide: [Integration Tutorial](/docs/en/integration/integration-tutorial/)
 
