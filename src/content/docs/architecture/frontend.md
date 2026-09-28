@@ -1,9 +1,9 @@
 ---
 title: 前端架构
-description: RTC Agent 的前端架构——基于 Lit 的 Web Components 组件库，45 个子组件、19 个 Controller、@lit/context 状态分发。
+description: RTC Agent 的前端架构——基于 Lit 的 Web Components 组件库，54 个子组件、23 个 Controller、@lit/context 状态分发。
 ---
 
-RTC Agent 的前端是一个基于 **Lit Web Components** 构建的组件库。对外只暴露一个 `<rtc-agent>` 组件，内部包含 **45 个子组件**，使用 **19 个 Controller** 管理状态，通过 `@lit/context` 向子组件分发数据。
+RTC Agent 的前端是一个基于 **Lit Web Components** 构建的组件库。对外只暴露一个 `<rtc-agent>` 组件，内部包含 **54 个子组件**，使用 **23 个 Controller** 管理状态，通过 `@lit/context` 向子组件分发数据。
 
 ## 组件架构
 
@@ -114,7 +114,7 @@ flowchart TD
 
 ```mermaid
 flowchart TD
-    subgraph CONTROLLERS["🎮 19 个 Controller"]
+    subgraph CONTROLLERS["🎮 23 个 Controller"]
         direction TB
         subgraph CORE["📦 9 个核心 Controller"]
             C1["🪟 WindowState"]
@@ -127,7 +127,7 @@ flowchart TD
             C8["📚 Skill"]
             C9["🖱️ WindowInteraction"]
         end
-        subgraph UI["🎨 10 个 UI Controller"]
+        subgraph UI["🎨 14 个 UI Controller"]
             C10["📂 SessionTree"]
             C11["📑 SessionTab"]
             C12["🔔 Notification"]
@@ -139,6 +139,9 @@ flowchart TD
             C18["✏️ Editor"]
             C19["📏 StatusBar"]
             C20["⚙️ Settings"]
+            C21["🔗 EventBinding"]
+            C22["🐛 FunctionDebug"]
+            C23["📚 Functions"]
         end
     end
 
@@ -326,6 +329,118 @@ flowchart TD
 | `/goal` | Prompt | 目标驱动，AI 设置完成条件，Judge 模型检查 |
 
 详见 [命令系统](/docs/features/commands)。
+
+## 测试与质量保障
+
+前端工程采用多层测试策略，覆盖单元测试、集成测试与端到端测试，确保组件行为正确、跨模块协作稳定。
+
+### 测试基础设施
+
+| 工具 | 用途 | 配置位置 |
+| --- | --- | --- |
+| **Vitest** | 单元测试 & 集成测试 | `packages/*/vitest.config.ts` |
+| **Playwright** | 端到端测试 (E2E) | `packages/component/playwright.config.ts` |
+| **jsdom** | 浏览器 API 模拟（Vitest 环境） | `test-setup.ts` 中 polyfill IndexedDB、matchMedia、ResizeObserver 等 |
+| **fake-indexeddb** | IndexedDB 纯 JS 实现，供 Dexie 在测试中使用 | `test-setup.ts` 自动导入 |
+
+### 测试规模
+
+| 包 | 单元测试文件数 | 说明 |
+| --- | ---: | --- |
+| `@rtc-agent/component` | 62 | 覆盖所有 Controller、组件、工厂函数、事件系统、认证流程 |
+| `@rtc-agent/persistence` | 12 | 覆盖 IndexedDB 操作、实体仓库、事务、偏移管理器、脚本引擎 |
+| `@rtc-agent/client` | 1 | 覆盖 WebSocket 客户端、偏移同步、gap-fill 逻辑 |
+| `@rtc-agent/worker` | 1 | 覆盖 SharedWorker 核心消息路由 |
+| **E2E (Playwright)** | 6 | 覆盖调试 API、业务流程、高级交互、文档协调、脚本执行 |
+
+当前共计 **835+ 单元测试用例**，全部通过。
+
+### 运行测试
+
+```bash
+# 运行所有单元测试（在 web-components 根目录）
+pnpm test
+
+# 仅运行 component 包的单元测试
+pnpm --filter @rtc-agent/component test
+
+# 运行 E2E 测试（需要 Vite 开发服务器）
+pnpm --filter @rtc-agent/component test:e2e
+
+# 运行特定测试文件
+npx vitest run packages/component/src/controllers/auth.controller.test.ts
+
+# 监听模式（开发时推荐）
+npx vitest
+```
+
+### 测试分层
+
+```mermaid
+flowchart TD
+    subgraph E2E["Playwright E2E 测试"]
+        direction LR
+        E1["调试 API 验证"]
+        E2["业务流程测试<br/>会话生命周期 · 消息收发"]
+        E3["高级交互测试<br/>设置 · 网络状态 · 工具调用"]
+        E4["文档协调测试<br/>孤儿文件清理"]
+        E5["脚本执行测试<br/>浏览器沙箱函数调用"]
+    end
+
+    subgraph INTEGRATION["集成测试"]
+        direction LR
+        I1["createRtcAgent 生命周期<br/>创建 → 配置 → 挂载 → 销毁"]
+        I2["认证流程<br/>三种认证模式"]
+        I3["事件系统集成<br/>DOM 事件 + EventBus"]
+    end
+
+    subgraph UNIT["单元测试 (Vitest)"]
+        direction LR
+        U1["Controller<br/>23 个 Controller 各自独立测试"]
+        U2["组件<br/>渲染 · 属性 · 事件 · 插槽"]
+        U3["工具函数<br/>格式化 · 命令解析 · 时间"]
+        U4["Persistence<br/>IndexedDB 事务 · 批量操作"]
+    end
+
+    E2E --> INTEGRATION
+    INTEGRATION --> UNIT
+
+    style E2E fill:#e8f5e9,stroke:#388e3c,stroke-width:2px
+    style INTEGRATION fill:#e3f2fd,stroke:#1565c0,stroke-width:2px
+    style UNIT fill:#fff9c4,stroke:#f9a825,stroke-width:2px
+```
+
+### 测试辅助工具
+
+`packages/component/src/test-helpers.ts` 提供测试基础设施：
+
+| 工具 | 说明 |
+| --- | --- |
+| `fixture(template, options?)` | 创建 Lit 组件测试夹具，自动等待更新周期完成 |
+| `nextFrame()` | 等待一帧，确保 Lit 完成渲染 |
+| `cleanupFixtures()` | 清理所有已创建的测试夹具，防止测试间污染 |
+| `provideContext()` | 在 `setup` 阶段注入 `@lit/context`，确保组件首次更新前上下文就绪 |
+
+### E2E 测试调试 API
+
+E2E 测试依赖调试页面 (`/debug/index.html`) 暴露的 `window.rtcAgentDebug` API。该 API 在开发模式下自动安装，提供以下能力：
+
+| 方法 | 说明 |
+| --- | --- |
+| `waitForReady(timeout?)` | 等待 `<rtc-agent>` 组件就绪 |
+| `sendMessage(text)` | 发送消息 |
+| `getSessionController()` | 获取会话控制器 |
+| `getActions(controller)` | 获取指定控制器的 actions |
+
+### CI 流水线
+
+GitHub Actions CI 在每次 push/PR 时自动执行：
+
+```bash
+pnpm install → pnpm build → pnpm typecheck → pnpm test
+```
+
+Node.js 版本：24。测试在 `ubuntu-latest` 环境运行。
 
 ## 性能与无障碍
 

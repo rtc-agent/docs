@@ -91,7 +91,7 @@ agent.destroy();
 For simple scenarios or CDN quick previews, you can use HTML attributes directly:
 
 ```html
-<script type="module" src="https://cdn.jsdelivr.net/npm/@rtc-agent/component@0.2.6-rc.1/dist/index.js"></script>
+<script type="module" src="https://cdn.jsdelivr.net/npm/@rtc-agent/component@0.2.7-rc.4/dist/index.js"></script>
 
 <rtc-agent theme="dark" app-label="My AI Assistant"></rtc-agent>
 ```
@@ -116,12 +116,14 @@ import type {
   DynamicTokenAuth,
   AuthProvider,
 
-  // Event callbacks
+  // Event callbacks and event type map
   EventCallbacks,
+  RtcAgentEventDetailMap, // DOM event name → detail type mapping
 
   // Window & Activity Bar
   WindowConfig,
   ActivityBarConfig,
+  ResolvedActivityBarConfig,
   Activity,              // 'chat' | 'files' | 'functions' | 'settings'
 
   // Agent declarative config
@@ -136,6 +138,10 @@ import type {
   // Function registration and validation
   FunctionDef,
   FunctionGroupDef,
+  ParameterDef,
+  ReturnDef,
+  OpenAPISchema,
+  VisualHooks,
   ValidationError,
   ValidationResult,
 
@@ -144,6 +150,81 @@ import type {
   FunctionDebugState,
   LogEntry,
   LogLevel,
+  ExecutionStatus,
+  HistoryPaginationState,
+
+  // Scenario documents
+  ScenarioDef,
+  ScenarioManifest,
+  RegistryConfig,
+} from '@rtc-agent/component';
+```
+
+#### Main Exported Values and Runtime APIs
+
+```ts
+import {
+  // Factory function
+  createRtcAgent,
+
+  // Ready signal
+  whenReady,
+
+  // Imperative function registration
+  defineRegistry,
+  FunctionRegistry,
+  FunctionGroup,
+
+  // Zod validation utilities
+  z,                    // Re-export of the Zod library
+  validateParams,
+  formatValidationError,
+  buildValidator,
+  withValidation,
+  zodToParams,
+  zodToOpenAPISchema,
+  openApiToZod,
+  withMeta,             // Attach example and other metadata to Zod schemas
+
+  // Scenario document loading
+  loadScenariosFromURL,
+  loadScenariosContent,
+  parseFrontmatter,
+
+  // Markdown documentation generation
+  generateFunctionMd,
+  generateFunctionsIndex,
+  generateScenariosIndex,
+  generateAgentMd,
+
+  // EventBus (advanced — observe internal tool call events)
+  EventBus,
+  eventBus,
+  createEventBus,
+
+  // Activity Bar config utilities
+  DEFAULT_ACTIVITY_BAR_CONFIG,
+  resolveActivityBarConfig,
+
+  // Internationalization
+  switchLocale,
+  initLocale,
+  getLocale,
+  persistLocale,
+  sourceLocale,
+  targetLocales,
+  localeContext,
+  isValidLocale,
+
+  // Theme
+  switchTheme,
+  initTheme,
+  getEffectiveTheme,
+  getStoredTheme,
+  persistTheme,
+
+  // Exception class
+  CancelledError,       // User cancellation error (throw from hooks.onStart to cancel execution)
 } from '@rtc-agent/component';
 ```
 
@@ -643,9 +724,9 @@ agent.activityBarConfig = {
 | Activity | Description | Hideable |
 |:----:|:----:|:------:|
 | 💬 `chat` | Chat interface | ❌ Always visible |
-| 📁 `files` | File manager | ✅ |
-| 🛠️ `functions` | Function Debugger panel | ✅ |
-| ⚙️ `settings` | Settings panel | ✅ |
+| 📁 `files` | File manager | ✅ via `disabledActivities` |
+| 🛠️ `functions` | Function Debugger panel | ✅ via `enableFunctionDebugger: false` |
+| ⚙️ `settings` | Settings panel | ✅ via `disabledActivities` |
 
 #### Function Debugger
 

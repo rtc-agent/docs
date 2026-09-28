@@ -1,9 +1,9 @@
 ---
 title: Frontend Architecture
-description: RTC Agent frontend architecture — a Lit-based Web Components library with 45 sub-components, 19 Controllers, and @lit/context state distribution.
+description: RTC Agent frontend architecture — a Lit-based Web Components library with 54 sub-components, 23 Controllers, and @lit/context state distribution.
 ---
 
-The RTC Agent frontend is a component library built on **Lit Web Components**. It exposes only a single `<rtc-agent>` component to the outside world, containing **45 sub-components** internally, managed by **19 Controllers**, with data distributed to child components via `@lit/context`.
+The RTC Agent frontend is a component library built on **Lit Web Components**. It exposes only a single `<rtc-agent>` component to the outside world, containing **54 sub-components** internally, managed by **23 Controllers**, with data distributed to child components via `@lit/context`.
 
 ## Component Architecture
 
@@ -114,7 +114,7 @@ For detailed API documentation, see [Component API](/docs/en/integration/compone
 
 ```mermaid
 flowchart TD
-    subgraph CONTROLLERS["🎮 19 Controllers"]
+    subgraph CONTROLLERS["🎮 23 Controllers"]
         direction TB
         subgraph CORE["📦 9 Core Controllers"]
             C1["🪟 WindowState"]
@@ -127,7 +127,7 @@ flowchart TD
             C8["📚 Skill"]
             C9["🖱️ WindowInteraction"]
         end
-        subgraph UI["🎨 10 UI Controllers"]
+        subgraph UI["🎨 14 UI Controllers"]
             C10["📂 SessionTree"]
             C11["📑 SessionTab"]
             C12["🔔 Notification"]
@@ -139,6 +139,9 @@ flowchart TD
             C18["✏️ Editor"]
             C19["📏 StatusBar"]
             C20["⚙️ Settings"]
+            C21["🔗 EventBinding"]
+            C22["🐛 FunctionDebug"]
+            C23["📚 Functions"]
         end
     end
 
@@ -326,6 +329,118 @@ flowchart TD
 | `/goal` | Prompt | Goal-driven; AI sets completion criteria, Judge model checks |
 
 See [Commands](/docs/en/features/commands).
+
+## Testing & Quality
+
+The frontend project adopts a multi-layer testing strategy covering unit tests, integration tests, and end-to-end tests to ensure correct component behavior and stable cross-module collaboration.
+
+### Test Infrastructure
+
+| Tool | Purpose | Config Location |
+| --- | --- | --- |
+| **Vitest** | Unit tests & integration tests | `packages/*/vitest.config.ts` |
+| **Playwright** | End-to-end tests (E2E) | `packages/component/playwright.config.ts` |
+| **jsdom** | Browser API simulation (Vitest environment) | `test-setup.ts` polyfills IndexedDB, matchMedia, ResizeObserver, etc. |
+| **fake-indexeddb** | Pure-JS IndexedDB implementation for Dexie in tests | Auto-imported in `test-setup.ts` |
+
+### Test Scale
+
+| Package | Unit Test Files | Description |
+| --- | ---: | --- |
+| `@rtc-agent/component` | 62 | Covers all Controllers, components, factory functions, event system, authentication flows |
+| `@rtc-agent/persistence` | 12 | Covers IndexedDB operations, entity repository, transactions, offset manager, script engine |
+| `@rtc-agent/client` | 1 | Covers WebSocket client, offset sync, gap-fill logic |
+| `@rtc-agent/worker` | 1 | Covers SharedWorker core message routing |
+| **E2E (Playwright)** | 6 | Covers debug API, business flows, advanced interactions, doc reconciliation, script execution |
+
+Currently **835+ unit test cases**, all passing.
+
+### Running Tests
+
+```bash
+# Run all unit tests (from web-components root)
+pnpm test
+
+# Run unit tests for the component package only
+pnpm --filter @rtc-agent/component test
+
+# Run E2E tests (requires Vite dev server)
+pnpm --filter @rtc-agent/component test:e2e
+
+# Run a specific test file
+npx vitest run packages/component/src/controllers/auth.controller.test.ts
+
+# Watch mode (recommended during development)
+npx vitest
+```
+
+### Test Layers
+
+```mermaid
+flowchart TD
+    subgraph E2E["Playwright E2E Tests"]
+        direction LR
+        E1["Debug API Verification"]
+        E2["Business Flow Tests<br/>Session Lifecycle · Messaging"]
+        E3["Advanced Interaction Tests<br/>Settings · Network · Tool Calls"]
+        E4["Doc Reconciliation Tests<br/>Orphan File Cleanup"]
+        E5["Script Execution Tests<br/>Browser Sandbox Function Calls"]
+    end
+
+    subgraph INTEGRATION["Integration Tests"]
+        direction LR
+        I1["createRtcAgent Lifecycle<br/>Create → Configure → Mount → Destroy"]
+        I2["Authentication Flows<br/>Three Auth Modes"]
+        I3["Event System Integration<br/>DOM Events + EventBus"]
+    end
+
+    subgraph UNIT["Unit Tests (Vitest)"]
+        direction LR
+        U1["Controllers<br/>23 Controllers individually tested"]
+        U2["Components<br/>Rendering · Properties · Events · Slots"]
+        U3["Utilities<br/>Formatting · Command Parsing · Time"]
+        U4["Persistence<br/>IndexedDB Transactions · Batch Ops"]
+    end
+
+    E2E --> INTEGRATION
+    INTEGRATION --> UNIT
+
+    style E2E fill:#e8f5e9,stroke:#388e3c,stroke-width:2px
+    style INTEGRATION fill:#e3f2fd,stroke:#1565c0,stroke-width:2px
+    style UNIT fill:#fff9c4,stroke:#f9a825,stroke-width:2px
+```
+
+### Test Utilities
+
+`packages/component/src/test-helpers.ts` provides test infrastructure:
+
+| Utility | Description |
+| --- | --- |
+| `fixture(template, options?)` | Creates a Lit component test fixture, automatically waits for the update cycle to complete |
+| `nextFrame()` | Waits one frame to ensure Lit has finished rendering |
+| `cleanupFixtures()` | Cleans up all created test fixtures to prevent cross-test pollution |
+| `provideContext()` | Injects `@lit/context` during the `setup` phase, ensuring context is ready before the component's first update |
+
+### E2E Test Debug API
+
+E2E tests rely on the `window.rtcAgentDebug` API exposed by the debug page (`/debug/index.html`). This API is automatically installed in dev mode and provides the following capabilities:
+
+| Method | Description |
+| --- | --- |
+| `waitForReady(timeout?)` | Wait for the `<rtc-agent>` component to be ready |
+| `sendMessage(text)` | Send a message |
+| `getSessionController()` | Get the session controller |
+| `getActions(controller)` | Get a specific controller's actions |
+
+### CI Pipeline
+
+GitHub Actions CI runs automatically on every push/PR:
+
+```bash
+pnpm install → pnpm build → pnpm typecheck → pnpm test
+```
+
+Node.js version: 24. Tests run on the `ubuntu-latest` environment.
 
 ## Performance & Accessibility
 

@@ -116,12 +116,14 @@ import type {
   DynamicTokenAuth,
   AuthProvider,
 
-  // 事件回调
+  // 事件回调与事件类型映射
   EventCallbacks,
+  RtcAgentEventDetailMap, // DOM 事件名 → detail 类型的映射表
 
   // 窗口与 Activity Bar
   WindowConfig,
   ActivityBarConfig,
+  ResolvedActivityBarConfig,
   Activity,              // 'chat' | 'files' | 'functions' | 'settings'
 
   // Agent 声明式配置
@@ -136,6 +138,10 @@ import type {
   // 函数注册与校验
   FunctionDef,
   FunctionGroupDef,
+  ParameterDef,
+  ReturnDef,
+  OpenAPISchema,
+  VisualHooks,
   ValidationError,
   ValidationResult,
 
@@ -144,6 +150,81 @@ import type {
   FunctionDebugState,
   LogEntry,
   LogLevel,
+  ExecutionStatus,
+  HistoryPaginationState,
+
+  // 场景文档
+  ScenarioDef,
+  ScenarioManifest,
+  RegistryConfig,
+} from '@rtc-agent/component';
+```
+
+#### 主要导出值与运行时 API
+
+```ts
+import {
+  // 工厂函数
+  createRtcAgent,
+
+  // 就绪等待
+  whenReady,
+
+  // 函数注册（命令式）
+  defineRegistry,
+  FunctionRegistry,
+  FunctionGroup,
+
+  // Zod 校验工具
+  z,                    // Zod 库的 re-export
+  validateParams,
+  formatValidationError,
+  buildValidator,
+  withValidation,
+  zodToParams,
+  zodToOpenAPISchema,
+  openApiToZod,
+  withMeta,             // 为 Zod schema 附加 example 等元数据
+
+  // 场景文档加载
+  loadScenariosFromURL,
+  loadScenariosContent,
+  parseFrontmatter,
+
+  // Markdown 文档生成
+  generateFunctionMd,
+  generateFunctionsIndex,
+  generateScenariosIndex,
+  generateAgentMd,
+
+  // EventBus（高级 — 监听内部工具调用事件）
+  EventBus,
+  eventBus,
+  createEventBus,
+
+  // Activity Bar 配置工具
+  DEFAULT_ACTIVITY_BAR_CONFIG,
+  resolveActivityBarConfig,
+
+  // 国际化
+  switchLocale,
+  initLocale,
+  getLocale,
+  persistLocale,
+  sourceLocale,
+  targetLocales,
+  localeContext,
+  isValidLocale,
+
+  // 主题
+  switchTheme,
+  initTheme,
+  getEffectiveTheme,
+  getStoredTheme,
+  persistTheme,
+
+  // 异常类
+  CancelledError,       // 用户取消操作异常（hooks.onStart 可抛以此取消执行）
 } from '@rtc-agent/component';
 ```
 
@@ -643,9 +724,9 @@ agent.activityBarConfig = {
 | 活动 | 说明 | 可隐藏 |
 |:----:|:----:|:------:|
 | 💬 `chat` | 聊天界面 | ❌ 始终显示 |
-| 📁 `files` | 文件管理 | ✅ |
-| 🛠️ `functions` | 函数调试器面板 | ✅ |
-| ⚙️ `settings` | 设置面板 | ✅ |
+| 📁 `files` | 文件管理 | ✅ 通过 `disabledActivities` |
+| 🛠️ `functions` | 函数调试器面板 | ✅ 通过 `enableFunctionDebugger: false` |
+| ⚙️ `settings` | 设置面板 | ✅ 通过 `disabledActivities` |
 
 #### 函数调试器（Function Debugger）
 
