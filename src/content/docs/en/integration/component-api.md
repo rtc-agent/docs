@@ -531,6 +531,7 @@ agent.windowConfig = {
   // Embedded mode (shortcut)
   // Equivalent to: defaultMode: 'maximized' + draggable: false + resizable: false
   //                + showMinimize: false + showMaximize: false
+  // CSS uses position: relative to fill the parent container (instead of position: fixed filling the viewport)
   embedded: true,
 
   // Fine-grained control

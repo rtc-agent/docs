@@ -531,6 +531,7 @@ agent.windowConfig = {
   // 嵌入式模式（快捷方式）
   // 等同于: defaultMode: 'maximized' + draggable: false + resizable: false
   //         + showMinimize: false + showMaximize: false
+  // CSS 使用 position: relative 填充父容器（而非 position: fixed 填充视口）
   embedded: true,
 
   // 细粒度控制

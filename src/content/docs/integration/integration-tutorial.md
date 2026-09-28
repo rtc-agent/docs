@@ -300,12 +300,8 @@ npx rtc-agent-setup
 # 创建目标目录
 mkdir -p public/rtc-agent
 
-# 复制 Worker 文件
-cp node_modules/@rtc-agent/component/dist/assets/shared-worker*.js public/rtc-agent/
-
-# 创建稳定链接（可选，但推荐）
-cd public/rtc-agent
-ln -sf shared-worker-*.js shared-worker.js
+# 复制 Worker 文件并重命名为稳定文件名
+cp node_modules/@rtc-agent/component/dist/assets/shared-worker-*.js public/rtc-agent/shared-worker.js
 ```
 
 ### 第三步：配置 createRtcAgent()

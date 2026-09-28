@@ -200,12 +200,8 @@ If the CLI tool doesn't work for your setup, manually copy the worker files:
 # Create target directory
 mkdir -p public/rtc-agent
 
-# Copy worker files
-cp node_modules/@rtc-agent/component/dist/assets/shared-worker*.js public/rtc-agent/
-
-# Create stable link (optional, but recommended)
-cd public/rtc-agent
-ln -sf shared-worker-*.js shared-worker.js
+# Copy worker file and rename to stable filename
+cp node_modules/@rtc-agent/component/dist/assets/shared-worker-*.js public/rtc-agent/shared-worker.js
 ```
 
 ### Step 3: Configure createRtcAgent()

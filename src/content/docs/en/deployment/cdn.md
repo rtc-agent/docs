@@ -67,7 +67,7 @@ If you need programmatic control (instead of HTML attributes), you can use the `
 </script>
 ```
 
-> 💡 For CDN usage, the SharedWorker file is already bundled in the package. Copy `shared-worker.js` (or the versioned `shared-worker-xxx.js`) from the CDN package to your public directory (e.g., `/rtc-agent/`), and set `workerUrl` to that path so the worker is same-origin with your page.
+> 💡 For CDN usage, the SharedWorker file is already bundled in the package. Copy the `shared-worker-*.js` file from `dist/assets/` in the CDN package to your public directory (e.g., `/rtc-agent/`), rename it to `shared-worker.js`, and set `workerUrl` to that path so the worker is same-origin with your page. Use `npx rtc-agent-setup` to automate this.
 
 All TypeScript types are available via the module export — you can import them alongside `createRtcAgent` for type-safe configuration.
 
@@ -127,6 +127,7 @@ Use `curl` to check if the CDN correctly returns CORS headers:
 ```bash
 curl -I https://cdn.jsdelivr.net/npm/@rtc-agent/component@0.2.6-rc.1/dist/assets/shared-worker-xxx.js
 # Should include: Access-Control-Allow-Origin: *
+# Note: The actual filename includes a hash (e.g., shared-worker-DNuUtKfr.js). Check the package's dist/assets/ directory for the exact name.
 ```
 
 ## Server CORS Configuration

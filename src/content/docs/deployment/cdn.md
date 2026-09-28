@@ -67,7 +67,7 @@ flowchart LR
 </script>
 ```
 
-> 💡 CDN 使用时，SharedWorker 文件已包含在包中。将 `shared-worker.js`（或带版本号的 `shared-worker-xxx.js`）从 CDN 包复制到你的公共目录（如 `/rtc-agent/`），并将 `workerUrl` 设置为该路径，使 Worker 与页面同源。
+> 💡 CDN 使用时，SharedWorker 文件已包含在包中。将 `dist/assets/` 下的 `shared-worker-*.js` 文件复制到你的公共目录（如 `/rtc-agent/`），并重命名为 `shared-worker.js`，然后将 `workerUrl` 设置为该路径，使 Worker 与页面同源。推荐使用 `npx rtc-agent-setup` 自动完成此操作。
 
 所有 TypeScript 类型均可通过模块导出使用——可以与 `createRtcAgent` 一起导入以实现类型安全的配置。
 
@@ -127,6 +127,7 @@ Access-Control-Allow-Origin: *
 ```bash
 curl -I https://cdn.jsdelivr.net/npm/@rtc-agent/component@0.2.3/dist/assets/shared-worker-xxx.js
 # 应包含: Access-Control-Allow-Origin: *
+# 注意：实际文件名包含 hash（如 shared-worker-DNuUtKfr.js），请从包的 dist/assets/ 目录确认
 ```
 
 ## Server CORS 配置
