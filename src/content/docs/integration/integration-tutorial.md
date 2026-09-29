@@ -22,7 +22,7 @@ RTC Agent 组件内部使用 SharedWorker 实现多 Tab WebSocket 复用。通�
 
 ## 第一步：通过 CDN 加载组件
 
-在 `astro.config.mjs` 的 `head` 中注入 CDN 脚本，全局加载组件：
+在 `astro.config.mjs` 的 `head` 中注入 CDN 脚本，使用 `createRtcAgent()` 工厂函数全局加载组件：
 
 **文件**: `astro.config.mjs`
 
@@ -37,34 +37,24 @@ export default defineConfig({
     starlight({
       title: 'Your Site',
       head: [
-        // 加载 RTC Agent 组件
-        {
-          tag: 'script',
-          attrs: {
-            type: 'module',
-            src: 'https://cdn.jsdelivr.net/npm/@rtc-agent/component@0.2.8-rc.0/dist/index.js',
-          },
-        },
-        // 初始化全局悬浮窗
+        // 使用工厂函数加载和配置 RTC Agent
         {
           tag: 'script',
           attrs: { type: 'module' },
           content: `
-            document.addEventListener('DOMContentLoaded', () => {
-              const agent = document.createElement('rtc-agent');
-              agent.setAttribute('server-url', 'https://rtc-agent.cherish.chat');
-              agent.setAttribute('app-label', 'RTC Agent 助手');
-              agent.setAttribute('theme', 'system');
-              agent.setAttribute('redirect-uri', '/docs/auth/callback.html');
+            import { createRtcAgent } from 'https://cdn.jsdelivr.net/npm/@rtc-agent/component@0.2.8-rc.0/dist/index.js';
 
-              const container = document.createElement('div');
-              container.id = 'rtc-agent-global';
-              container.appendChild(agent);
-              document.body.appendChild(container);
+            const initRtcAgent = async () => {
+              if (document.querySelector('#rtc-agent-global')) return;
 
-              // 配置悬浮窗
-              agent.addEventListener('rtc-agent-ready', () => {
-                agent.windowConfig = {
+              const agent = createRtcAgent({
+                appLabel: 'RTC Agent 助手',
+                theme: 'system',
+                server: {
+                  url: 'https://rtc-agent.cherish.chat',
+                  redirectUri: '/docs/auth/callback.html',
+                },
+                window: {
                   defaultMode: 'minimized',
                   draggable: true,
                   resizable: true,
@@ -72,8 +62,13 @@ export default defineConfig({
                     corner: 'bottom-right',
                     offset: { x: -24, y: 24 },
                   },
-                };
-              }, { once: true });
+                },
+              });
+
+              const container = document.createElement('div');
+              container.id = 'rtc-agent-global';
+              container.appendChild(agent);
+              document.body.appendChild(container);
 
               // 全局样式
               const style = document.createElement('style');
@@ -90,7 +85,9 @@ export default defineConfig({
                 }
               \`;
               document.head.appendChild(style);
-            });
+            };
+
+            document.addEventListener('DOMContentLoaded', () => initRtcAgent());
           `,
         },
       ],
@@ -98,6 +95,13 @@ export default defineConfig({
   ],
 });
 ```
+
+**与旧模式的关键区别：**
+
+- 从 CDN 导入 `createRtcAgent` 工厂函数
+- 使用工厂函数代替手动创建元素和设置属性
+- 所有配置在一个声明式对象中完成
+- 无需等待 `rtc-agent-ready` 事件来配置窗口
 
 ## 第二步：创建 OAuth 回调页面
 
@@ -203,13 +207,16 @@ pnpm dev
 
 CDN 方式确保 SharedWorker 文件路径正确解析，无需额外配置构建工具。
 
-### 2. 使用 `rtc-agent-ready` 事件
+### 2. 使用 `createRtcAgent()` 工厂函数
+
+工厂函数将所有配置集中在一个声明式对象中，无需手动创建元素或等待 `rtc-agent-ready` 事件：
 
 ```javascript
-agent.addEventListener('rtc-agent-ready', () => {
-  // 安全访问组件属性
-  agent.windowConfig = { ... };
-}, { once: true });
+const agent = createRtcAgent({
+  appLabel: 'RTC Agent 助手',
+  server: { url: 'https://rtc-agent.cherish.chat' },
+  window: { defaultMode: 'minimized', draggable: true },
+});
 ```
 
 ### 3. Astro 中使用 `client:only`

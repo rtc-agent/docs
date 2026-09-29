@@ -392,7 +392,7 @@ import { useEffect, useRef } from 'react';
 import { createRtcAgent } from '@rtc-agent/component';
 import type { RtcAgentWithLifecycle } from '@rtc-agent/component';
 
-function RTC AgentWrapper() {
+function RtcAgentWrapper() {
   const agentRef = useRef<RtcAgentWithLifecycle | null>(null);
 
   useEffect(() => {
