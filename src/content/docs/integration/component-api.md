@@ -766,14 +766,14 @@ flowchart TD
     CORE --> C10["🛠️ Functions"]
     CORE --> C11["🐛 FunctionDebug"]
 
-    UI --> U1["Activity"]
-    UI --> U2["EditorArea / Editor"]
-    UI --> U3["FileExplorer"]
-    UI --> U4["Fork"]
-    UI --> U5["Notification / Toast"]
-    UI --> U6["SessionTab / SessionTree"]
-    UI --> U7["Settings / StatusBar"]
-    UI --> U8["TurnCount"]
+    UI --> U1["📊 Activity"]
+    UI --> U2["📝 EditorArea / ✏️ Editor"]
+    UI --> U3["📁 FileExplorer"]
+    UI --> U4["🌿 Fork"]
+    UI --> U5["🔔 Notification / 🍞 Toast"]
+    UI --> U6["📑 SessionTab / 📂 SessionTree"]
+    UI --> U7["⚙️ Settings / 📏 StatusBar"]
+    UI --> U8["🖱️ WindowInteraction"]
 
     style ROOT fill:#e3f2fd,stroke:#1565c0,stroke-width:3px
     style C1 fill:#e8f5e9,stroke:#388e3c
