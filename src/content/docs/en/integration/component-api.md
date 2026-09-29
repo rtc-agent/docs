@@ -48,6 +48,11 @@ const config: RtcAgentConfig = {
     },
   },
   
+  // Activity Bar configuration (hide unnecessary tabs)
+  activityBar: {
+    disabledActivities: ['settings'],
+  },
+  
   // Function registration
   agentName: 'MyApp',
   agentDescription: 'AI assistant for my application',
@@ -96,7 +101,7 @@ For simple scenarios or CDN quick previews, you can use HTML attributes directly
 <rtc-agent theme="dark" app-label="My AI Assistant"></rtc-agent>
 ```
 
-> ⚠️ HTML attributes cannot configure `auth`, `workerUrl`, and other complex options. Use the factory function for production.
+> ⚠️ HTML attributes cannot configure complex object options like `auth`. For production, the factory function is recommended for full configuration.
 
 ### TypeScript Support
 
@@ -359,6 +364,7 @@ flowchart TD
     B --> B6["scenarios-url: scenario docs"]
     B --> B7["server-url: server address"]
     B --> B8["redirect-uri: OAuth callback URL"]
+    B --> B8b["worker-url: SharedWorker URL"]
     B --> B9["agentConfig: declarative config (JS)"]
 
     C --> C1["rtc-agent-ready"]
@@ -385,6 +391,7 @@ flowchart TD
 | 📄 `scenarios-url` | `string` | — | URL of the scenario manifest, pointing to `manifest.json` |
 | 🔗 `server-url` | `string` | `""` | Server address. Falls back to the current page's domain when empty |
 | 🔁 `redirect-uri` | `string` | `window.location.origin + '/auth/callback.html'` | OAuth callback URL. Supports both absolute and relative paths |
+| 👷 `worker-url` | `string` | `""` | SharedWorker file URL. Used for multi-tab WebSocket sharing. Use `workerUrl` in factory config |
 
 **JS Properties** (set via JavaScript only, not HTML attributes):
 

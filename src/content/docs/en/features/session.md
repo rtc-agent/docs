@@ -422,4 +422,4 @@ See [Command System — /export](/docs/en/features/commands/#export--export-sess
 
 - [Messaging](/docs/en/features/messaging/) — Learn about message interactions within sessions
 - [Remote Tool Calling](/docs/en/concepts/rtc/) — Learn about tool calling within turns
-- [Command System](/docs/en/features/commands/) — Learn about session-level commands (/compact, /loop, /goal)
+- [Command System](/docs/en/features/commands/) — Learn about session-level commands (/compact, /export, /loop, /goal)

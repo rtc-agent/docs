@@ -48,6 +48,11 @@ const config: RtcAgentConfig = {
     },
   },
   
+  // Activity Bar 配置（隐藏不需要的标签页）
+  activityBar: {
+    disabledActivities: ['settings'],
+  },
+  
   // 函数注册
   agentName: 'MyApp',
   agentDescription: '我的应用 AI 助手',
@@ -96,7 +101,7 @@ agent.destroy();
 <rtc-agent theme="dark" app-label="我的 AI 助手"></rtc-agent>
 ```
 
-> ⚠️ HTML 属性方式无法配置 `auth`、`workerUrl` 等复杂选项。生产环境请使用工厂函数。
+> ⚠️ HTML 属性方式无法配置 `auth` 等复杂对象选项。生产环境推荐使用工厂函数进行完整配置。
 
 ### TypeScript 支持
 
@@ -359,6 +364,7 @@ flowchart TD
     B --> B6["scenarios-url: 场景文档"]
     B --> B7["server-url: 服务端地址"]
     B --> B8["redirect-uri: OAuth 回调地址"]
+    B --> B8b["worker-url: SharedWorker URL"]
     B --> B9["agentConfig: 声明式配置 (JS)"]
 
     C --> C1["rtc-agent-ready"]
@@ -385,6 +391,7 @@ flowchart TD
 | 📄 `scenarios-url` | `string` | — | 场景文档的 URL，指向 `manifest.json` |
 | 🔗 `server-url` | `string` | `""` | 服务端地址。为空时使用当前页面域名 |
 | 🔁 `redirect-uri` | `string` | `window.location.origin + '/auth/callback.html'` | OAuth 回调地址。支持绝对路径和相对路径 |
+| 👷 `worker-url` | `string` | `""` | SharedWorker 文件 URL。用于多标签页共享 WebSocket 连接。工厂函数配置中使用 `workerUrl` |
 
 **JS 属性**（仅通过 JavaScript 设置，非 HTML attribute）：
 

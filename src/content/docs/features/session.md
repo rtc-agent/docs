@@ -422,4 +422,4 @@ flowchart LR
 
 - [消息与对话](/docs/features/messaging/) — 了解会话内的消息交互
 - [Remote Tool Calling](/docs/concepts/rtc/) — 了解 Turn 中的工具调用
-- [命令系统](/docs/features/commands/) — 了解会话级命令（/compact、/loop、/goal）
+- [命令系统](/docs/features/commands/) — 了解会话级命令（/compact、/export、/loop、/goal）
