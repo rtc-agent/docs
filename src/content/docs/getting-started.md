@@ -83,7 +83,11 @@ curl http://localhost:28080/healthz
 
 ## 第二步：嵌入前端组件
 
-Server 跑起来后，在你的网页中添加 `<rtc-agent>` 组件即可获得 AI 助手能力：
+Server 跑起来后，在你的网页中添加 `<rtc-agent>` 组件即可获得 AI 助手能力。
+
+### 快速接入（CDN）
+
+适用于文档站点或快速演示：
 
 ```html
 <!-- 引入组件 -->

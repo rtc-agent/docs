@@ -103,7 +103,7 @@ Each function consists of the following fields:
 | 📝 `description` | `string` | ✅ | Function description, **written into auto-generated documentation**; AI uses this to decide when to call |
 | 🎯 `zodSchema` | `ZodType` | — | **Recommended** Zod schema for parameter validation and type inference. Provides runtime validation and automatic TypeScript types |
 | 📐 `parameters` | `ParameterDef[]` | — | Legacy OpenAPI-style parameter definitions. Use `zodSchema` instead for new code |
-| 🔙 `returns` | `ReturnDef` | — | Return value definition `{schema?, zodSchema?, description?}`, helping AI understand the output. **`zodSchema` is recommended** |
+| 🔙 `returns` | `ReturnDef` | — | Return value definition `{schema?, zodSchema?, description?}`, helping AI understand the output. **`zodSchema` is recommended**. Supports all major Zod types (ZodObject, ZodArray, ZodUnion, etc.) with automatic OpenAPI schema conversion. Nested objects are **recursively expanded** into property tables in auto-generated docs, matching Parameters behavior |
 | ⚡ `handler` | `function` | ✅ | Execution function; supports `async`, receives `params` argument |
 | 🪝 `hooks` | `object` | — | UI hooks (`onStart` / `onSuccess` / `onError` / `onProgress`) |
 
@@ -302,7 +302,7 @@ flowchart TD
 
 | Generated Content | Description |
 |:--------:|:----:|
-| 📄 Function Docs | One Markdown file per function, including description, parameter table, return values, and call examples |
+| 📄 Function Docs | One Markdown file per function, including description, parameter table, return values (nested objects recursively expanded into property tables), and call examples (with `@returns` JSDoc comments) |
 | 📑 Index File | `INDEX.md` lists all available functions for easy AI browsing |
 | 🧠 Agent Guide | `AGENT.md` summarizes all function capabilities, helping AI understand the overall context |
 

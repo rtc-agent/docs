@@ -101,11 +101,41 @@ orderGroup.register({
 |:----:|:----:|:----:|:----:|
 | 📛 `name` | `string` | ✅ | 函数名称，与分组名组合成完整路径（如 `order.create`） |
 | 📝 `description` | `string` | ✅ | 函数描述，**写入自动生成的文档**，AI 据此决定何时调用 |
-| 🔗 `zodSchema` | `ZodType` | — | Zod Schema（推荐），自动转换为参数定义，同时提供运行时校验 |
+| 🎯 `zodSchema` | `ZodType` | — | **推荐** Zod Schema，同时提供运行时校验、类型推导和 TypeScript 自动类型推断 |
 | 📐 `parameters` | `ParameterDef[]` | — | 旧版 OpenAPI 风格参数定义。新代码请使用 `zodSchema` |
-| 🔙 `returns` | `ReturnDef` | — | 返回值定义 `{schema?, zodSchema?, description?}`，帮助 AI 理解输出。**推荐使用 `zodSchema`** |
+| 🔙 `returns` | `ReturnDef` | — | 返回值定义 `{schema?, zodSchema?, description?}`，帮助 AI 理解输出。**推荐使用 `zodSchema`**。支持所有主要 Zod 类型（ZodObject、ZodArray、ZodUnion 等），自动转换为 OpenAPI schema。嵌套对象会在自动生成的文档中**递归展开**为属性表格，与 Parameters 行为一致 |
 | ⚡ `handler` | `function` | ✅ | 执行函数，支持 `async`，接收 `params` 参数 |
 | 🪝 `hooks` | `object` | — | UI 钩子（`onStart` / `onSuccess` / `onError` / `onProgress`） |
+
+### 使用 Zod Schema（推荐）
+
+Zod Schema 提供运行时校验、类型安全和更好的开发体验：
+
+```ts
+import { z, withMeta } from '@rtc-agent/component';
+
+{
+  name: 'createOrder',
+  description: '创建新订单',
+  zodSchema: z.object({
+    productId: withMeta(z.string(), { example: 'PROD-001' }).describe('商品 ID'),
+    quantity: withMeta(z.number().int().positive(), { example: 2 }).describe('购买数量'),
+    couponCode: withMeta(z.string(), { example: 'SAVE10' }).optional().describe('可选优惠券码')
+  }),
+  handler: async (params) => {
+    // params 具有完整类型：{ productId: string; quantity: number; couponCode?: string }
+    return await api.createOrder(params.productId, params.quantity, params.couponCode);
+  }
+}
+```
+
+**Zod Schema 的优势**：
+
+- ✅ **运行时校验**：参数在 handler 执行前自动校验
+- ✅ **类型推导**：TypeScript 自动从 schema 推导参数类型
+- ✅ **可组合**：易于组合和复用 schema
+- ✅ **可描述**：使用 `.describe()` 添加参数描述，写入自动生成的文档
+- ✅ **示例值**：使用 `withMeta(schema, { example })` 为自动生成的文档添加示例值
 
 ### 完整函数示例
 
@@ -116,9 +146,9 @@ import { z, withMeta } from '@rtc-agent/component';
   name: 'refund',
   description: '对指定订单发起退款，支持全额和部分退款',
   zodSchema: z.object({
-    orderId: z.string().describe('订单 ID'),
-    amount: z.number().optional().describe('退款金额（留空则全额退款）'),
-    reason: z.string().describe('退款原因'),
+    orderId: withMeta(z.string(), { example: 'ORD-20240101-001' }).describe('订单 ID'),
+    amount: withMeta(z.number().positive(), { example: 99.99 }).optional().describe('退款金额（留空则全额退款）'),
+    reason: withMeta(z.string(), { example: '商品损坏' }).describe('退款原因'),
   }),
   returns: {
     zodSchema: z.object({
@@ -140,6 +170,24 @@ import { z, withMeta } from '@rtc-agent/component';
   }
 }
 ```
+
+### 旧版 OpenAPI 风格参数（不推荐）
+
+为保持向后兼容，仍可使用 OpenAPI 风格参数：
+
+```ts
+{
+  name: 'refund',
+  description: '发起退款',
+  parameters: [
+    { name: 'orderId', schema: { type: 'string' }, required: true, description: '订单 ID' },
+    { name: 'amount', schema: { type: 'number' }, description: '退款金额' }
+  ],
+  handler: async (params) => { /* ... */ }
+}
+```
+
+> ⚠️ **迁移提示**：建议新函数使用 `zodSchema`。Zod 提供更好的类型安全、运行时校验和更简洁的语法。
 
 ## 分组命名规范
 
@@ -255,7 +303,7 @@ flowchart TD
 
 | 生成内容 | 说明 |
 |:--------:|:----:|
-| 📄 函数文档 | 每个函数一个 Markdown 文件，包含描述、参数表格、返回值、调用示例 |
+| 📄 函数文档 | 每个函数一个 Markdown 文件，包含描述、参数表格、返回值（嵌套对象递归展开为属性表格）、调用示例（含 `@returns` JSDoc 注释） |
 | 📑 索引文件 | `INDEX.md` 列出所有可用函数，方便 AI 浏览 |
 | 🧠 Agent 指南 | `AGENT.md` 汇总所有函数能力，帮助 AI 理解整体上下文 |
 
