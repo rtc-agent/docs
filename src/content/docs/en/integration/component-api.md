@@ -337,6 +337,7 @@ const config: RtcAgentConfig = {
     refreshToken: async () => myAuthStore.refreshAccessToken(),
     isLoggedIn: () => myAuthStore.isAuthenticated,
     logout: async () => { await myAuthStore.signOut(); },
+    getUserId: () => myAuthStore.getUserId(),  // returns the current user's unique ID
   },
 };
 ```

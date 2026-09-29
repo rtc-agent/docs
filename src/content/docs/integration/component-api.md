@@ -337,6 +337,7 @@ const config: RtcAgentConfig = {
     refreshToken: async () => myAuthStore.refreshAccessToken(),
     isLoggedIn: () => myAuthStore.isAuthenticated,
     logout: async () => { await myAuthStore.signOut(); },
+    getUserId: () => myAuthStore.getUserId(),  // 返回当前用户唯一标识
   },
 };
 ```

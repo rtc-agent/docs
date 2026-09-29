@@ -383,6 +383,10 @@ const agent = createRtcAgent({
       await myAuthStore.clearSession();
       window.location.href = '/login';
     },
+    getUserId: () => {
+      // Return the current user's unique identifier (for per-user IndexedDB isolation)
+      return myAuthStore.getUserId();
+    },
   },
 });
 ```
@@ -393,8 +397,11 @@ const agent = createRtcAgent({
 | `refreshToken()` | ✅ | Async — refreshes the token when expired |
 | `isLoggedIn()` | ✅ | **Synchronous** — returns `boolean` indicating whether the user is authenticated |
 | `logout()` | Optional | Async — called when the component needs to terminate the session |
+| `getUserId()` | Optional | Synchronous — returns the current user's unique identifier. **Strongly recommended** — without it, all users share the same IndexedDB (database name falls back to `{databaseName}-provider-managed`) |
 
 > 📌 **Key difference from Mode 2**: The `isLoggedIn` field is the telltale sign of Mode 3. It enables the component to proactively check auth state (e.g., before attempting a connection) rather than discovering it has expired mid-request.
+>
+> 💡 **About `getUserId()`**: The component uses `userId` to build per-user IndexedDB databases (database name format: `{databaseName}-{userId}`). If `getUserId()` is not provided, `userId` falls back to the fixed string `'provider-managed'`, causing all users to share the same database — which is usually not desirable in multi-tenant scenarios.
 
 ### Choosing the Right Mode
 

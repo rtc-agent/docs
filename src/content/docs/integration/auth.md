@@ -383,6 +383,10 @@ const agent = createRtcAgent({
       await myAuthStore.clearSession();
       window.location.href = '/login';
     },
+    getUserId: () => {
+      // 返回当前用户的唯一标识（用于 IndexedDB 按用户隔离）
+      return myAuthStore.getUserId();
+    },
   },
 });
 ```
@@ -393,8 +397,11 @@ const agent = createRtcAgent({
 | `refreshToken()` | ✅ | 异步——令牌过期时刷新 |
 | `isLoggedIn()` | ✅ | **同步**——返回 `boolean`，表示用户是否已认证 |
 | `logout()` | 可选 | 异步——组件需要终止会话时调用 |
+| `getUserId()` | 可选 | 同步——返回当前用户的唯一标识。**强烈建议提供**，否则所有用户将共享同一个 IndexedDB（数据库名回退为 `{databaseName}-provider-managed`） |
 
-> 📌 **与模式 2 的关键区别**：`isLoggedIn` 字段是模式 3 的标志。它使组件能够主动检查认证状态（例如，在尝试连接之前），而不是在请求过程中才发现令牌已过期。
+> 📌 **Key difference from Mode 2**: `isLoggedIn` 字段是模式 3 的标志。它使组件能够主动检查认证状态（例如，在尝试连接之前），而不是在请求过程中才发现令牌已过期。
+>
+> 💡 **关于 `getUserId()`**：组件使用 `userId` 构建每个用户独立的 IndexedDB（数据库名格式为 `{databaseName}-{userId}`）。如果不提供 `getUserId()`，`userId` 会回退为固定字符串 `'provider-managed'`，导致所有用户共享同一个数据库——在多租户场景下这通常不是期望的行为。
 
 ### 选择合适的模式
 
