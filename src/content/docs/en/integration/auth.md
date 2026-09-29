@@ -241,127 +241,20 @@ flowchart TD
 
 ## Next Steps
 
-- [Client Authentication Modes](#-client-authentication-modes) — Integrate RTC Agent with your own auth system using StaticTokenAuth, DynamicTokenAuth, or AuthProvider
+- [Client Authentication Mode](#-client-authentication-mode) — Integrate RTC Agent with your own auth system using AuthProvider
 - [Web Component API](/docs/en/integration/component-api/) — Learn how to integrate RTC Agent via the `<rtc-agent>` component
 - [Function Registration Guide](/docs/en/integration/function-registration/) — Register custom functions to extend AI capabilities
 - [Core Protocol RTC](/docs/en/concepts/rtc/) — Learn about the full lifecycle of Remote Tool Calling
 
 ---
 
-## 🧩 Client Authentication Modes
+## 🧩 Client Authentication Mode
 
-The built-in OAuth2 flow is great for standalone apps, but many developers integrate RTC Agent into existing products that already have their own auth systems. Starting from **web-components v0.2.5**, the `<rtc-agent>` component supports three client-side authentication modes — configured via the `auth` field in `RtcAgentConfig` when calling `createRtcAgent()`. These modes let you bring your own tokens, your own refresh logic, or even your own full auth provider, without relying on the server-side OAuth2 flow.
+The built-in OAuth2 flow is great for standalone apps, but many developers integrate RTC Agent into existing products that already have their own auth systems. Starting from **web-components v0.2.5**, the `<rtc-agent>` component supports a client-side authentication mode — configured via the `auth` field in `RtcAgentConfig` when calling `createRtcAgent()`. This mode lets you provide a full auth provider, without relying on the server-side OAuth2 flow.
 
-```mermaid
-flowchart TD
-    subgraph MODES["🔐 Three Client Auth Modes"]
-        direction TB
-        M1["🏷️ StaticTokenAuth<br/>Fixed tokens<br/>Dev / CI / Testing"]
-        M2["🔄 DynamicTokenAuth<br/>Callback-based refresh<br/>⭐ Production Recommended"]
-        M3["🧩 AuthProvider<br/>Full delegation<br/>Multi-tenant / Custom"]
-    end
+> 📌 **Why only one mode?** Earlier versions offered two additional modes — StaticTokenAuth and DynamicTokenAuth — but practice showed AuthProvider covers all scenarios (dev, testing, and production) and integrates most cleanly with host application auth systems. To reduce maintenance burden and avoid choice paralysis for integrators, those two modes have been removed. **Please do not re-introduce them.**
 
-    CONFIG["⚙️ RtcAgentConfig<br/>auth: { ... }"] -->|"Field detection"| MODES
-
-    style M1 fill:#fff9c4,stroke:#f9a825,stroke-width:2px
-    style M2 fill:#a5d6a7,stroke:#2e7d32,stroke-width:2px
-    style M3 fill:#e3f2fd,stroke:#1565c0,stroke-width:2px
-    style CONFIG fill:#f3e5f5,stroke:#7b1fa2,stroke-width:2px
-```
-
-| Mode | Detection | Best For | Complexity |
-|:----:|:---------:|:--------:|:----------:|
-| 🏷️ StaticTokenAuth | `'accessToken' in auth` | Dev, CI, testing | ⭐ |
-| 🔄 DynamicTokenAuth | `'getToken' in auth && !('isLoggedIn' in auth)` | Production apps | ⭐⭐ |
-| 🧩 AuthProvider | `'isLoggedIn' in auth` | Multi-tenant, custom flows | ⭐⭐⭐ |
-
-> 💡 **How modes are detected**: The component inspects which fields are present in the `auth` object — no explicit `type` field needed. The detection order is: `accessToken` first, then `isLoggedIn`, and the remaining case falls to DynamicTokenAuth.
-
-### Mode 1: StaticTokenAuth — Fixed Tokens
-
-The simplest integration — provide a fixed Access Token (and optionally a Refresh Token). The component uses these tokens as-is with no refresh logic. Ideal for **local development, CI pipelines, and automated testing**.
-
-```typescript
-import { createRtcAgent } from '@rtc-agent/component';
-
-const agent = createRtcAgent({
-  server: { url: 'https://your-server.com' },
-  auth: {
-    accessToken: 'your-jwt-token',
-    refreshToken: 'optional-refresh-token',
-    userId: 'user-123',
-    expiresIn: 3600, // optional, seconds
-    deviceId: 'uuid-from-your-backend',
-  },
-});
-```
-
-| Field | Required | Description |
-|:-----:|:--------:|-------------|
-| `accessToken` | ✅ | A valid JWT token string |
-| `refreshToken` | Optional | Refresh token for extending session |
-| `userId` | ✅ | Unique user identifier |
-| `expiresIn` | Optional | Token lifetime in seconds (default: server-decided) |
-| `deviceId` | ✅ | Unique device identifier — must match the Device ID embedded in the JWT by the server, otherwise scripts (RTCs) will not execute |
-
-> ⚠️ **Not for production**: Static tokens expire and cannot be refreshed automatically. When the token expires, the user will be disconnected. Use Mode 2 for production deployments.
-
-### Mode 2: DynamicTokenAuth — Callback-Based Refresh (Recommended)
-
-The **recommended mode for production**. You provide a `getToken()` callback (required) and a `refreshToken()` callback (optional) — the component calls `getToken()` whenever it needs a token string, and `refreshToken()` when the current one expires. Your backend handles all token logic; the component just consumes the result.
-
-```typescript
-import { createRtcAgent } from '@rtc-agent/component';
-
-const agent = createRtcAgent({
-  server: { url: 'https://your-server.com' },
-  auth: {
-    userId: 'user-123',
-    deviceId: 'uuid-from-your-backend',
-    getToken: async () => {
-      // Fetch a fresh token string from your backend
-      const res = await fetch('/api/auth/token');
-      const data = await res.json();
-      return data.accessToken;
-    },
-    refreshToken: async () => {
-      // Called when the current token has expired (returns new token + optional metadata)
-      const res = await fetch('/api/auth/refresh', { method: 'POST' });
-      return res.json(); // { accessToken: string, refreshToken?: string, expiresIn?: number }
-    },
-  },
-});
-```
-
-```mermaid
-sequenceDiagram
-    participant Comp as 🖥️ RTC Agent Component
-    participant CB as 📞 Your Callbacks
-    participant BE as ⚙️ Your Backend
-
-    Comp->>CB: getToken()
-    CB->>BE: GET /api/auth/token
-    BE-->>CB: { accessToken: "eyJ..." }
-    CB-->>Comp: Token string
-
-    Note over Comp: ⏱️ ... time passes, token expires ...
-
-    Comp->>CB: refreshToken()
-    CB->>BE: POST /api/auth/refresh
-    BE-->>CB: { accessToken, expiresIn }
-    CB-->>Comp: New token data
-```
-
-| Callback | Required | Called When | Expected Return |
-|:--------:|:--------:|:-----------:|:---------------:|
-| `getToken()` | ✅ | Component needs a token (initial connection, API requests) | `string` (the token string) |
-| `refreshToken()` | Optional | Current token has expired or is about to expire | `{ accessToken: string, refreshToken?: string, expiresIn?: number }` |
-| `userId` | ✅ | — | Unique user identifier |
-| `deviceId` | ✅ | — | Unique device identifier — must match the Device ID embedded in the JWT by the server, otherwise scripts (RTCs) will not execute |
-
-> 💡 **Why this mode is recommended**: Your backend retains full control over token issuance and revocation. The component never stores long-lived credentials — it fetches fresh tokens on demand. This follows the same security model as server-side OAuth2, but without requiring an OAuth2 provider. The `refreshToken` callback is optional — if your backend tokens are long-lived or managed by an external mechanism, you can provide only `getToken()`.
-
-### Mode 3: AuthProvider — Full Delegation (Advanced)
+### Mode: AuthProvider — Full Delegation (Recommended)
 
 The most flexible mode — delegate **all** authentication concerns to your own provider. In addition to token management, you control login state checks (`isLoggedIn`) and logout behavior. Ideal for **multi-tenant platforms, SSO integrations, or apps with complex auth requirements**.
 
@@ -406,35 +299,7 @@ const agent = createRtcAgent({
 | `getUserId()` | Optional | Synchronous — returns the current user's unique identifier. **Strongly recommended** — without it, all users share the same IndexedDB (database name falls back to `{databaseName}-provider-managed`) |
 | `deviceId` | ✅ | Unique device identifier — must match the Device ID embedded in the JWT by the server, otherwise scripts (RTCs) will not execute |
 
-> 📌 **Key difference from Mode 2**: The `isLoggedIn` field is the telltale sign of Mode 3. It enables the component to proactively check auth state (e.g., before attempting a connection) rather than discovering it has expired mid-request.
->
 > 💡 **About `getUserId()`**: The component uses `userId` to build per-user IndexedDB databases (database name format: `{databaseName}-{userId}`). If `getUserId()` is not provided, `userId` falls back to the fixed string `'provider-managed'`, causing all users to share the same database — which is usually not desirable in multi-tenant scenarios.
-
-### Choosing the Right Mode
-
-```mermaid
-flowchart TD
-    Q1{"Integrating into an existing<br/>app with its own auth?"}
-    Q1 -->|"No"| Q2{"Need automatic<br/>token refresh?"}
-    Q1 -->|"Yes"| Q3{"Need to control<br/>login state & logout?"}
-    Q2 -->|"No"| M1["🏷️ Mode 1: StaticTokenAuth"]
-    Q2 -->|"Yes"| M2["🔄 Mode 2: DynamicTokenAuth"]
-    Q3 -->|"No"| M2
-    Q3 -->|"Yes"| M3["🧩 Mode 3: AuthProvider"]
-
-    style M1 fill:#fff9c4,stroke:#f9a825,stroke-width:2px
-    style M2 fill:#a5d6a7,stroke:#2e7d32,stroke-width:2px
-    style M3 fill:#e3f2fd,stroke:#1565c0,stroke-width:2px
-```
-
-| Scenario | Recommended Mode |
-|:---------|:----------------:|
-| Local development or CI/CD testing | 🏷️ Mode 1 |
-| Production app with a token-issuing backend | 🔄 Mode 2 |
-| Multi-tenant SaaS with SSO / custom session management | 🧩 Mode 3 |
-| Quick prototype or demo | 🏷️ Mode 1 |
-
-> 💡 You can always start with Mode 1 for prototyping and migrate to Mode 2 or 3 later — the `auth` field is the only thing that changes.
 
 ---
 

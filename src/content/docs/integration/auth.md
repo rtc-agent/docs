@@ -241,7 +241,7 @@ flowchart TD
 
 ## 下一步
 
-- [客户端认证模式](#-客户端认证模式) — 使用 StaticTokenAuth、DynamicTokenAuth 或 AuthProvider 将 RTC Agent 集成到你自己的认证系统
+- [客户端认证模式](#-客户端认证模式) — 使用 AuthProvider 将 RTC Agent 集成到你自己的认证系统
 - [Web Component API](/docs/integration/component-api/) — 了解如何通过 `<rtc-agent>` 组件集成 RTC Agent
 - [Function 注册指南](/docs/integration/function-registration/) — 注册自定义函数扩展 AI 能力
 - [核心协议 RTC](/docs/concepts/rtc/) — 了解 Remote Tool Calling 的完整生命周期
@@ -250,118 +250,11 @@ flowchart TD
 
 ## 🧩 客户端认证模式
 
-内置的 OAuth2 流程适合独立应用，但许多开发者需要将 RTC Agent 集成到已有认证体系的产品中。从 **web-components v0.2.5** 起，`<rtc-agent>` 组件支持三种客户端认证模式——通过调用 `createRtcAgent()` 时 `RtcAgentConfig` 中的 `auth` 字段进行配置。这些模式让你可以自带令牌、自带刷新逻辑，甚至提供完整的认证 Provider，而无需依赖服务端 OAuth2 流程。
+内置的 OAuth2 流程适合独立应用，但许多开发者需要将 RTC Agent 集成到已有认证体系的产品中。从 **web-components v0.2.5** 起，`<rtc-agent>` 组件支持客户端认证模式——通过调用 `createRtcAgent()` 时 `RtcAgentConfig` 中的 `auth` 字段进行配置。该模式让你可以提供完整的认证 Provider，而无需依赖服务端 OAuth2 流程。
 
-```mermaid
-flowchart TD
-    subgraph MODES["🔐 三种客户端认证模式"]
-        direction TB
-        M1["🏷️ StaticTokenAuth<br/>固定令牌<br/>开发 / CI / 测试"]
-        M2["🔄 DynamicTokenAuth<br/>回调式刷新<br/>⭐ 生产环境推荐"]
-        M3["🧩 AuthProvider<br/>完全委托<br/>多租户 / 自定义"]
-    end
+> 📌 **为什么只有一种模式？** 早期版本曾提供 StaticTokenAuth 和 DynamicTokenAuth 两种额外模式，但实践验证 AuthProvider 已覆盖全部场景（开发/测试/生产），且与宿主应用的认证系统集成最干净。为避免维护负担和接入者的选择困惑，这两种模式已移除。**请勿重新引入**。
 
-    CONFIG["⚙️ RtcAgentConfig<br/>auth: { ... }"] -->|"字段检测"| MODES
-
-    style M1 fill:#fff9c4,stroke:#f9a825,stroke-width:2px
-    style M2 fill:#a5d6a7,stroke:#2e7d32,stroke-width:2px
-    style M3 fill:#e3f2fd,stroke:#1565c0,stroke-width:2px
-    style CONFIG fill:#f3e5f5,stroke:#7b1fa2,stroke-width:2px
-```
-
-| 模式 | 检测方式 | 适用场景 | 复杂度 |
-|:----:|:---------:|:--------:|:----------:|
-| 🏷️ StaticTokenAuth | `'accessToken' in auth` | 开发、CI、测试 | ⭐ |
-| 🔄 DynamicTokenAuth | `'getToken' in auth && !('isLoggedIn' in auth)` | 生产应用 | ⭐⭐ |
-| 🧩 AuthProvider | `'isLoggedIn' in auth` | 多租户、自定义流程 | ⭐⭐⭐ |
-
-> 💡 **模式检测方式**：组件通过检查 `auth` 对象中存在哪些字段来判断模式——无需显式 `type` 字段。检测顺序为：先检查 `accessToken`，再检查 `isLoggedIn`，其余情况归入 DynamicTokenAuth。
-
-### 模式 1：StaticTokenAuth — 固定令牌
-
-最简单的集成方式——提供一个固定的 Access Token（以及可选的 Refresh Token）。组件直接使用这些令牌，不包含刷新逻辑。适用于**本地开发、CI 流水线和自动化测试**。
-
-```typescript
-import { createRtcAgent } from '@rtc-agent/component';
-
-const agent = createRtcAgent({
-  server: { url: 'https://your-server.com' },
-  auth: {
-    accessToken: 'your-jwt-token',
-    refreshToken: 'optional-refresh-token',
-    userId: 'user-123',
-    expiresIn: 3600, // optional, seconds
-    deviceId: 'uuid-from-your-backend',
-  },
-});
-```
-
-| 字段 | 必填 | 说明 |
-|:-----:|:--------:|-------------|
-| `accessToken` | ✅ | 有效的 JWT 令牌字符串 |
-| `refreshToken` | 可选 | 用于延长会话的刷新令牌 |
-| `userId` | ✅ | 唯一用户标识 |
-| `expiresIn` | 可选 | 令牌有效期（秒）（默认：由服务端决定） |
-| `deviceId` | ✅ | 设备唯一标识，必须与服务端嵌入 JWT 中的 Device ID 一致，否则脚本（RTC）无法执行 |
-
-> ⚠️ **不适合生产环境**：静态令牌会过期且无法自动刷新。令牌过期后，用户将被断开连接。生产部署请使用模式 2。
-
-### 模式 2：DynamicTokenAuth — 回调式刷新（推荐）
-
-**生产环境推荐模式**。你提供 `getToken()` 回调（必选）和 `refreshToken()` 回调（可选）——组件在需要令牌时调用 `getToken()` 获取新的令牌字符串，在当前令牌过期时调用 `refreshToken()` 获取新令牌。你的后端处理所有令牌逻辑，组件只消费结果。
-
-```typescript
-import { createRtcAgent } from '@rtc-agent/component';
-
-const agent = createRtcAgent({
-  server: { url: 'https://your-server.com' },
-  auth: {
-    userId: 'user-123',
-    deviceId: 'uuid-from-your-backend',
-    getToken: async () => {
-      // 从你的后端获取新令牌（返回令牌字符串）
-      const res = await fetch('/api/auth/token');
-      const data = await res.json();
-      return data.accessToken;
-    },
-    refreshToken: async () => {
-      // 当前令牌过期时调用（返回新令牌和可选的元数据）
-      const res = await fetch('/api/auth/refresh', { method: 'POST' });
-      return res.json(); // { accessToken: string, refreshToken?: string, expiresIn?: number }
-    },
-  },
-});
-```
-
-```mermaid
-sequenceDiagram
-    participant Comp as 🖥️ RTC Agent 组件
-    participant CB as 📞 你的回调
-    participant BE as ⚙️ 你的后端
-
-    Comp->>CB: getToken()
-    CB->>BE: GET /api/auth/token
-    BE-->>CB: { accessToken: "eyJ..." }
-    CB-->>Comp: 令牌字符串
-
-    Note over Comp: ⏱️ ... 时间流逝，令牌过期 ...
-
-    Comp->>CB: refreshToken()
-    CB->>BE: POST /api/auth/refresh
-    BE-->>CB: { accessToken, expiresIn }
-    CB-->>Comp: 新令牌数据
-```
-
-| 回调 | 必选 | 调用时机 | 期望返回值 |
-|:--------:|:--------:|:-----------:|:---------------:|
-| `getToken()` | ✅ | 组件需要令牌时（初始连接、API 请求） | `string`（令牌字符串） |
-| `refreshToken()` | 可选 | 当前令牌已过期或即将过期 | `{ accessToken: string, refreshToken?: string, expiresIn?: number }` |
-| `userId` | ✅ | — | 唯一用户标识 |
-| `deviceId` | ✅ | — | 设备唯一标识，必须与服务端嵌入 JWT 中的 Device ID 一致，否则脚本（RTC）无法执行 |
-
-> 💡 **为什么推荐此模式**：你的后端完全控制令牌的签发和撤销。组件不存储长期凭证——按需获取新令牌。这与服务端 OAuth2 遵循相同的安全模型，但无需 OAuth2 Provider。`refreshToken` 回调是可选的——如果你的后端令牌长期有效或由外部机制管理，可以只提供 `getToken()`。
-
-### 模式 3：AuthProvider — 完全委托（高级）
+### 模式：AuthProvider — 完全委托（推荐）
 
 最灵活的模式——将**所有**认证关注点委托给你自己的 Provider。除了令牌管理，你还可以控制登录状态检查（`isLoggedIn`）和登出行为。适用于**多租户平台、SSO 集成或具有复杂认证需求的应用**。
 
@@ -406,35 +299,7 @@ const agent = createRtcAgent({
 | `getUserId()` | 可选 | 同步——返回当前用户的唯一标识。**强烈建议提供**，否则所有用户将共享同一个 IndexedDB（数据库名回退为 `{databaseName}-provider-managed`） |
 | `deviceId` | ✅ | 设备唯一标识，必须与服务端嵌入 JWT 中的 Device ID 一致，否则脚本（RTC）无法执行 |
 
-> 📌 **Key difference from Mode 2**: `isLoggedIn` 字段是模式 3 的标志。它使组件能够主动检查认证状态（例如，在尝试连接之前），而不是在请求过程中才发现令牌已过期。
->
 > 💡 **关于 `getUserId()`**：组件使用 `userId` 构建每个用户独立的 IndexedDB（数据库名格式为 `{databaseName}-{userId}`）。如果不提供 `getUserId()`，`userId` 会回退为固定字符串 `'provider-managed'`，导致所有用户共享同一个数据库——在多租户场景下这通常不是期望的行为。
-
-### 选择合适的模式
-
-```mermaid
-flowchart TD
-    Q1{"集成到已有认证体系<br/>的应用中？"}
-    Q1 -->|"否"| Q2{"需要自动<br/>刷新令牌？"}
-    Q1 -->|"是"| Q3{"需要控制<br/>登录状态和登出？"}
-    Q2 -->|"否"| M1["🏷️ 模式 1：StaticTokenAuth"]
-    Q2 -->|"是"| M2["🔄 模式 2：DynamicTokenAuth"]
-    Q3 -->|"否"| M2
-    Q3 -->|"是"| M3["🧩 模式 3：AuthProvider"]
-
-    style M1 fill:#fff9c4,stroke:#f9a825,stroke-width:2px
-    style M2 fill:#a5d6a7,stroke:#2e7d32,stroke-width:2px
-    style M3 fill:#e3f2fd,stroke:#1565c0,stroke-width:2px
-```
-
-| 场景 | 推荐模式 |
-|:---------|:----------------:|
-| 本地开发或 CI/CD 测试 | 🏷️ 模式 1 |
-| 有令牌签发后端的生产应用 | 🔄 模式 2 |
-| 使用 SSO / 自定义会话管理的多租户 SaaS | 🧩 模式 3 |
-| 快速原型或演示 | 🏷️ 模式 1 |
-
-> 💡 你可以先用模式 1 做原型，之后随时迁移到模式 2 或 3——只需修改 `auth` 字段即可。
 
 ---
 

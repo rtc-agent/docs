@@ -31,7 +31,7 @@ const config: RtcAgentConfig = {
   // SharedWorker URL (required for multi-tab support)
   workerUrl: '/rtc-agent/shared-worker.js',
   
-  // Authentication (3 modes, see "Auth Configuration" below)
+  // Authentication (AuthProvider, see "Auth Configuration" below)
   auth: {
     getToken: async () => localStorage.getItem('token') || '',
     userId: 'user-123',
@@ -116,10 +116,8 @@ import type {
   RtcAgentConfig,        // Config object type for createRtcAgent()
   RtcAgentWithLifecycle, // Return type of createRtcAgent() (includes destroy())
 
-  // Auth configuration (3 modes)
+  // Auth configuration
   AuthConfig,
-  StaticTokenAuth,
-  DynamicTokenAuth,
   AuthProvider,
 
   // Event callbacks and event type map
@@ -291,49 +289,9 @@ agent.destroy();
 
 ## Auth Configuration
 
-The `auth` field in `RtcAgentConfig` controls how the component obtains authentication credentials. Three modes are supported, from simplest to most flexible:
+The `auth` field in `RtcAgentConfig` controls how the component obtains authentication credentials. The recommended approach is AuthProvider mode, which delegates all authentication concerns to your provider:
 
-### StaticTokenAuth
-
-Provide tokens directly. Suitable for demos or environments where tokens are long-lived.
-
-```ts
-const config: RtcAgentConfig = {
-  // ...other config
-  auth: {
-    accessToken: 'eyJhbGciOi...',
-    refreshToken: 'dGhpcyBpcyBh...',  // optional
-    userId: 'user-123',
-    expiresIn: 3600,  // optional, seconds
-    deviceId: 'uuid-from-your-backend',  // required — must match the Device ID in the server-issued JWT
-  },
-};
-```
-
-### DynamicTokenAuth (Recommended)
-
-Provide callback functions that return tokens on demand. The component calls `getToken()` (returns a token string) when it needs a token, and `refreshToken()` (optional, returns new token and metadata) when the current one expires.
-
-```ts
-const config: RtcAgentConfig = {
-  // ...other config
-  auth: {
-    getToken: async () => {
-      const res = await fetch('/api/auth/token');
-      const data = await res.json();
-      return data.accessToken;  // returns the token string
-    },
-    refreshToken: async () => {
-      const res = await fetch('/api/auth/refresh');
-      return res.json();  // { accessToken: string, refreshToken?: string, expiresIn?: number }
-    },
-    userId: 'user-123',
-    deviceId: 'uuid-from-your-backend',  // required — must match the Device ID in the server-issued JWT
-  },
-};
-```
-
-### AuthProvider (Advanced)
+### AuthProvider (Recommended)
 
 Full control over the authentication lifecycle. Implement this when your host application already manages auth state and you want the component to integrate with it.
 
@@ -351,7 +309,7 @@ const config: RtcAgentConfig = {
 };
 ```
 
-> For detailed guidance on each auth mode, see [Authentication & Authorization](/docs/en/integration/auth/).
+> For detailed guidance, see [Authentication & Authorization](/docs/en/integration/auth/).
 
 ```mermaid
 flowchart TD

@@ -31,7 +31,7 @@ const config: RtcAgentConfig = {
   // SharedWorker URL（多标签页支持所需）
   workerUrl: '/rtc-agent/shared-worker.js',
   
-  // 认证配置（3 种模式，见下方"认证配置"章节）
+  // 认证配置（AuthProvider，见下方"认证配置"章节）
   auth: {
     getToken: async () => localStorage.getItem('token') || '',
     userId: 'user-123',
@@ -116,10 +116,8 @@ import type {
   RtcAgentConfig,        // createRtcAgent() 的配置对象类型
   RtcAgentWithLifecycle, // createRtcAgent() 的返回值类型（含 destroy()）
 
-  // 认证配置（3 种模式）
+  // 认证配置
   AuthConfig,
-  StaticTokenAuth,
-  DynamicTokenAuth,
   AuthProvider,
 
   // 事件回调与事件类型映射
@@ -291,49 +289,9 @@ agent.destroy();
 
 ## 认证配置
 
-`RtcAgentConfig` 中的 `auth` 字段控制组件如何获取认证凭据。支持三种模式，从最简单到最灵活：
+`RtcAgentConfig` 中的 `auth` 字段控制组件如何获取认证凭据。推荐使用 AuthProvider 模式，将认证关注点完全委托给你的 Provider：
 
-### StaticTokenAuth
-
-直接提供令牌。适用于演示或令牌长期有效的环境。
-
-```ts
-const config: RtcAgentConfig = {
-  // ...其他配置
-  auth: {
-    accessToken: 'eyJhbGciOi...',
-    refreshToken: 'dGhpcyBpcyBh...',  // 可选
-    userId: 'user-123',
-    expiresIn: 3600,  // 可选，秒数
-    deviceId: 'uuid-from-your-backend',  // 必填，与服务端 JWT 中的 Device ID 一致
-  },
-};
-```
-
-### DynamicTokenAuth（推荐）
-
-提供按需返回令牌的回调函数。组件在需要令牌时调用 `getToken()`（返回令牌字符串），在当前令牌过期时调用 `refreshToken()`（可选，返回新令牌及元数据）。
-
-```ts
-const config: RtcAgentConfig = {
-  // ...其他配置
-  auth: {
-    getToken: async () => {
-      const res = await fetch('/api/auth/token');
-      const data = await res.json();
-      return data.accessToken;  // 返回令牌字符串
-    },
-    refreshToken: async () => {
-      const res = await fetch('/api/auth/refresh');
-      return res.json();  // { accessToken: string, refreshToken?: string, expiresIn?: number }
-    },
-    userId: 'user-123',
-    deviceId: 'uuid-from-your-backend',  // 必填，与服务端 JWT 中的 Device ID 一致
-  },
-};
-```
-
-### AuthProvider（高级）
+### AuthProvider（推荐）
 
 完全控制认证生命周期。当宿主应用已经管理认证状态，且你希望组件与之集成时使用。
 
@@ -351,7 +309,7 @@ const config: RtcAgentConfig = {
 };
 ```
 
-> 各认证模式的详细指南，请参阅[认证与授权](/docs/integration/auth/)。
+> 详细指南，请参阅[认证与授权](/docs/integration/auth/)。
 
 ```mermaid
 flowchart TD
