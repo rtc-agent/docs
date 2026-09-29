@@ -3,7 +3,7 @@ title: Web Component API
 description: A single <rtc-agent> component handles AI conversation, tool calls, and theme switching — configure with attributes, listen with events, and customize with CSS variables. Use createRtcAgent() factory function for production applications.
 ---
 
-**`<rtc-agent>`** is the **sole component** exposed by RTC Agent. Built on Lit, it contains 53 sub-components and 23 Controllers internally, but presents only a clean Web Component interface externally — attribute configuration, event listening, and CSS variable customization.
+**`<rtc-agent>`** is the **sole component** exposed by RTC Agent. Built on Lit, it contains 54 sub-components and 23 Controllers internally, but presents only a clean Web Component interface externally — attribute configuration, event listening, and CSS variable customization.
 
 ## Creating the Component
 

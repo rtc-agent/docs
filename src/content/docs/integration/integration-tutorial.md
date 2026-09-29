@@ -440,6 +440,7 @@ const agent = createRtcAgent({
     refreshToken: async () => myAuthProvider.refresh(),
     isLoggedIn: () => myAuthProvider.isLoggedIn(),
     logout: async () => myAuthProvider.logout(),
+    getUserId: () => myAuthProvider.getUserId(),  // 返回当前用户唯一标识（强烈建议提供）
   },
 });
 ```
@@ -588,6 +589,7 @@ onUnmounted(() => {
 | `auth.refreshToken` | `() => Promise<object>` | — | 异步刷新令牌的回调（模式二可选，模式三必选） |
 | `auth.isLoggedIn` | `() => boolean` | — | 检查用户是否已认证（模式三） |
 | `auth.logout` | `() => Promise<void>` | — | 用户登出（模式三） |
+| `auth.getUserId` | `() => string` | — | 返回当前用户唯一标识（模式三，强烈建议提供，用于 IndexedDB 按用户隔离） |
 
 ### 窗口配置
 
@@ -615,7 +617,7 @@ onUnmounted(() => {
 | 属性 | 类型 | 说明 |
 | --- | --- | --- |
 | `on.ready` | `() => void` | 组件就绪时调用 |
-| `on.destroy` | `() => void` | 组件销毁时调用 |
+| `on.beforeDestroy` | `() => void` | 组件即将销毁时调用（`disconnectedCallback` 执行时，清理之前） |
 
 ## 升级 SharedWorker
 

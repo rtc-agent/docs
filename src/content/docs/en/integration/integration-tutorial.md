@@ -340,6 +340,7 @@ const agent = createRtcAgent({
     refreshToken: async () => myAuthProvider.refresh(),
     isLoggedIn: () => myAuthProvider.isLoggedIn(),
     logout: async () => myAuthProvider.logout(),
+    getUserId: () => myAuthProvider.getUserId(),  // returns the current user's unique ID (strongly recommended)
   },
 });
 ```
@@ -488,6 +489,7 @@ onUnmounted(() => {
 | `auth.refreshToken` | `() => Promise<object>` | — | Async callback to refresh the token (optional in Mode 2, required in Mode 3) |
 | `auth.isLoggedIn` | `() => boolean` | — | Check whether the user is authenticated (Mode 3) |
 | `auth.logout` | `() => Promise<void>` | — | Log the user out (Mode 3) |
+| `auth.getUserId` | `() => string` | — | Return the current user's unique identifier (Mode 3, strongly recommended for per-user IndexedDB isolation) |
 
 ### Window Configuration
 
@@ -515,7 +517,7 @@ onUnmounted(() => {
 | Property | Type | Description |
 |:----:|:----:|:----:|
 | `on.ready` | `() => void` | Called when component is ready |
-| `on.destroy` | `() => void` | Called when component is destroyed |
+| `on.beforeDestroy` | `() => void` | Called when the component is about to be destroyed (during `disconnectedCallback`, before cleanup) |
 
 ## Upgrading SharedWorker
 
