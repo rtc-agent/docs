@@ -15,6 +15,9 @@ export default defineConfig({
 		starlight({
 			title: 'RTC Agent',
 			defaultLocale: 'root',
+			components: {
+				Head: './src/components/starlight/Head.astro',
+			},
 			locales: {
 				root: {
 					label: '简体中文',
@@ -130,6 +133,9 @@ export default defineConfig({
 
 						const container = document.createElement('div');
 						container.id = 'rtc-agent-global';
+						// 添加 ViewTransitions 持久化属性
+						container.setAttribute('data-astro-transition-persist', 'rtc-agent');
+						container.setAttribute('data-astro-transition-name', 'rtc-agent');
 						container.appendChild(agent);
 						document.body.appendChild(container);
 
@@ -138,8 +144,9 @@ export default defineConfig({
 						document.head.appendChild(style);
 					};
 
-					// 初始页面加载
-					document.addEventListener('DOMContentLoaded', () => initRtcAgent());
+					// 使用 Astro ViewTransitions 生命周期事件
+					document.addEventListener('astro:page-load', () => initRtcAgent());
+					// 兼容：首次加载时也触发（astro:page-load 在首次加载时也会触发）
 				` },
 			],
 			logo: {
