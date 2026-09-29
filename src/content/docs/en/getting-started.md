@@ -91,7 +91,7 @@ For documentation sites or quick demos:
 
 ```html
 <!-- Import the component -->
-<script type="module" src="https://cdn.jsdelivr.net/npm/@rtc-agent/component@0.2.7-rc.3/dist/index.js"></script>
+<script type="module" src="https://cdn.jsdelivr.net/npm/@rtc-agent/component@0.2.8-rc.0/dist/index.js"></script>
 
 <!-- Minimal setup -->
 <rtc-agent></rtc-agent>
