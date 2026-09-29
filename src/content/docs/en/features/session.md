@@ -393,6 +393,31 @@ The system supports multi-dimensional cost calculation, automatically computed b
 
 > 💡 Token statistics use a throttling mechanism (Throttle) to control the push frequency of `session.updated` events, avoiding event storms. The frontend displays this data via the `rtc-token-usage` component.
 
+## Session Export
+
+Users can export the current session's conversation history as a standalone HTML file for offline reading, archiving, or sharing. Export is triggered via the `/export` command and runs entirely on the frontend.
+
+```mermaid
+flowchart LR
+    A["👤 /export"] --> B["📋 Configure options"]
+    B --> C["🔍 Filter messages"]
+    C --> D["🎨 Render HTML"]
+    D --> E["💾 Download file"]
+
+    style A fill:#e3f2fd,stroke:#1565c0,stroke-width:2px
+    style E fill:#e8f5e9,stroke:#388e3c,stroke-width:2px
+```
+
+| Feature | Description |
+|---------|-------------|
+| **Pure frontend** | No server involvement; HTML file embeds all styles, viewable offline |
+| **Configurable options** | Message limit, include tool calls, include thinking content |
+| **Markdown rendering** | Uses `marked` + `highlight.js` + `DOMPurify`, consistent with component rendering |
+| **Token statistics** | Exported file includes input/output/cache read/cache write tokens and total cost |
+| **Smart file naming** | Format: `rtc-{title}-{YYYY-MM-DD}.html`, illegal characters handled automatically |
+
+See [Command System — /export](/docs/en/features/commands/#export--export-session) for detailed export options and rules.
+
 ## Next Steps
 
 - [Messaging](/docs/en/features/messaging/) — Learn about message interactions within sessions

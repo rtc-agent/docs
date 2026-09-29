@@ -393,6 +393,31 @@ flowchart TD
 
 > 💡 Token 统计通过节流机制（Throttle）控制 `session.updated` 事件的推送频率，避免高频事件风暴。前端通过 `rtc-token-usage` 组件展示这些数据。
 
+## 会话导出
+
+用户可以将当前会话的对话记录导出为独立的 HTML 文件，用于离线阅读、归档或分享。导出通过 `/export` 命令触发，完全在前端完成。
+
+```mermaid
+flowchart LR
+    A["👤 /export"] --> B["📋 配置选项"]
+    B --> C["🔍 过滤消息"]
+    C --> D["🎨 渲染 HTML"]
+    D --> E["💾 下载文件"]
+
+    style A fill:#e3f2fd,stroke:#1565c0,stroke-width:2px
+    style E fill:#e8f5e9,stroke:#388e3c,stroke-width:2px
+```
+
+| 特性 | 说明 |
+|------|------|
+| **纯前端实现** | 无需服务端参与，HTML 文件内嵌所有样式，离线可看 |
+| **可配置选项** | 消息数量上限、是否包含工具调用、是否包含推理过程 |
+| **Markdown 渲染** | 使用 `marked` + `highlight.js` + `DOMPurify`，与组件内渲染一致 |
+| **Token 统计** | 导出文件包含输入/输出/缓存读取/缓存写入 Token 和总花费 |
+| **智能文件命名** | 格式：`rtc-{标题}-{YYYY-MM-DD}.html`，自动处理非法字符 |
+
+详细导出选项和规则见[命令系统 — /export](/docs/features/commands/#export--导出会话)。
+
 ## 下一步
 
 - [消息与对话](/docs/features/messaging/) — 了解会话内的消息交互

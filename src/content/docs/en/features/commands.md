@@ -66,7 +66,7 @@ Parsing rules:
 - The rest is the **arguments** (passed as raw string)
 - Command name matching priority: **exact match** > **alias match**
 
-Commands come from two sources: system **built-in commands** (`/compact`, `/goal`, `/persona`) and **custom commands** registered by the host application via API.
+Commands come from two sources: system **built-in commands** (`/compact`, `/export`, `/goal`, `/persona`) and **custom commands** registered by the host application via API.
 
 ---
 
@@ -99,6 +99,66 @@ flowchart LR
 | **Completion Notification** | Pushes a notification via the Live channel when compression completes |
 | **Duplicate Prevention** | Repeated triggers are blocked while compression is in progress |
 | **Result Feedback** | Returns `{Success: true}` upon completion, with notification pushed via the Live channel |
+
+---
+
+## /export — Export Session
+
+Export the current session's conversation history as a standalone HTML file for offline reading, archiving, or sharing. Pure frontend implementation — no server involvement required.
+
+```mermaid
+flowchart LR
+    A["👤 /export"] --> B["📋 Show export options dialog"]
+    B --> C["⚙️ User configures options"]
+    C --> D["🔍 Filter messages"]
+    D --> E["🎨 Render Markdown + code highlighting"]
+    E --> F["💾 Download HTML file"]
+
+    style A fill:#e3f2fd,stroke:#1565c0,stroke-width:2px
+    style B fill:#fff9c4,stroke:#f9a825,stroke-width:2px
+    style F fill:#e8f5e9,stroke:#388e3c,stroke-width:2px
+```
+
+### Export Options
+
+The dialog provides the following configuration:
+
+| Option | Type | Default | Description |
+|:------:|:----:|:-------:|-------------|
+| Message limit | Slider | 200 | Export the most recent N messages. Step size 100, max 2000. Set above current message count to export all |
+| Include tool calls | Yes / No | No | Whether to include `toolcall_input` and `toolcall_output` messages |
+| Include thinking | Yes / No | No | Whether to include `thinking` messages |
+
+### Exported Content
+
+The generated HTML file contains:
+
+| Content | Description |
+|---------|-------------|
+| **Session metadata** | Title, creation time, message count, token statistics (input/output/cache read/cache write/total cost) |
+| **User messages** | Expanded, rendered as Markdown + syntax-highlighted code |
+| **Assistant replies** | Expanded, rendered as Markdown + syntax-highlighted code |
+| **Tool calls** | Collapsed (optional), expandable to view parameters and results |
+| **Thinking process** | Collapsed (optional), expandable to view AI reasoning |
+
+### File Naming
+
+Filename format: `rtc-{session-title}-{YYYY-MM-DD}.html`
+
+- Illegal filename characters are replaced with hyphens
+- Title is truncated to 50 characters
+- Spaces are replaced with hyphens
+
+### Message Filtering Rules
+
+| Rule | Description |
+|------|-------------|
+| **Exclude streaming messages** | Automatically filters out incomplete messages with `streaming: true` |
+| **Empty session check** | Shows error when the current session has no messages |
+| **Content filtering** | Filters tool call and thinking messages based on user options |
+| **Count truncation** | Keeps the most recent N messages when exceeding the limit |
+
+> 💡 **Design principle**: Export is a fully offline, frontend-only operation — the HTML file embeds all styles and can be viewed without internet access. Markdown rendering uses `marked` + `highlight.js` + `DOMPurify`, consistent with the component's internal message rendering pipeline.
 
 ---
 

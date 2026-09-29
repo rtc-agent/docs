@@ -91,7 +91,7 @@ agent.destroy();
 For simple scenarios or CDN quick previews, you can use HTML attributes directly:
 
 ```html
-<script type="module" src="https://cdn.jsdelivr.net/npm/@rtc-agent/component@0.2.7-rc.4/dist/index.js"></script>
+<script type="module" src="https://cdn.jsdelivr.net/npm/@rtc-agent/component@0.2.7-rc.3/dist/index.js"></script>
 
 <rtc-agent theme="dark" app-label="My AI Assistant"></rtc-agent>
 ```

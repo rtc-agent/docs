@@ -19,7 +19,7 @@ For documentation sites or quick demos, load via CDN and use the `createRtcAgent
 ```html
 <!-- Import and configure in one step -->
 <script type="module">
-  import { createRtcAgent } from 'https://cdn.jsdelivr.net/npm/@rtc-agent/component@0.2.6-rc.1/dist/index.js';
+  import { createRtcAgent } from 'https://cdn.jsdelivr.net/npm/@rtc-agent/component@0.2.7-rc.3/dist/index.js';
 
   const agent = createRtcAgent({
     server: { url: 'https://rtc-agent.cherish.chat' },
@@ -51,7 +51,7 @@ export default defineConfig({
           tag: 'script',
           attrs: { type: 'module' },
           content: `
-            import { z, withMeta, createRtcAgent } from 'https://cdn.jsdelivr.net/npm/@rtc-agent/component@0.2.6-rc.1/dist/index.js';
+            import { z, withMeta, createRtcAgent } from 'https://cdn.jsdelivr.net/npm/@rtc-agent/component@0.2.7-rc.3/dist/index.js';
 
             const initRtcAgent = async () => {
               if (document.querySelector('#rtc-agent-global')) return;
