@@ -7,141 +7,320 @@ import { Badge } from '@astrojs/starlight/components';
 
 <Badge text="Showcase #2" />
 
-[Peep](https://pineapplebond.github.io/peep/) is an all-in-one Chinese metaphysics workbench — integrating person profiles, documents, Bazi (Four Pillars), Ziwei Doushu, and Liuyao divination. We **embed `<rtc-agent>` as a Web Component** into the React app, letting the AI call business APIs directly:
+[Peep](https://pineapplebond.github.io/peep/) is an all-in-one Chinese metaphysics workbench — integrating person profiles, documents, Ziwei Doushu, Da Liu Ren, Liu Yao, and a knowledge base. We **embed `rtc-agent` as a Web Component** into the React app, letting the AI call business APIs directly:
 
-- 🧑 **"Create a profile for Zhang San"** → calls `person.create`, jumps to the detail page
-- 📝 **"Write a diary entry about today's interview"** → calls `document.create`, jumps to the editor
-- 🔮 **"Read Zhang San's Bazi, check this year's fortune"** → calls `bazi.chart`, renders the chart
-- 🎲 **"Cast a hexagram — should I switch jobs soon?"** → auto-shakes → `liuyao.create` → displays the hexagram
-- 📁 **"Create a 'Ziwei Study' folder"** → calls `folder.create`, jumps to the documents page
+- 🧑 **"Create a profile for Zhang San"** → calls `PersonCreate`, jumps to the detail page
+- 🔮 **"Read Zhang San's Ziwei chart, check this year's fortune"** → calls `ZiWei` / `GetScopeData`, renders the chart
+- 🎲 **"Cast a hexagram — should I switch jobs soon?"** → calls `LiuYaoCreate`, displays the hexagram
+- 📚 **"Write a study note about the Life Palace"** → calls `WikiCreate`, jumps to the editor
+- 📅 **"What's today's date in the lunar calendar?"** → calls `SolarToLunar`, returns the lunar date
 
 > The AI doesn't just chat — it **reads data**, **invokes functions**, and **drives the UI**.
 
 ## Product Preview
 
-<img src="/docs/showcase/peep-screenshot.png" alt="Peep metaphysics workbench interface screenshot" style="width:100%; border-radius:8px; box-shadow:0 2px 12px rgba(0,0,0,0.12)" />
+<video controls autoplay muted loop playsinline style="width:100%; border-radius:8px; box-shadow:0 2px 12px rgba(0,0,0,0.12)">
+  <source src="/docs/showcase/peep-demo.mp4" type="video/mp4" />
+</video>
 
-> The screenshot shows the Peep main interface: left sidebar, center chart/document area, right `<rtc-agent>` AI panel.
+> The video above (4x speed) shows the full workflow: user interacts with the AI via natural language to create profiles, cast charts, divine hexagrams, and manage documents.
+
+<img src="/docs/showcase/peep-screenshot.png" alt="Peep metaphysics workbench interface screenshot" style="width:100%; border-radius:8px; box-shadow:0 2px 12px rgba(0,0,0,0.12); margin-top:16px" />
+
+> The screenshot shows the Peep main interface: **left 5 parts** for the Ziwei Doushu main content area, **right 3 parts** for the embedded `<rtc-agent>` AI assistant panel.
+
+## How This Differs from the Mermaid Case
+
+If [Mermaid Live Editor](/docs/en/showcase/mermaid-live-editor/) demonstrates the **simplest floating-window integration**, Peep showcases **production-grade embedded integration**:
+
+| Feature | Mermaid Live Editor | Peep |
+| --- | --- | --- |
+| Framework | Svelte | React 19 |
+| Window Mode | Floating window (minimized at bottom-left) | **Embedded (5:3 split layout)** |
+| Auth | Default (rtc-agent built-in) | **Custom AuthProvider** |
+| Business Complexity | Single editor | 6 business domains, 40+ functions |
+| Safety Mechanism | None | **Write operation confirmation** |
+| Theme Sync | Svelte `$effect` | **Polling + API sync** |
+| Language Sync | None | **zh-CN / en-US switching** |
+
+> 💡 rtc-agent's integration is extremely flexible — from the simplest floating window to production-grade embedded integration, all achievable with the same component.
 
 ## Architecture
 
 ```
-┌─────────────────────────────────────────────────────────┐
-│  Peep (React 19 + Vite 8)                               │
-│                                                         │
-│  ┌──────────┐  ┌──────────────┐  ┌───────────────────┐ │
-│  │ Sidebar  │  │   Main Area  │  │   Right Panel     │ │
-│  │  🧭 🧑 📝│  │  Charts / Docs│  │  ┌─────────────┐ │ │
-│  │          │  │              │  │  │ <rtc-agent> │ │ │
-│  │          │  │              │  │  │   Web       │ │ │
-│  │          │  │              │  │  │   Component │ │ │
-│  │          │  │              │  │  └─────────────┘ │ │
-│  └──────────┘  └──────────────┘  └───────────────────┘ │
-│                       ▲                    │            │
-│                       │     window.peep    │            │
-│                       └────────────────────┘            │
-│                         (AI invokes business APIs)      │
-└─────────────────────────────────────────────────────────┘
-```
-
-## Integration
-
-The integration is **zero-invasive to upstream React source** — `<rtc-agent>` is a standard Web Component loaded via CDN, framework-agnostic. Changes concentrate in **3 files**:
-
-| File | Change | Notes |
-| --- | --- | --- |
-| `MainLayout.tsx` | Mount `<rtc-agent>` in right panel | Embedded maximized mode + draggable splitter |
-| `rtc-agent-config.ts` | Declare 7 groups of business functions via Zod Schema | Auto-generates OpenAPI docs for the AI |
-| `window.peep` API | Expose host state to `window` | Agent reads/writes business data through it |
-
-### Step 1: Embed `<rtc-agent>` into the React Layout
-
-The AI panel is a **native part of the app**, not a floating overlay:
-
-```tsx
-// MainLayout.tsx — right panel
-<aside style={{ width: `${rightPanelWidth}px` }}>
-  <rtc-agent
-    ref={agentRef}
-    app-label="Peep AI"
-    scenarios-url="/peep/rtc-agent/scenarios/"
-    redirect-uri="/peep/auth/callback.html"
-    server-url="https://rtc-agent.cherish.chat"
-  />
-</aside>
+┌─────────────────────────────────────────────────────────────────┐
+│  Peep (React 19 + Vite 8)                                       │
+│                                                                 │
+│  ┌────────────────────────────┐  ┌──────────────────────────┐  │
+│  │                            │  │                          │  │
+│  │   Main Content (5 parts)   │  │  AI Assistant (3 parts)  │  │
+│  │                            │  │  ┌────────────────────┐  │  │
+│  │   🧭 Ziwei / Da Liu Ren / │  │  │ <rtc-agent>        │  │  │
+│  │   🎲 Liu Yao / 📚 Wiki     │  │  │   Web Component    │  │  │
+│  │                            │  │  │   Embedded Max     │  │  │
+│  │                            │  │  │   No close/min     │  │  │
+│  │                            │  │  └────────────────────┘  │  │
+│  │                            │  │                          │  │
+│  └────────────────────────────┘  └──────────────────────────┘  │
+│                       ▲                              │          │
+│                       │    peepApi() internal channel│          │
+│                       └──────────────────────────────┘          │
+│                         (AI invokes business APIs)              │
+└─────────────────────────────────────────────────────────────────┘
 ```
 
 **Key design decisions:**
 
 | Decision | Reason |
 | --- | --- |
-| Web Component, not npm package | Framework-agnostic; upgrades aren't bound to React versions |
-| Embedded maximized mode | Disables drag/resize/minimize — AI panel feels native |
-| Draggable splitter | Users adjust panel width freely (280px – 800px) |
-| Disable in tests | `VITE_RTC_AGENT_DISABLED=true` fully removes overlay to avoid pointer-event interception |
+| Embedded, not floating | AI assistant is a core part of the app, not an optional plugin |
+| Fixed 5:3 ratio | Ensures enough space for charts/documents while keeping the AI panel spacious |
+| Disable drag/resize/minimize | Not needed in embedded mode — AI is always visible |
+| Custom AuthProvider | Fully delegates to peep's auth system, shares login state |
+| Write confirmation | Prevents AI mistakes from causing irreversible data changes |
 
-### Step 2: Declare Agent Tools with Zod Schema
+## Integration
+
+The integration uses npm to install `@rtc-agent/component`, with changes concentrated in **3 files**:
+
+| File | Change | Notes |
+| --- | --- | --- |
+| `src/core/rtcAgent.ts` | Create rtc-agent instance | Configure embedded mode, AuthProvider, function groups |
+| `src/core/rtcAgent/*.ts` | Define 40+ functions by business domain | Zod Schema driven, auto-generates OpenAPI docs |
+| `src/App.tsx` | Mount into 5:3 layout right side | `slot.replaceChildren(agent)` |
+
+### Step 1: 5:3 Split Layout
+
+The AI panel is a **native part of the app**, not a floating overlay:
+
+```tsx
+// App.tsx — global layout
+<div className="rtc-layout">
+  <div className="rtc-layout-main">
+    {/* Main content: Ziwei / Da Liu Ren / Liu Yao / Wiki */}
+    <BrowserRouter basename="/peep">
+      <Layout>
+        <Routes>...</Routes>
+      </Layout>
+    </BrowserRouter>
+  </div>
+  <aside className="rtc-layout-side" aria-label="AI Assistant">
+    <div ref={rtcSlotRef} id="rtc-slot" />
+  </aside>
+</div>
+```
+
+```css
+/* 5:3 split layout */
+.rtc-layout {
+  display: grid;
+  grid-template-columns: 5fr 3fr;
+  height: 100vh;
+}
+```
+
+### Step 2: Create the rtc-agent Instance
+
+Use the `createRtcAgent` factory function, configuring **embedded maximized mode** and **custom AuthProvider**:
+
+```typescript
+// src/core/rtcAgent.ts
+import { createRtcAgent } from '@rtc-agent/component';
+import type { RtcAgentWithLifecycle } from '@rtc-agent/component';
+
+export function createPeepRtcAgent(): RtcAgentWithLifecycle {
+  return createRtcAgent({
+    appLabel: 'Peep · Destiny AI Assistant',
+    agentName: 'PeepAstro',
+    agentDescription: 'Ziwei Doushu · Da Liu Ren · Liu Yao · Wiki — Destiny Analysis AI',
+    persona: PERSONA_EN, // or PERSONA_ZH, switches with language
+    
+    // Embedded mode configuration
+    window: {
+      embedded: true,
+      defaultMode: 'maximized',
+      draggable: false,
+      resizable: false,
+      showMinimize: false,
+      showMaximize: false,
+      showClose: false,
+    },
+    
+    // Custom AuthProvider (Mode 3)
+    auth: {
+      getToken: async () => {
+        const tokens = getTokens();
+        if (!tokens) throw new Error('Not authenticated');
+        return tokens.access_token;
+      },
+      refreshToken: async () => {
+        const tokens = getTokens();
+        const newTokens = await refreshAccessToken(tokens.refresh_token);
+        return {
+          accessToken: newTokens.access_token,
+          refreshToken: newTokens.refresh_token,
+          expiresIn: Math.floor((newTokens.expires_at - Date.now()) / 1000),
+        };
+      },
+      isLoggedIn: () => {
+        const tokens = getTokens();
+        if (!tokens) return false;
+        return !isTokenExpired(tokens, 5 * 60 * 1000);
+      },
+      logout: async () => {
+        clearTokens();
+      },
+      getUserId: () => {
+        const tokens = getTokens();
+        if (!tokens) throw new Error('Not authenticated');
+        return tokens.user_id;
+      },
+      deviceId: getOrCreateDeviceIdSync(),
+    },
+    
+    // Business function groups (6 groups, 40+ functions)
+    groups: FUNCTION_GROUPS,
+    
+    scenariosUrl: `${import.meta.env.BASE_URL}scenarios/`,
+    workerUrl: `${import.meta.env.BASE_URL}rtc-agent/shared-worker.js`,
+    server: {
+      url: 'https://rtc-agent.cherish.chat',
+      redirectUri: `${import.meta.env.BASE_URL}auth/callback.html`,
+    },
+    theme: getTheme(),
+    lang: document.documentElement.lang as 'zh-CN' | 'en-US',
+    databaseName: 'peep-rtc',
+  });
+}
+```
+
+### Step 3: Define Business Functions
 
 rtc-agent's core design is **"Agent never touches your source — it operates state through declarative APIs"**. Peep drives function definitions with Zod Schema and **auto-generates OpenAPI docs** the AI can understand:
 
 ```typescript
-// rtc-agent-config.ts
-export async function createRtcAgentConfig(): Promise<RtcAgentConfig> {
-  return {
-    name: 'Peep',
-    persona, // loaded from AGENT.md
-    groups: [
-      { name: 'person',   functions: [/* create, get, list */] },
-      { name: 'document', functions: [/* create, list, view */] },
-      { name: 'folder',   functions: [/* create, list */] },
-      { name: 'tag',      functions: [/* list */] },
-      { name: 'bazi',     functions: [/* chart */] },
-      { name: 'ziwei',    functions: [/* chart */] },
-      { name: 'liuyao',   functions: [/* create, get, list */] },
-    ],
+// src/core/rtcAgent/personFunctions.ts
+import { z, withMeta } from '@rtc-agent/component';
+
+export const personCreateFunction = {
+  name: 'PersonCreate',
+  description:
+    'Create a new person profile and auto-switch to that person. ' +
+    'Example: PersonCreate({ name: "Zhang San", date: "1990-05-15", timeIndex: 4, gender: "男" })',
+  zodSchema: z.object({
+    name: withMeta(z.string(), { example: 'Zhang San' }).describe('Person name'),
+    date: withMeta(z.string(), { example: '1990-05-15' })
+      .describe('Birth date in solar calendar, format YYYY-MM-DD'),
+    timeIndex: withMeta(z.number().int().min(0).max(12), { example: 4 })
+      .describe('Time index 0-12, from early Zi hour (0) to late Zi hour (12)'),
+    gender: withMeta(z.enum(['男', '女']), { example: '男' }).describe('Gender'),
+    calendar: withMeta(z.enum(['solar', 'lunar']), { example: 'solar' })
+      .optional().describe('Calendar type, defaults to solar'),
+    confirmed: CONFIRM_FIELD, // Write operation confirmation flag
+  }),
+  handler: createConfirmHandler(schema, (p) => peepApi().PersonCreate(p)),
+  returns: {
+    zodSchema: z.object({
+      id: z.number().describe('Person ID'),
+      name: z.string().describe('Name'),
+      // ... other fields
+    }),
+  },
+};
+```
+
+**6 business function groups:**
+
+| Group | Functions | Capabilities |
+| --- | --- | --- |
+| `person` | 6 | Person profile CRUD (List / Get / Create / Update / Delete / SetDefault) |
+| `ziwei` | 3 | Ziwei Doushu charting (ZiWei / GetScopeData / SetHoroscopeTime) |
+| `daliuren` | 7 | Da Liu Ren divination (Create / List / View / Delete / BatchView / UpdateTags / UpdateNote) |
+| `liuyao` | 7 | Liu Yao hexagram (Create / List / View / Delete / BatchView / UpdateTags / UpdateNote) |
+| `wiki` | 7 | Knowledge base documents (List / View / Create / Update / BatchView / ReplaceContent / InsertContent) |
+| `lunar` | 10 | Calendar calculations (SolarToLunar / LunarToSolar / GetEightCharacters / GetSolarTerms, etc.) |
+
+### Step 4: Write Operation Confirmation
+
+For destructive operations like Create / Update / Delete, Peep implements a **two-step confirmation mechanism** to prevent AI mistakes:
+
+```typescript
+// src/core/rtcAgent/shared.ts
+export const CONFIRM_FIELD = withMeta(z.boolean(), { example: true })
+  .optional()
+  .describe(
+    '⚠️ Safety confirmation flag: on the first call, don\'t pass this field; ' +
+    'the function returns an operation summary for user confirmation. ' +
+    'After the user confirms, the AI calls again with confirmed: true to execute.'
+  );
+
+export function createConfirmHandler(schema, handler) {
+  return async (params) => {
+    // First call: confirmed not passed, return operation summary
+    if (!params.confirmed) {
+      return {
+        needsConfirm: true,
+        summary: `About to create person "${params.name}", birth date ${params.date}`,
+      };
+    }
+    // Second call: confirmed, actually execute
+    return handler(params);
   };
 }
 ```
 
-Every function carries **Schema validation + natural-language description + example values**:
+**Workflow:**
+1. AI first calls `PersonCreate({ name: 'Zhang San', ... })`
+2. Handler detects `confirmed` not passed, returns `{ needsConfirm: true, summary: '...' }`
+3. AI shows the operation summary to the user, waits for confirmation
+4. After user confirms, AI calls again `PersonCreate({ ..., confirmed: true })`
+5. Handler detects `confirmed: true`, actually executes the creation
+
+> 💡 This way, even if the AI hallucinates or there's a prompt injection, irreversible operations won't execute directly.
+
+## Theme & Language Sync
+
+Peep supports light/dark themes and Chinese/English bilingual, which need to stay in sync with rtc-agent:
 
 ```typescript
-import { z, withMeta } from '@rtc-agent/component';
+// Theme sync: polling check (500ms interval)
+export function startThemeSync(): () => void {
+  let lastTheme = getTheme();
+  const timer = setInterval(() => {
+    const current = getTheme();
+    if (current !== lastTheme) {
+      lastTheme = current;
+      syncTheme(); // Sets agent.theme
+    }
+  }, 500);
+  return () => clearInterval(timer);
+}
 
-const personCreateSchema = z.object({
-  name: withMeta(z.string().min(1), { example: 'Zhang San' }).describe('Person name, used for display and search.'),
-  birthDate: withMeta(z.string().regex(/^\d{4}-\d{2}-\d{2}$/), { example: '1990-01-15' })
-    .describe('Birth date in ISO 8601 format (YYYY-MM-DD).'),
-  gender: withMeta(z.enum(['male', 'female']), { example: 'male' }).describe('Gender, affects Da Yun direction.'),
-  birthHour: withMeta(z.number().min(0).max(23), { example: 14 })
-    .optional().describe('Birth hour (0-23), optional.'),
-  birthDateType: withMeta(z.enum(['solar', 'lunar']).default('solar'), { example: 'solar' })
-    .describe('Solar / lunar calendar, auto-converted.'),
-});
+// Language sync: switch via API
+export async function syncLocale(locale: Locale): Promise<void> {
+  if (!_agent) return;
+  await switchLocale(locale); // Triggers @lit/localize re-render
+}
 ```
 
-### Step 3: Expose Host APIs on `window.peep`
+```tsx
+// App.tsx — start sync
+useEffect(() => {
+  const agent = createPeepRtcAgent();
+  slot.replaceChildren(agent);
+  const cleanupThemeSync = startThemeSync();
+  return () => {
+    cleanupThemeSync();
+    agent.destroy();
+  };
+}, []);
 
-All business operations are exposed to rtc-agent through `window.peep`:
-
-```typescript
-// Attach to window so rtc-agent tools can invoke them
-window.peep = {
-  person:   { create, get, list },
-  document: { create, list, view },
-  folder:   { create, list },
-  tag:      { list },
-  bazi:     { chart },
-  ziwei:    { chart },
-  liuyao:   { create, get, list },
-};
+// Sync on language switch
+const { locale } = useI18n();
+useEffect(() => {
+  syncLocale(locale);
+}, [locale]);
 ```
-
-Design principles match the mermaid-live-editor case:
-
-- **Read/write symmetry**: `list` pairs with `create` — Agent can read and write
-- **Validation loop**: Zod Schema validates arguments at runtime; errors feed back to the AI immediately
-- **Navigation coupling**: After Agent calls `create`, the host automatically jumps to the detail page
 
 ## Tech Stack
 
@@ -152,23 +331,23 @@ Design principles match the mermaid-live-editor case:
 | Components | Radix UI · shadcn/ui · Lucide Icons |
 | Data | Dexie (IndexedDB) · Zustand |
 | Divination Engines | iztro · lunar-lite · lunar-typescript |
-| AI Integration | rtc-agent (Web Component) · Zod Schema |
+| AI Integration | rtc-agent (npm) · Zod Schema |
 | Editor | ByteMD (Markdown + GFM) |
-| Testing | Playwright E2E (172 tests) |
+| Testing | Playwright E2E |
 | Deployment | GitHub Pages |
 
 ## Integration Checklist
 
-Beyond the three core files, the integration also touches:
+Beyond the core files above, the integration also touches:
 
 | File | Purpose |
 | --- | --- |
-| `AGENT.md` | AI persona, behavior guidelines, domain knowledge |
-| `public/rtc-agent/scenarios/` | Preset scenario templates + manifest |
+| `src/core/rtcAgent/*.ts` | Function definitions split by business domain (person / ziwei / daliuren / liuyao / wiki / lunar) |
+| `src/core/auth/AuthContext.tsx` | Custom AuthProvider, fully delegated by rtc-agent |
+| `public/scenarios/` | Preset scenario templates + manifest |
 | `public/auth/callback.html` | OAuth callback page |
-| `vite.config.ts` | Disable rtc-agent overlay in test environment |
 
-The integration **doesn't modify rtc-agent source at all**, and the 3MB `<rtc-agent>` bundle isn't packaged into the host — it loads via CDN and mounts on demand.
+The integration **doesn't modify rtc-agent source at all**. `@rtc-agent/component` is installed via npm and bundled into the host app.
 
 ## Source Repository
 

@@ -69,48 +69,83 @@ Load rtc-agent in your layout and configure using the factory function:
 
   onMount(() => {
     rtcAgent = createRtcAgent({
-      appLabel: 'Mermaid AI',
-      scenariosUrl: `${base}/rtc-agent/scenarios/`,
-      workerUrl: `${base}/rtc-agent/shared-worker.js`,
-      server: {
-        url: 'https://rtc-agent.cherish.chat',
-        redirectUri: `${base}/auth/callback.html`,
-      },
+      agentDescription: 'Mermaid Live Editor - AI assistant for creating diagrams',
       agentName: 'MermaidEditor',
-      persona: `You are a helpful Mermaid diagram assistant. Help users create and edit
-diagrams through natural language. Always call validate after writing code,
-and proactively fix any syntax errors you find.`,
+      appLabel: 'Mermaid AI',
       groups: [{
+        description: 'Editor operations for reading and writing Mermaid code',
         name: 'editor',
         functions: [
           {
             name: 'getCode',
             description: 'Get the current Mermaid code from the editor',
             handler: () => window.editorAPI.getCode(),
+            returns: { schema: { description: 'The current Mermaid code', type: 'string' } }
           },
           {
             name: 'setCode',
-            description: 'Replace the editor content with new Mermaid code',
-            handler: (p) => { window.editorAPI.setCode(p.code); return { success: true }; },
+            description: 'Replace the entire editor content with new Mermaid code.',
+            handler: (params: { code: string }) => {
+              window.editorAPI.setCode(params.code);
+              return { success: true };
+            },
             zodSchema: z.object({
-              code: withMeta(z.string(), { example: 'graph TD\n    A-->B' }).describe('The Mermaid code to write to the editor')
+              code: withMeta(z.string(), { example: 'graph TD\n    A-->B' })
+                .describe('The Mermaid code to write to the editor')
             }),
-          },
-          {
-            name: 'validate',
-            description: 'Validate the current code and return any syntax errors',
-            handler: () => window.editorAPI.validate(),
+            returns: {
+              schema: { properties: { success: { type: 'boolean' } }, type: 'object' }
+            }
           },
           {
             name: 'getDiagramType',
-            description: 'Get the current diagram type',
+            description: 'Get the detected diagram type',
             handler: () => window.editorAPI.getDiagramType() ?? 'unknown',
+            returns: {
+              schema: { description: 'The diagram type or "unknown"', type: 'string' }
+            }
           },
-        ],
+          {
+            name: 'validate',
+            description: 'Validate the current Mermaid code and return any syntax errors.',
+            handler: () => window.editorAPI.validate(),
+            returns: { schema: { description: 'Validation result', type: 'object' } }
+          }
+        ]
       }],
+      persona: `You are a helpful Mermaid diagram assistant. You help users create and edit
+Mermaid diagrams through natural language conversation. You can write Mermaid code,
+check for syntax errors, and fix issues. Always validate your code after writing it
+to ensure correctness. When creating diagrams, explain what you're drawing and use
+clear, descriptive node names.`,
+      scenariosUrl: `${base}/rtc-agent/scenarios/`,
+      server: {
+        url: 'https://rtc-agent.cherish.chat',
+        redirectUri: `${base}/auth/callback.html`
+      },
+      theme: mode.current ?? 'light',
+      window: {
+        bubblePosition: {
+          corner: 'bottom-left',
+          offset: { x: 20, y: 20 }
+        }
+      },
+      workerUrl: `${base}/rtc-agent/shared-worker.js`,
+      on: {
+        ready: () => {
+          console.log('[Mermaid AI] RTC Agent ready');
+        }
+      }
     });
 
     document.body.appendChild(rtcAgent);
+  });
+
+  // Sync host theme changes to <rtc-agent>
+  $effect(() => {
+    if (rtcAgent) {
+      rtcAgent.theme = mode.current ?? 'light';
+    }
   });
 
   onDestroy(() => {
@@ -124,14 +159,18 @@ and proactively fix any syntax errors you find.`,
 
 ### Step 3: Theme Sync (Optional)
 
-rtc-agent supports light/dark themes and can be kept in sync via a property:
+rtc-agent supports light/dark themes. The theme is set during initialization via the `theme` property, and can be synced with the host app's theme using Svelte's `$effect`:
 
 ```ts
-// Watch host theme changes and sync to rtc-agent
+// Sync host theme changes to rtc-agent
 $effect(() => {
-  document.querySelector('rtc-agent').theme = currentTheme; // 'light' | 'dark'
+  if (rtcAgent) {
+    rtcAgent.theme = mode.current ?? 'light';
+  }
 });
 ```
+
+This is already included in the Step 2 code example above.
 
 ## Change Summary
 

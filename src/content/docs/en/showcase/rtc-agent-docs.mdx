@@ -1,0 +1,264 @@
+---
+title: RTC Agent Official Docs
+description: Integrating rtc-agent into an Astro Starlight docs site via CDN — AI assistant helps users learn and navigate the documentation.
+---
+
+import { Badge } from '@astrojs/starlight/components';
+
+<Badge text="Showcase #3" />
+
+The **RTC Agent official documentation site** you're reading right now is itself a showcase — integrating rtc-agent into an Astro Starlight docs site via **CDN NPM package**, letting the AI assistant help users learn, navigate, and get answers.
+
+- 📚 **"How do I install RTC Agent?"** → AI calls `navigateTo` to jump to the Quick Start page
+- 🔍 **"Find me content about authentication"** → AI calls `searchDocs` to find and display relevant docs
+- 💡 **"What page am I looking at?"** → AI calls `getCurrentPageInfo` to get current page context
+- 📋 **"What code examples are on this page?"** → AI calls `getCodeExamples` to extract all code blocks
+
+> 💡 **The floating window you see at the bottom-right corner is the actual rtc-agent in action.**
+
+## How This Differs from Other Cases
+
+| Feature | Mermaid Live Editor | Peep | **RTC Agent Docs** |
+| --- | --- | --- | --- |
+| Loading Method | pnpm | npm | **CDN** |
+| Framework | Svelte | React | **Astro (static site)** |
+| Window Mode | Floating (bottom-left) | Embedded (5:3) | **Floating (bottom-right)** |
+| Integration Complexity | Medium | High | **Very Low** |
+| Build Tools | Vite | Vite | **None (CDN direct load)** |
+| Code Location | Separate files | Separate files | **astro.config.mjs inline** |
+
+> 💡 These three cases show rtc-agent's three typical integration patterns: **CDN (simplest) → npm/pnpm (production-grade) → Embedded (deep integration)**.
+
+## Integration
+
+The entire integration **only modifies one file** `astro.config.mjs`, injecting CDN scripts and inline code through Starlight's `head` configuration:
+
+### Step 1: CDN Load rtc-agent
+
+Add the CDN script to `astro.config.mjs`'s `head`:
+
+```javascript
+// astro.config.mjs
+export default defineConfig({
+  integrations: [
+    starlight({
+      head: [
+        // Load rtc-agent CDN package
+        { 
+          tag: 'script', 
+          attrs: { 
+            type: 'module', 
+            src: 'https://cdn.jsdelivr.net/npm/@rtc-agent/component@0.2.8/dist/index.js' 
+          } 
+        },
+      ],
+    }),
+  ],
+});
+```
+
+> 💡 Uses jsdelivr CDN — no npm packages needed, no build tools required, perfect for static docs sites.
+
+### Step 2: Inline Initialization Script
+
+In the same `head` config, add an inline script to initialize rtc-agent:
+
+```javascript
+// astro.config.mjs
+head: [
+  { tag: 'script', attrs: { type: 'module', src: 'https://cdn.jsdelivr.net/npm/@rtc-agent/component@0.2.8/dist/index.js' } },
+  { 
+    tag: 'script', 
+    attrs: { type: 'module' }, 
+    content: `
+      import { z, withMeta, createRtcAgent } from 'https://cdn.jsdelivr.net/npm/@rtc-agent/component@0.2.8/dist/index.js';
+
+      // Documentation search function
+      const searchDocs = async ({ query } = {}) => {
+        // Load doc index from /docs/docs-index.json
+        // Supports multi-keyword search (AND logic)
+        // Returns top 10 matching results
+      };
+
+      // Page navigation, code extraction functions...
+      const navigateTo = ({ path }) => {
+        location.href = '/docs' + path;
+        return { success: true };
+      };
+
+      const initRtcAgent = async () => {
+        const agent = createRtcAgent({
+          appLabel: 'RTC Agent Assistant',
+          theme: 'system',
+          lang: 'en-US',
+          server: {
+            url: 'https://rtc-agent.cherish.chat',
+            redirectUri: '/docs/auth/callback.html',
+          },
+          databaseName: 'docs-rtc-agent',
+          
+          // Floating window config: minimized at bottom-right
+          window: {
+            defaultMode: 'minimized',
+            draggable: true,
+            resizable: true,
+            bubblePosition: {
+              corner: 'bottom-right',
+              offset: { x: -24, y: 24 },
+            },
+          },
+          
+          agentName: 'DocsAssistant',
+          agentDescription: 'RTC Agent Documentation Assistant',
+          persona: 'You are a patient and proactive RTC Agent documentation teacher...',
+          
+          // Documentation-specific functions
+          groups: [{
+            name: 'docs',
+            functions: [
+              { 
+                name: 'searchDocs', 
+                description: 'Search documentation',
+                zodSchema: z.object({ 
+                  query: z.string().describe('Search keywords') 
+                }),
+                handler: searchDocs 
+              },
+              { 
+                name: 'navigateTo', 
+                description: 'Navigate to a doc page',
+                zodSchema: z.object({ 
+                  path: z.string().describe('Page path') 
+                }),
+                handler: navigateTo 
+              },
+              // ... other functions
+            ],
+          }],
+        });
+
+        // Mount to page
+        const container = document.createElement('div');
+        container.id = 'rtc-agent-global';
+        container.appendChild(agent);
+        document.body.appendChild(container);
+      };
+
+      // Initialize after page load
+      document.addEventListener('DOMContentLoaded', () => initRtcAgent());
+    ` 
+  },
+],
+```
+
+### Step 3: CSS Positioning
+
+Use inline styles to fix rtc-agent at the bottom-right corner:
+
+```javascript
+// astro.config.mjs (continued)
+const style = document.createElement('style');
+style.textContent = \`
+  #rtc-agent-global {
+    position: fixed;
+    bottom: 0;
+    right: 0;
+    z-index: 9999;
+    pointer-events: none;
+  }
+  #rtc-agent-global rtc-agent {
+    pointer-events: auto;
+  }
+\`;
+document.head.appendChild(style);
+```
+
+> 💡 `pointer-events: none` makes the container not block page interactions — only rtc-agent itself responds to events.
+
+## Documentation-Specific Functions
+
+RTC Agent Docs registers 6 documentation-specific functions, letting the AI intelligently navigate and answer questions:
+
+| Function | Purpose | Example Call |
+| --- | --- | --- |
+| `searchDocs` | Search docs (multi-keyword AND) | `searchDocs({ query: "authentication setup" })` |
+| `getPageMarkdown` | Get full page content | `getPageMarkdown({ path: "/getting-started/" })` |
+| `listPages` | List pages in a section | `listPages({ section: "features" })` |
+| `navigateTo` | Jump to a specific page | `navigateTo({ path: "/introduction/" })` |
+| `getCurrentPageInfo` | Get current page info | `getCurrentPageInfo()` |
+| `getCodeExamples` | Extract all code examples on current page | `getCodeExamples()` |
+
+**Doc Index Loading:**
+
+```javascript
+// Load doc index on first use, cache in memory
+const loadIndex = () => 
+  DOCS_INDEX || 
+  fetch('/docs/docs-index.json')
+    .then(r => r.json())
+    .then(d => DOCS_INDEX = d);
+```
+
+> 💡 The doc index `docs-index.json` is generated at build time, containing titles, descriptions, and body text of all pages for full-text search.
+
+## Theme Sync
+
+The docs site supports light/dark themes, syncing via `MutationObserver`:
+
+```javascript
+// Watch for data-theme attribute changes
+const syncTheme = () => {
+  const agent = document.querySelector('rtc-agent');
+  if (agent) {
+    agent.theme = document.documentElement.getAttribute('data-theme') || 'system';
+  }
+};
+
+new MutationObserver(syncTheme)
+  .observe(document.documentElement, { 
+    attributes: true, 
+    attributeFilter: ['data-theme'] 
+  });
+```
+
+## Integration Checklist
+
+The entire integration **only modifies one file**:
+
+| File | Changes |
+| --- | --- |
+| `astro.config.mjs` | Add CDN script + inline initialization code |
+
+No need for:
+- ❌ Installing npm packages
+- ❌ Modifying build config
+- ❌ Creating separate files
+- ❌ Modifying page templates
+
+> 💡 This is the **simplest integration method**, perfect for static docs sites, blogs, landing pages, etc.
+
+## Key Design Decisions
+
+| Decision | Reason |
+| --- | --- |
+| CDN, not npm | Docs site needs no build tools — CDN is simplest |
+| Floating, not embedded | Docs are primarily for reading — AI is auxiliary |
+| Bottom-right minimized | Doesn't block content; users expand when needed |
+| Inline script | All logic centralized in `astro.config.mjs`, easy to maintain |
+| Doc index JSON | Generated at build, loaded at runtime, supports full-text search |
+
+## Tech Stack
+
+| Layer | Technology |
+| --- | --- |
+| Docs Framework | Astro · Starlight |
+| Styling | Starlight default theme · Light/dark themes |
+| Diagrams | Mermaid (starlight-client-mermaid) |
+| AI Integration | rtc-agent (CDN) · Zod Schema |
+| Deployment | GitHub Pages |
+
+## Source Repository
+
+[rtc-agent/docs](https://github.com/rtc-agent/server/tree/main/docs) (this docs site)
+
+Live demo: You're looking at it right now!

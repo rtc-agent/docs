@@ -23,12 +23,24 @@ rtc-agent's integration is flexible — from online editors to full business app
   <Card title="Peep — Chinese Metaphysics Workbench" icon="seti:folder">
     <Badge text="Showcase #2" />
 
-    A React metaphysics app. Integrated via **Web Component embedding** — AI operates person profiles, documents, and three divination engines (Bazi / Ziwei / Liuyao).
+    A React metaphysics app. Integrated via **npm + embedded maximized mode** — AI operates person profiles, three divination engines (Ziwei / Da Liu Ren / Liu Yao), and a knowledge base.
 
-    - Zod Schema declares 7 groups of business functions, auto-generates OpenAPI docs
-    - Embedded maximized mode + draggable splitter
+    - Zod Schema declares 6 groups of business functions (40+ functions), auto-generates OpenAPI docs
+    - Custom AuthProvider authentication + write operation confirmation mechanism
+    - 5:3 split layout with AI assistant always embedded in the right panel
 
     [View case details →](/docs/en/showcase/peep/) · [Live demo ↗](https://pineapplebond.github.io/peep/)
+  </Card>
+  <Card title="RTC Agent Official Docs" icon="seti:book">
+    <Badge text="Showcase #3" />
+
+    The RTC Agent official docs site you're reading right now. Integrated via **CDN NPM package** — AI assistant helps users learn, navigate, and get answers.
+
+    - Uses jsdelivr CDN, no build tools required
+    - Floating window mode (minimized at bottom-right)
+    - 6 documentation-specific functions (search, navigate, code extraction)
+
+    [View case details →](/docs/en/showcase/rtc-agent-docs/) · [Live demo ↗](https://rtc-agent.github.io/docs)
   </Card>
 </CardGrid>
 
@@ -36,11 +48,11 @@ rtc-agent's integration is flexible — from online editors to full business app
 
 Typical integration patterns across different scenarios:
 
-| Host Stack | Integration | Use Case | Example |
-| --- | --- | --- | --- |
-| Svelte / static site | Mount `<rtc-agent>` tag directly | SPA, lightweight integration | Mermaid Live Editor |
-| React / Vue / any framework | Web Component + `window.xxx` API | Complex business app, multi-module | Peep |
-| Framework-agnostic | npm package + declarative config | Deep customization | (PR welcome) |
+| Loading Method | Host Stack | Window Mode | Use Case | Example |
+| --- | --- | --- | --- | --- |
+| **CDN** | Astro / static sites | Floating | Docs, blogs, landing pages | **RTC Agent Docs** |
+| npm / pnpm | Svelte | Floating | SPA, lightweight integration | Mermaid Live Editor |
+| npm | React / Vue / any framework | **Embedded** | Complex business app, multi-module | Peep |
 
 ## Common Integration Steps
 

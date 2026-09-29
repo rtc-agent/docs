@@ -1,0 +1,264 @@
+---
+title: RTC Agent 官方文档站
+description: 在 Astro Starlight 文档站中通过 CDN 接入 rtc-agent，AI 助手帮助用户学习和导航文档。
+---
+
+import { Badge } from '@astrojs/starlight/components';
+
+<Badge text="社区案例 #3" />
+
+你正在阅读的 **RTC Agent 官方文档站**本身就是一个接入案例 —— 通过 **CDN NPM 包**在 Astro Starlight 文档站中嵌入了 rtc-agent，让 AI 助手帮助用户学习、导航和答疑。
+
+- 📚 **"RTC Agent 怎么安装？"** → AI 调用 `navigateTo` 跳转到快速开始页面
+- 🔍 **"帮我找一下关于认证的内容"** → AI 调用 `searchDocs` 搜索并展示相关文档
+- 💡 **"我现在看的是什么页面？"** → AI 调用 `getCurrentPageInfo` 获取当前页面上下文
+- 📋 **"这个页面有哪些代码示例？"** → AI 调用 `getCodeExamples` 提取所有代码块
+
+> 💡 **你当前看到的右下角悬浮窗，就是 rtc-agent 的实际效果。**
+
+## 与其他案例的区别
+
+| 特性 | Mermaid Live Editor | Peep | **RTC Agent Docs** |
+| --- | --- | --- | --- |
+| 加载方式 | pnpm | npm | **CDN** |
+| 框架 | Svelte | React | **Astro (静态站点)** |
+| 窗口模式 | 悬浮窗（左下） | 嵌入式（5:3） | **悬浮窗（右下）** |
+| 接入复杂度 | 中等 | 高 | **极低** |
+| 构建工具 | Vite | Vite | **无（CDN 直接加载）** |
+| 代码位置 | 独立文件 | 独立文件 | **astro.config.mjs 内联** |
+
+> 💡 三个案例展示了 rtc-agent 的三种典型接入方式：**CDN（最简）→ npm/pnpm（生产级）→ 嵌入式（深度集成）**。
+
+## 接入方式
+
+整个接入**只需修改一个文件** `astro.config.mjs`，通过 Starlight 的 `head` 配置注入 CDN 脚本和内联代码：
+
+### 第一步：CDN 加载 rtc-agent
+
+在 `astro.config.mjs` 的 `head` 中添加 CDN 脚本：
+
+```javascript
+// astro.config.mjs
+export default defineConfig({
+  integrations: [
+    starlight({
+      head: [
+        // 加载 rtc-agent CDN 包
+        { 
+          tag: 'script', 
+          attrs: { 
+            type: 'module', 
+            src: 'https://cdn.jsdelivr.net/npm/@rtc-agent/component@0.2.8/dist/index.js' 
+          } 
+        },
+      ],
+    }),
+  ],
+});
+```
+
+> 💡 使用 jsdelivr CDN，无需安装任何 npm 包，无需构建工具，适合静态文档站。
+
+### 第二步：内联初始化脚本
+
+在同一个 `head` 配置中，添加内联脚本初始化 rtc-agent：
+
+```javascript
+// astro.config.mjs
+head: [
+  { tag: 'script', attrs: { type: 'module', src: 'https://cdn.jsdelivr.net/npm/@rtc-agent/component@0.2.8/dist/index.js' } },
+  { 
+    tag: 'script', 
+    attrs: { type: 'module' }, 
+    content: `
+      import { z, withMeta, createRtcAgent } from 'https://cdn.jsdelivr.net/npm/@rtc-agent/component@0.2.8/dist/index.js';
+
+      // 文档搜索函数
+      const searchDocs = async ({ query } = {}) => {
+        // 从 /docs/docs-index.json 加载文档索引
+        // 支持多关键词搜索（AND 逻辑）
+        // 返回匹配的前 10 条结果
+      };
+
+      // 页面导航、代码提取等函数...
+      const navigateTo = ({ path }) => {
+        location.href = '/docs' + path;
+        return { success: true };
+      };
+
+      const initRtcAgent = async () => {
+        const agent = createRtcAgent({
+          appLabel: 'RTC Agent 助手',
+          theme: 'system',
+          lang: 'zh-CN',
+          server: {
+            url: 'https://rtc-agent.cherish.chat',
+            redirectUri: '/docs/auth/callback.html',
+          },
+          databaseName: 'docs-rtc-agent',
+          
+          // 悬浮窗配置：右下角最小化
+          window: {
+            defaultMode: 'minimized',
+            draggable: true,
+            resizable: true,
+            bubblePosition: {
+              corner: 'bottom-right',
+              offset: { x: -24, y: 24 },
+            },
+          },
+          
+          agentName: 'DocsAssistant',
+          agentDescription: 'RTC Agent 文档助手',
+          persona: '你是一个耐心主动的 RTC Agent 文档老师...',
+          
+          // 文档专用函数
+          groups: [{
+            name: 'docs',
+            functions: [
+              { 
+                name: 'searchDocs', 
+                description: '搜索文档',
+                zodSchema: z.object({ 
+                  query: z.string().describe('搜索关键词') 
+                }),
+                handler: searchDocs 
+              },
+              { 
+                name: 'navigateTo', 
+                description: '跳转到文档页面',
+                zodSchema: z.object({ 
+                  path: z.string().describe('页面路径') 
+                }),
+                handler: navigateTo 
+              },
+              // ... 其他函数
+            ],
+          }],
+        });
+
+        // 挂载到页面
+        const container = document.createElement('div');
+        container.id = 'rtc-agent-global';
+        container.appendChild(agent);
+        document.body.appendChild(container);
+      };
+
+      // 页面加载后初始化
+      document.addEventListener('DOMContentLoaded', () => initRtcAgent());
+    ` 
+  },
+],
+```
+
+### 第三步：CSS 定位
+
+通过内联样式将 rtc-agent 固定在右下角：
+
+```javascript
+// astro.config.mjs (继续)
+const style = document.createElement('style');
+style.textContent = \`
+  #rtc-agent-global {
+    position: fixed;
+    bottom: 0;
+    right: 0;
+    z-index: 9999;
+    pointer-events: none;
+  }
+  #rtc-agent-global rtc-agent {
+    pointer-events: auto;
+  }
+\`;
+document.head.appendChild(style);
+```
+
+> 💡 `pointer-events: none` 让容器不阻挡页面交互，只有 rtc-agent 本身响应事件。
+
+## 文档专用函数
+
+RTC Agent Docs 注册了 6 个文档专用函数，让 AI 能够智能导航和答疑：
+
+| 函数 | 功能 | 示例调用 |
+| --- | --- | --- |
+| `searchDocs` | 搜索文档（多关键词 AND） | `searchDocs({ query: "认证 授权" })` |
+| `getPageMarkdown` | 获取页面完整内容 | `getPageMarkdown({ path: "/getting-started/" })` |
+| `listPages` | 列出某个分类的页面 | `listPages({ section: "features" })` |
+| `navigateTo` | 跳转到指定页面 | `navigateTo({ path: "/introduction/" })` |
+| `getCurrentPageInfo` | 获取当前页面信息 | `getCurrentPageInfo()` |
+| `getCodeExamples` | 提取当前页所有代码示例 | `getCodeExamples()` |
+
+**文档索引加载：**
+
+```javascript
+// 首次加载文档索引，缓存到内存
+const loadIndex = () => 
+  DOCS_INDEX || 
+  fetch('/docs/docs-index.json')
+    .then(r => r.json())
+    .then(d => DOCS_INDEX = d);
+```
+
+> 💡 文档索引 `docs-index.json` 在构建时生成，包含所有页面的标题、描述、正文，用于全文搜索。
+
+## 主题同步
+
+文档站支持明暗双主题，通过 `MutationObserver` 监听主题切换：
+
+```javascript
+// 监听 data-theme 属性变化
+const syncTheme = () => {
+  const agent = document.querySelector('rtc-agent');
+  if (agent) {
+    agent.theme = document.documentElement.getAttribute('data-theme') || 'system';
+  }
+};
+
+new MutationObserver(syncTheme)
+  .observe(document.documentElement, { 
+    attributes: true, 
+    attributeFilter: ['data-theme'] 
+  });
+```
+
+## 接入清单
+
+整个接入**只需修改一个文件**：
+
+| 文件 | 改动 |
+| --- | --- |
+| `astro.config.mjs` | 添加 CDN 脚本 + 内联初始化代码 |
+
+无需：
+- ❌ 安装 npm 包
+- ❌ 修改构建配置
+- ❌ 创建独立文件
+- ❌ 修改页面模板
+
+> 💡 这是**最简单的接入方式**，适合静态文档站、博客、落地页等场景。
+
+## 关键设计决策
+
+| 决策 | 原因 |
+| --- | --- |
+| CDN 而非 npm | 文档站无需构建工具，CDN 最简 |
+| 悬浮窗而非嵌入式 | 文档站以阅读为主，AI 是辅助 |
+| 右下角最小化 | 不阻挡内容，用户需要时再展开 |
+| 内联脚本 | 所有逻辑集中在 `astro.config.mjs`，易于维护 |
+| 文档索引 JSON | 构建时生成，运行时加载，支持全文搜索 |
+
+## 技术栈
+
+| 层 | 技术 |
+| --- | --- |
+| 文档框架 | Astro · Starlight |
+| 样式 | Starlight 默认主题 · 明暗双主题 |
+| 图表 | Mermaid (starlight-client-mermaid) |
+| AI 集成 | rtc-agent (CDN) · Zod Schema |
+| 部署 | GitHub Pages |
+
+## 源码仓库
+
+[rtc-agent/docs](https://github.com/rtc-agent/server/tree/main/docs)（本文档站）
+
+在线体验：你正在看的这个网站就是！

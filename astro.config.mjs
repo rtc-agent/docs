@@ -26,9 +26,9 @@ export default defineConfig({
 				},
 			},
 			head: [
-				{ tag: 'script', attrs: { type: 'module', src: 'https://cdn.jsdelivr.net/npm/@rtc-agent/component@0.2.8-rc.0/dist/index.js' } },
+				{ tag: 'script', attrs: { type: 'module', src: 'https://cdn.jsdelivr.net/npm/@rtc-agent/component@0.2.8-rc.2/dist/index.js' } },
 				{ tag: 'script', attrs: { type: 'module' }, content: `
-					import { z, withMeta, createRtcAgent } from 'https://cdn.jsdelivr.net/npm/@rtc-agent/component@0.2.8-rc.0/dist/index.js';
+					import { z, withMeta, createRtcAgent } from 'https://cdn.jsdelivr.net/npm/@rtc-agent/component@0.2.8-rc.2/dist/index.js';
 
 					let DOCS_INDEX = null;
 					const loadIndex = () => DOCS_INDEX || fetch('/docs/docs-index.json').then(r => r.json()).then(d => DOCS_INDEX = d);
@@ -248,6 +248,7 @@ export default defineConfig({
 						{ label: 'Overview', link: '/showcase/', translations: { 'zh-CN': '案例总览' } },
 						{ label: 'Mermaid Live Editor', link: '/showcase/mermaid-live-editor/', translations: { 'zh-CN': 'Mermaid Live Editor' } },
 						{ label: 'Peep', link: '/showcase/peep/', translations: { 'zh-CN': 'Peep 命理工作台' } },
+						{ label: 'RTC Agent Docs', link: '/showcase/rtc-agent-docs/', translations: { 'zh-CN': 'RTC Agent 官方文档站' } },
 					],
 				},
 				{

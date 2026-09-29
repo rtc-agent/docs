@@ -56,65 +56,123 @@ window.editorAPI = { getCode, setCode, validate, getDiagramType, waitForReady };
 
 ### 第二步：声明 Agent 身份与工具
 
-在 layout 里加载 rtc-agent 并配置 `agentConfig`：
+使用 `createRtcAgent` 工厂函数创建 rtc-agent 实例：
 
 ```svelte
 <!-- src/routes/+layout.svelte -->
-<script type="module" src="/rtc-agent/index.js"></script>
-
-<rtc-agent app-label="Mermaid AI" scenarios-url="/rtc-agent/scenarios/"></rtc-agent>
-
 <script>
-  onMount(() => {
-    const agent = document.querySelector('rtc-agent');
+  import { z, withMeta, createRtcAgent } from '@rtc-agent/component';
+  import type { RtcAgentWithLifecycle } from '@rtc-agent/component';
+  import { onMount, onDestroy } from 'svelte';
+  import { base } from '$app/paths';
+  import { mode } from 'mode-watcher';
 
-    agent.addEventListener('rtc-agent-ready', () => {
-      agent.agentConfig = {
-        name: 'MermaidEditor',
-        persona: `你是一个 Mermaid 图表助手。帮用户通过自然语言创建和编辑图表。
-写完代码后务必调用 validate 检查语法，发现错误要主动修复。`,
-        groups: [{
-          name: 'editor',
-          functions: [
-            {
-              name: 'getCode',
-              description: '获取当前编辑器中的 Mermaid 代码',
-              handler: () => window.editorAPI.getCode(),
+  let rtcAgent: RtcAgentWithLifecycle | null = null;
+
+  onMount(() => {
+    rtcAgent = createRtcAgent({
+      agentDescription: 'Mermaid Live Editor - AI assistant for creating diagrams',
+      agentName: 'MermaidEditor',
+      appLabel: 'Mermaid AI',
+      groups: [{
+        description: 'Editor operations for reading and writing Mermaid code',
+        name: 'editor',
+        functions: [
+          {
+            name: 'getCode',
+            description: 'Get the current Mermaid code from the editor',
+            handler: () => window.editorAPI.getCode(),
+            returns: { schema: { description: 'The current Mermaid code', type: 'string' } }
+          },
+          {
+            name: 'setCode',
+            description: 'Replace the entire editor content with new Mermaid code.',
+            handler: (params: { code: string }) => {
+              window.editorAPI.setCode(params.code);
+              return { success: true };
             },
-            {
-              name: 'setCode',
-              description: '替换编辑器内容为新的 Mermaid 代码',
-              handler: (p) => { window.editorAPI.setCode(p.code); return { success: true }; },
-              parameters: [{ name: 'code', required: true, schema: { type: 'string' } }],
-            },
-            {
-              name: 'validate',
-              description: '校验当前代码，返回语法错误（如有）',
-              handler: () => window.editorAPI.validate(),
-            },
-            {
-              name: 'getDiagramType',
-              description: '获取当前图表类型',
-              handler: () => window.editorAPI.getDiagramType() ?? 'unknown',
-            },
-          ],
-        }],
-      };
-    }, { once: true });
+            zodSchema: z.object({
+              code: withMeta(z.string(), { example: 'graph TD\n    A-->B' })
+                .describe('The Mermaid code to write to the editor')
+            }),
+            returns: {
+              schema: { properties: { success: { type: 'boolean' } }, type: 'object' }
+            }
+          },
+          {
+            name: 'getDiagramType',
+            description: 'Get the detected diagram type',
+            handler: () => window.editorAPI.getDiagramType() ?? 'unknown',
+            returns: {
+              schema: { description: 'The diagram type or "unknown"', type: 'string' }
+            }
+          },
+          {
+            name: 'validate',
+            description: 'Validate the current Mermaid code and return any syntax errors.',
+            handler: () => window.editorAPI.validate(),
+            returns: { schema: { description: 'Validation result', type: 'object' } }
+          }
+        ]
+      }],
+      persona: `You are a helpful Mermaid diagram assistant. You help users create and edit
+Mermaid diagrams through natural language conversation. You can write Mermaid code,
+check for syntax errors, and fix issues. Always validate your code after writing it
+to ensure correctness. When creating diagrams, explain what you're drawing and use
+clear, descriptive node names.`,
+      scenariosUrl: `${base}/rtc-agent/scenarios/`,
+      server: {
+        url: 'https://rtc-agent.cherish.chat',
+        redirectUri: `${base}/auth/callback.html`
+      },
+      theme: mode.current ?? 'light',
+      window: {
+        bubblePosition: {
+          corner: 'bottom-left',
+          offset: { x: 20, y: 20 }
+        }
+      },
+      workerUrl: `${base}/rtc-agent/shared-worker.js`,
+      on: {
+        ready: () => {
+          console.log('[Mermaid AI] RTC Agent ready');
+        }
+      }
+    });
+
+    document.body.appendChild(rtcAgent);
+  });
+
+  // Sync host theme changes to <rtc-agent>
+  $effect(() => {
+    if (rtcAgent) {
+      rtcAgent.theme = mode.current ?? 'light';
+    }
+  });
+
+  onDestroy(() => {
+    if (rtcAgent) {
+      rtcAgent.destroy();
+      rtcAgent = null;
+    }
   });
 </script>
 ```
 
 ### 第三步：主题同步（可选）
 
-rtc-agent 支持亮色/暗色主题，可以通过属性实时同步：
+rtc-agent 支持亮色/暗色主题。主题在初始化时通过 `theme` 属性设置，并可以使用 Svelte 的 `$effect` 与宿主应用的主题保持同步：
 
 ```ts
 // 监听宿主主题变化，同步到 rtc-agent
 $effect(() => {
-  document.querySelector('rtc-agent').theme = currentTheme; // 'light' | 'dark'
+  if (rtcAgent) {
+    rtcAgent.theme = mode.current ?? 'light';
+  }
 });
 ```
+
+这部分代码已包含在上方的第二步示例中。
 
 ## 接入清单
 

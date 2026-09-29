@@ -23,12 +23,24 @@ rtc-agent 的接入方式非常灵活 —— 从在线编辑器到完整业务�
   <Card title="Peep 命理工作台" icon="seti:folder">
     <Badge text="社区案例 #2" />
 
-    React 构建的国学命理应用。通过 **Web Component 嵌入**，AI 操作人物档案、文档、八字 / 紫微 / 六爻三大排盘引擎。
+    React 构建的国学命理应用。通过 **npm 安装 + 嵌入式最大化模式** 接入，AI 操作人物档案、紫微 / 大六壬 / 六爻三大排盘引擎与知识库。
 
-    - 用 Zod Schema 声明 7 组业务函数，自动生成 OpenAPI 文档
-    - 嵌入式最大化模式 + 可拖拽分隔线
+    - 用 Zod Schema 声明 6 组业务函数（40+ 函数），自动生成 OpenAPI 文档
+    - 自定义 AuthProvider 鉴权 + 写操作确认机制
+    - 5:3 双栏布局，AI 助手始终嵌入在页面右侧
 
     [查看案例详情 →](/docs/showcase/peep/) · [在线体验 ↗](https://pineapplebond.github.io/peep/)
+  </Card>
+  <Card title="RTC Agent 官方文档站" icon="seti:book">
+    <Badge text="社区案例 #3" />
+
+    你正在阅读的 RTC Agent 官方文档站。通过 **CDN NPM 包** 接入，AI 助手帮助用户学习、导航和答疑。
+
+    - 使用 jsdelivr CDN，无需构建工具
+    - 悬浮窗口模式（右下角最小化）
+    - 6 个文档专用函数（搜索、导航、代码提取）
+
+    [查看案例详情 →](/docs/showcase/rtc-agent-docs/) · [在线体验 ↗](https://rtc-agent.github.io/docs)
   </Card>
 </CardGrid>
 
@@ -36,11 +48,11 @@ rtc-agent 的接入方式非常灵活 —— 从在线编辑器到完整业务�
 
 不同场景下，rtc-agent 的典型接入方式：
 
-| 宿主技术栈 | 接入方式 | 适用场景 | 代表案例 |
-| --- | --- | --- | --- |
-| Svelte / 静态站点 | `<rtc-agent>` 标签直接挂载 | 单页应用、轻量集成 | Mermaid Live Editor |
-| React / Vue / 任意框架 | Web Component + `window.xxx` API | 复杂业务应用、多模块 | Peep |
-| 框架无关 | npm 包 + 声明式配置 | 希望深度定制 | （欢迎投稿） |
+| 加载方式 | 宿主技术栈 | 窗口模式 | 适用场景 | 代表案例 |
+| --- | --- | --- | --- | --- |
+| **CDN** | Astro / 静态站点 | 悬浮窗 | 文档站、博客、落地页 | **RTC Agent Docs** |
+| npm / pnpm | Svelte | 悬浮窗 | 单页应用、轻量集成 | Mermaid Live Editor |
+| npm | React / Vue / 任意框架 | **嵌入式** | 复杂业务应用、多模块 | Peep |
 
 ## 通用接入步骤
 
