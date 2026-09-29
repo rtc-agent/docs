@@ -291,6 +291,7 @@ const agent = createRtcAgent({
     refreshToken: 'optional-refresh-token',
     userId: 'user-123',
     expiresIn: 3600, // optional, seconds
+    deviceId: 'uuid-from-your-backend',
   },
 });
 ```
@@ -301,6 +302,7 @@ const agent = createRtcAgent({
 | `refreshToken` | 可选 | 用于延长会话的刷新令牌 |
 | `userId` | ✅ | 唯一用户标识 |
 | `expiresIn` | 可选 | 令牌有效期（秒）（默认：由服务端决定） |
+| `deviceId` | ✅ | 设备唯一标识，必须与服务端嵌入 JWT 中的 Device ID 一致，否则脚本（RTC）无法执行 |
 
 > ⚠️ **不适合生产环境**：静态令牌会过期且无法自动刷新。令牌过期后，用户将被断开连接。生产部署请使用模式 2。
 
@@ -315,6 +317,7 @@ const agent = createRtcAgent({
   server: { url: 'https://your-server.com' },
   auth: {
     userId: 'user-123',
+    deviceId: 'uuid-from-your-backend',
     getToken: async () => {
       // 从你的后端获取新令牌（返回令牌字符串）
       const res = await fetch('/api/auth/token');
@@ -353,6 +356,8 @@ sequenceDiagram
 |:--------:|:--------:|:-----------:|:---------------:|
 | `getToken()` | ✅ | 组件需要令牌时（初始连接、API 请求） | `string`（令牌字符串） |
 | `refreshToken()` | 可选 | 当前令牌已过期或即将过期 | `{ accessToken: string, refreshToken?: string, expiresIn?: number }` |
+| `userId` | ✅ | — | 唯一用户标识 |
+| `deviceId` | ✅ | — | 设备唯一标识，必须与服务端嵌入 JWT 中的 Device ID 一致，否则脚本（RTC）无法执行 |
 
 > 💡 **为什么推荐此模式**：你的后端完全控制令牌的签发和撤销。组件不存储长期凭证——按需获取新令牌。这与服务端 OAuth2 遵循相同的安全模型，但无需 OAuth2 Provider。`refreshToken` 回调是可选的——如果你的后端令牌长期有效或由外部机制管理，可以只提供 `getToken()`。
 
@@ -387,6 +392,7 @@ const agent = createRtcAgent({
       // 返回当前用户的唯一标识（用于 IndexedDB 按用户隔离）
       return myAuthStore.getUserId();
     },
+    deviceId: 'uuid-from-your-backend',
   },
 });
 ```
@@ -398,6 +404,7 @@ const agent = createRtcAgent({
 | `isLoggedIn()` | ✅ | **同步**——返回 `boolean`，表示用户是否已认证 |
 | `logout()` | 可选 | 异步——组件需要终止会话时调用 |
 | `getUserId()` | 可选 | 同步——返回当前用户的唯一标识。**强烈建议提供**，否则所有用户将共享同一个 IndexedDB（数据库名回退为 `{databaseName}-provider-managed`） |
+| `deviceId` | ✅ | 设备唯一标识，必须与服务端嵌入 JWT 中的 Device ID 一致，否则脚本（RTC）无法执行 |
 
 > 📌 **Key difference from Mode 2**: `isLoggedIn` 字段是模式 3 的标志。它使组件能够主动检查认证状态（例如，在尝试连接之前），而不是在请求过程中才发现令牌已过期。
 >

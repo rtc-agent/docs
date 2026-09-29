@@ -35,6 +35,7 @@ const config: RtcAgentConfig = {
   auth: {
     getToken: async () => localStorage.getItem('token') || '',
     userId: 'user-123',
+    deviceId: 'uuid-from-your-backend',  // 必填，与服务端 JWT 中的 Device ID 一致
   },
   
   // 窗口配置
@@ -304,6 +305,7 @@ const config: RtcAgentConfig = {
     refreshToken: 'dGhpcyBpcyBh...',  // 可选
     userId: 'user-123',
     expiresIn: 3600,  // 可选，秒数
+    deviceId: 'uuid-from-your-backend',  // 必填，与服务端 JWT 中的 Device ID 一致
   },
 };
 ```
@@ -326,6 +328,7 @@ const config: RtcAgentConfig = {
       return res.json();  // { accessToken: string, refreshToken?: string, expiresIn?: number }
     },
     userId: 'user-123',
+    deviceId: 'uuid-from-your-backend',  // 必填，与服务端 JWT 中的 Device ID 一致
   },
 };
 ```
@@ -343,6 +346,7 @@ const config: RtcAgentConfig = {
     isLoggedIn: () => myAuthStore.isAuthenticated,
     logout: async () => { await myAuthStore.signOut(); },
     getUserId: () => myAuthStore.getUserId(),  // 返回当前用户唯一标识
+    deviceId: 'uuid-from-your-backend',  // 必填，与服务端 JWT 中的 Device ID 一致
   },
 };
 ```

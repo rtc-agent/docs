@@ -35,6 +35,7 @@ const config: RtcAgentConfig = {
   auth: {
     getToken: async () => localStorage.getItem('token') || '',
     userId: 'user-123',
+    deviceId: 'uuid-from-your-backend',  // required — must match the Device ID in the server-issued JWT
   },
   
   // Window configuration
@@ -304,6 +305,7 @@ const config: RtcAgentConfig = {
     refreshToken: 'dGhpcyBpcyBh...',  // optional
     userId: 'user-123',
     expiresIn: 3600,  // optional, seconds
+    deviceId: 'uuid-from-your-backend',  // required — must match the Device ID in the server-issued JWT
   },
 };
 ```
@@ -326,6 +328,7 @@ const config: RtcAgentConfig = {
       return res.json();  // { accessToken: string, refreshToken?: string, expiresIn?: number }
     },
     userId: 'user-123',
+    deviceId: 'uuid-from-your-backend',  // required — must match the Device ID in the server-issued JWT
   },
 };
 ```
@@ -343,6 +346,7 @@ const config: RtcAgentConfig = {
     isLoggedIn: () => myAuthStore.isAuthenticated,
     logout: async () => { await myAuthStore.signOut(); },
     getUserId: () => myAuthStore.getUserId(),  // returns the current user's unique ID
+    deviceId: 'uuid-from-your-backend',  // required — must match the Device ID in the server-issued JWT
   },
 };
 ```

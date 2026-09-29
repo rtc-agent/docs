@@ -291,6 +291,7 @@ const agent = createRtcAgent({
     refreshToken: 'optional-refresh-token',
     userId: 'user-123',
     expiresIn: 3600, // optional, seconds
+    deviceId: 'uuid-from-your-backend',
   },
 });
 ```
@@ -301,6 +302,7 @@ const agent = createRtcAgent({
 | `refreshToken` | Optional | Refresh token for extending session |
 | `userId` | ✅ | Unique user identifier |
 | `expiresIn` | Optional | Token lifetime in seconds (default: server-decided) |
+| `deviceId` | ✅ | Unique device identifier — must match the Device ID embedded in the JWT by the server, otherwise scripts (RTCs) will not execute |
 
 > ⚠️ **Not for production**: Static tokens expire and cannot be refreshed automatically. When the token expires, the user will be disconnected. Use Mode 2 for production deployments.
 
@@ -315,6 +317,7 @@ const agent = createRtcAgent({
   server: { url: 'https://your-server.com' },
   auth: {
     userId: 'user-123',
+    deviceId: 'uuid-from-your-backend',
     getToken: async () => {
       // Fetch a fresh token string from your backend
       const res = await fetch('/api/auth/token');
@@ -353,6 +356,8 @@ sequenceDiagram
 |:--------:|:--------:|:-----------:|:---------------:|
 | `getToken()` | ✅ | Component needs a token (initial connection, API requests) | `string` (the token string) |
 | `refreshToken()` | Optional | Current token has expired or is about to expire | `{ accessToken: string, refreshToken?: string, expiresIn?: number }` |
+| `userId` | ✅ | — | Unique user identifier |
+| `deviceId` | ✅ | — | Unique device identifier — must match the Device ID embedded in the JWT by the server, otherwise scripts (RTCs) will not execute |
 
 > 💡 **Why this mode is recommended**: Your backend retains full control over token issuance and revocation. The component never stores long-lived credentials — it fetches fresh tokens on demand. This follows the same security model as server-side OAuth2, but without requiring an OAuth2 provider. The `refreshToken` callback is optional — if your backend tokens are long-lived or managed by an external mechanism, you can provide only `getToken()`.
 
@@ -387,6 +392,7 @@ const agent = createRtcAgent({
       // Return the current user's unique identifier (for per-user IndexedDB isolation)
       return myAuthStore.getUserId();
     },
+    deviceId: 'uuid-from-your-backend',
   },
 });
 ```
@@ -398,6 +404,7 @@ const agent = createRtcAgent({
 | `isLoggedIn()` | ✅ | **Synchronous** — returns `boolean` indicating whether the user is authenticated |
 | `logout()` | Optional | Async — called when the component needs to terminate the session |
 | `getUserId()` | Optional | Synchronous — returns the current user's unique identifier. **Strongly recommended** — without it, all users share the same IndexedDB (database name falls back to `{databaseName}-provider-managed`) |
+| `deviceId` | ✅ | Unique device identifier — must match the Device ID embedded in the JWT by the server, otherwise scripts (RTCs) will not execute |
 
 > 📌 **Key difference from Mode 2**: The `isLoggedIn` field is the telltale sign of Mode 3. It enables the component to proactively check auth state (e.g., before attempting a connection) rather than discovering it has expired mid-request.
 >
