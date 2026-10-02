@@ -1178,11 +1178,94 @@ test('send message and get response', async ({ page }) => {
 
 | 区域 | 行为 |
 |:----:|:----:|
-| ⌨️ **输入区** | textarea + 底部工具栏；Enter 提交，Shift+Enter 换行；工具栏包含附件、工具、模式切换、发送/停止；当配置了 `scenarios-url` 时，工具栏显示 scenario 选择按钮，点击后弹出 `rtc-scenario-panel` 组件供用户选择场景 |
+| ⌨️ **输入区** | textarea + 底部工具栏；Enter 提交，Shift+Enter 换行；工具栏包含附件、命令、场景选择、模式切换、发送/停止；支持文件上传（点击附件按钮或 Ctrl/Cmd+V 粘贴），文件先缓存到本地 IndexedDB 再后台上传 S3，所有文件上传完成后才能发送；当配置了 `scenarios-url` 时，工具栏显示 scenario 选择按钮，点击后弹出 `rtc-scenario-panel` 组件供用户选择场景 |
+| 📎 **文件上传** | 点击附件按钮打开文件选择器（支持 `image/*` 和 `text/*`），或使用 Ctrl/Cmd+V 粘贴剪贴板文件；文件先本地缓存（`FileStorage.cacheFileForUpload()`），缩略图立即显示；后台上传 S3，实时显示进度；上传失败可点击重试；发送条件：所有文件状态为 `loaded` |
+| 🖼️ **文件预览** | 点击缩略图打开全屏预览弹窗（`rtc-file-preview-modal`）；支持图片预览（`object-fit: contain`）和文本预览（等宽字体，大文件截断到 1000 行）；三种关闭方式：ESC 键、点击背景、关闭按钮；下载失败时降级到 S3 预签名 URL |
 | 📨 **消息列表** | 自动滚动到底部；用户滚动离开时显示"新消息"按钮；支持 Markdown 渲染和代码高亮 |
 | ⚡ **工具确认弹窗** | 显示工具名和参数；Yes / No 按钮；点击背景等同于拒绝 |
 | 🔄 **连接失败重试** | 连接断开时显示重试按钮，也可通过 JS 调用 `agent.reconnect()` 方法手动重连 |
 | 🗂️ **工具调用卡片** | 每个工具调用显示为带时间线的卡片。**点击时间线圆点可将当前内容复制到剪贴板**（输入卡片复制参数，回复卡片复制输出）。对于 `todoWrite` 工具，卡片会渲染为带状态图标的任务列表（✓ 完成 / ● 进行中 / ○ 未开始），而非原始 JSON |
+
+## 文件上传与预览
+
+### 文件上传流程
+
+```mermaid
+sequenceDiagram
+    participant U as 用户
+    participant IA as rtc-input-area
+    participant FS as FileStorage
+    participant IDB as IndexedDB
+    participant S3 as S3 存储
+
+    U->>IA: 点击附件按钮 / Ctrl+V 粘贴
+    IA->>FS: cacheFileForUpload(file)
+    FS->>IDB: 写入本地缓存（计算 MD5）
+    IDB-->>FS: 返回 FileInfo（md5, ext, size）
+    FS-->>IA: FileInfo
+    
+    Note over IA: 创建 FileAttachment<br/>fileid = "{md5}.{ext}"
+    IA->>IA: 添加到 pendingFiles，显示缩略图
+    
+    Note over IA: 后台上传 S3
+    IA->>FS: upload({file, onProgress})
+    FS->>S3: PUT 对象（带进度回调）
+    S3-->>FS: 上传完成
+    FS-->>IA: FileInfo（syncStatus: 'synced'）
+    
+    Note over IA: 更新上传状态为 loaded
+
+    U->>IA: 点击发送
+    Note over IA: 检查所有文件状态
+    IA-->>U: 消息 + 文件列表一起发送
+```
+
+### 上传状态
+
+每个文件在上传过程中有三种状态，通过 `uploadStates` Map 管理：
+
+| 状态 | 图标 | 说明 |
+|:----:|:----:|:----:|
+| `loading` | 🔄 进度环 | 正在上传到 S3，显示 0-100% 进度 |
+| `loaded` | ✅ 完成 | 上传成功，缩略图正常显示 |
+| `error` | ❌ 错误 | 上传失败，显示重试按钮 |
+
+### 发送条件
+
+发送按钮的可用性由 `_canSubmit` 计算属性控制：
+
+```typescript
+// 简化的逻辑
+get _canSubmit(): boolean {
+  if (!this._hasContent) return false;
+  // 检查是否有任何文件正在上传或失败
+  const hasUploadingOrFailedFiles = Array.from(this._uploadStates.values())
+    .some(state => state === 'loading' || state === 'error');
+  return !hasUploadingOrFailedFiles;
+}
+```
+
+- 有文本或文件附件时，`_hasContent` 为 true
+- 所有文件状态为 `loaded` 时，发送按钮可用
+- 任何文件处于 `loading` 或 `error` 状态时，发送按钮禁用
+
+### 文件预览组件
+
+文件预览相关的子组件：
+
+| 组件 | 用途 | 关键特性 |
+|:----:|:----:|:--------:|
+| `rtc-file-preview-area` | 附件预览区容器 | 水平滚动列表，显示所有附件缩略图；支持编辑模式（显示删除按钮）和只读模式（消息展示） |
+| `rtc-file-thumbnail` | 单个文件缩略图 | 图片文件显示缩略图（`object-fit: cover`），文本文件显示文件图标；显示上传进度环、同步状态徽章、文件名 |
+| `rtc-file-preview-modal` | 全屏预览弹窗 | 图片预览（`object-fit: contain`）、文本预览（等宽字体，大文件截断）；三种关闭方式：ESC、点击背景、关闭按钮 |
+
+**FileStorage 上下文**：
+
+文件预览组件通过 `FileStorageContext` 获取 `FileStorage` 实例，用于：
+
+- 加载缩略图：`fileStorage.getThumbnailUrl({md5, ext})`
+- 下载文件：`fileStorage.download(md5, ext, {signal})`
+- 获取预签名 URL：`fileStorage.getPresignedUrl({md5, ext}, expires)`（降级方案）
 
 ## 下一步
 

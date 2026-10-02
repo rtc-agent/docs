@@ -1178,11 +1178,94 @@ test('send message and get response', async ({ page }) => {
 
 | Area | Behavior |
 |:----:|:----:|
-| ⌨️ **Input Area** | Textarea + bottom toolbar; Enter to submit, Shift+Enter for newline; toolbar includes attachments, tools, mode toggle, send/stop; when `scenarios-url` is configured, a scenario selection button is shown in the toolbar, opening the `rtc-scenario-panel` component for users to pick a scenario |
+| ⌨️ **Input Area** | Textarea + bottom toolbar; Enter to submit, Shift+Enter for newline; toolbar includes attach, commands, scenario selection, mode toggle, send/stop; supports file upload (click attach button or Ctrl/Cmd+V to paste), files are first cached to local IndexedDB then uploaded to S3 in background; message can only be sent after all files are uploaded; when `scenarios-url` is configured, a scenario selection button is shown in the toolbar, opening the `rtc-scenario-panel` component for users to pick a scenario |
+| 📎 **File Upload** | Click the attach button to open the file picker (supports `image/*` and `text/*`), or use Ctrl/Cmd+V to paste clipboard files; files are first cached locally (`FileStorage.cacheFileForUpload()`), thumbnails display immediately; background upload to S3 with real-time progress display; failed uploads can be retried by clicking the retry button; send condition: all files must be in `loaded` state |
+| 🖼️ **File Preview** | Click a thumbnail to open a fullscreen preview modal (`rtc-file-preview-modal`); supports image preview (`object-fit: contain`) and text preview (monospace font, large files truncated to 1000 lines); three close methods: ESC key, backdrop click, close button; falls back to S3 presigned URL when download fails |
 | 📨 **Message List** | Auto-scrolls to bottom; "New messages" button shown when user scrolls away; supports Markdown rendering and code highlighting |
 | ⚡ **Tool Confirmation Dialog** | Displays tool name and parameters; Yes / No buttons; clicking the background is equivalent to rejecting |
 | 🔄 **Connection Retry** | A retry button is displayed when the connection fails; you can also call `agent.reconnect()` programmatically to reconnect |
 | 🗂️ **Tool Call Cards** | Each tool call is displayed as a timeline card. **Clicking the timeline dot copies the current content to the clipboard** (input cards copy parameters, reply cards copy output). For the `todoWrite` tool, cards render as a task list with status icons (✓ completed / ● in progress / ○ pending) instead of raw JSON |
+
+## File Upload and Preview
+
+### File Upload Flow
+
+```mermaid
+sequenceDiagram
+    participant U as User
+    participant IA as rtc-input-area
+    participant FS as FileStorage
+    participant IDB as IndexedDB
+    participant S3 as S3 Storage
+
+    U->>IA: Click attach button / Ctrl+V paste
+    IA->>FS: cacheFileForUpload(file)
+    FS->>IDB: Write to local cache (calculate MD5)
+    IDB-->>FS: Return FileInfo (md5, ext, size)
+    FS-->>IA: FileInfo
+    
+    Note over IA: Create FileAttachment<br/>fileid = "{md5}.{ext}"
+    IA->>IA: Add to pendingFiles, show thumbnail
+    
+    Note over IA: Background upload to S3
+    IA->>FS: upload({file, onProgress})
+    FS->>S3: PUT object (with progress callback)
+    S3-->>FS: Upload complete
+    FS-->>IA: FileInfo (syncStatus: 'synced')
+    
+    Note over IA: Update upload state to loaded
+
+    U->>IA: Click send
+    Note over IA: Check all file states
+    IA-->>U: Message + file list sent together
+```
+
+### Upload States
+
+Each file has three states during upload, managed via the `uploadStates` Map:
+
+| State | Icon | Description |
+|:----:|:----:|:----:|
+| `loading` | 🔄 Progress ring | Uploading to S3, showing 0-100% progress |
+| `loaded` | ✅ Complete | Upload successful, thumbnail displays normally |
+| `error` | ❌ Error | Upload failed, retry button shown |
+
+### Send Conditions
+
+Send button availability is controlled by the `_canSubmit` computed property:
+
+```typescript
+// Simplified logic
+get _canSubmit(): boolean {
+  if (!this._hasContent) return false;
+  // Check if any files are uploading or failed
+  const hasUploadingOrFailedFiles = Array.from(this._uploadStates.values())
+    .some(state => state === 'loading' || state === 'error');
+  return !hasUploadingOrFailedFiles;
+}
+```
+
+- `_hasContent` is true when there is text or file attachments
+- Send button is enabled when all files are in `loaded` state
+- Send button is disabled when any file is in `loading` or `error` state
+
+### File Preview Components
+
+File preview related sub-components:
+
+| Component | Purpose | Key Features |
+|:----:|:----:|:--------:|
+| `rtc-file-preview-area` | Attachment preview area container | Horizontal scrolling list showing all attachment thumbnails; supports edit mode (shows delete buttons) and readonly mode (message display) |
+| `rtc-file-thumbnail` | Single file thumbnail | Shows thumbnail for image files (`object-fit: cover`), file icon for text files; displays upload progress ring, sync status badge, filename |
+| `rtc-file-preview-modal` | Fullscreen preview modal | Image preview (`object-fit: contain`), text preview (monospace font, large file truncation); three close methods: ESC, backdrop click, close button |
+
+**FileStorage Context**:
+
+File preview components obtain the `FileStorage` instance via `FileStorageContext` for:
+
+- Loading thumbnails: `fileStorage.getThumbnailUrl({md5, ext})`
+- Downloading files: `fileStorage.download(md5, ext, {signal})`
+- Getting presigned URLs: `fileStorage.getPresignedUrl({md5, ext}, expires)` (fallback approach)
 
 ## Next Steps
 

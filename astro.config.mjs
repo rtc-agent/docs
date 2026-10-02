@@ -29,9 +29,9 @@ export default defineConfig({
 				},
 			},
 			head: [
-				{ tag: 'script', attrs: { type: 'module', src: 'https://cdn.jsdelivr.net/npm/@rtc-agent/component@0.2.8-rc.2/dist/index.js' } },
+				{ tag: 'script', attrs: { type: 'module', src: 'https://cdn.jsdelivr.net/npm/@rtc-agent/component@0.3.0-rc.1/dist/index.js' } },
 				{ tag: 'script', attrs: { type: 'module' }, content: `
-					import { z, withMeta, createRtcAgent } from 'https://cdn.jsdelivr.net/npm/@rtc-agent/component@0.2.8-rc.2/dist/index.js';
+					import { z, withMeta, createRtcAgent } from 'https://cdn.jsdelivr.net/npm/@rtc-agent/component@0.3.0-rc.1/dist/index.js';
 
 					let DOCS_INDEX = null;
 					const loadIndex = () => DOCS_INDEX || fetch('/docs/docs-index.json').then(r => r.json()).then(d => DOCS_INDEX = d);
@@ -207,6 +207,7 @@ export default defineConfig({
 					translations: { 'zh-CN': '集成指南' },
 					items: [
 						{ label: 'Authentication', link: '/integration/auth/', translations: { 'zh-CN': '认证与授权' } },
+						{ label: 'Object Storage', link: '/integration/object-storage/', translations: { 'zh-CN': '对象存储 (OSS/S3)' } },
 						{ label: 'Web Component API', link: '/integration/component-api/', translations: { 'zh-CN': 'Web Component API' } },
 						{ label: 'Function Registration', link: '/integration/function-registration/', translations: { 'zh-CN': 'Function 注册指南' } },
 						{ label: 'Scenario Authoring', link: '/integration/scenario-authoring/', translations: { 'zh-CN': 'Scenario 编写指南' } },

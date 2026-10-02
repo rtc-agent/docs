@@ -31,9 +31,12 @@ flowchart TD
     MSGITEM --> THINK["💭 thinking-block<br/>Reasoning process"]
     MSGITEM --> TOOL["🔧 tool-call-card<br/>Tool call card"]
 
+    INPUT --> FPA["📎 file-preview-area<br/>Attachment preview area"]
+    FPA --> THUMB["🖼️ file-thumbnail<br/>File thumbnail"]
     INPUT --> TOOLBAR["🛠️ toolbar<br/>Attachments · Tools · Modes"]
     INPUT --> TA["📝 textarea<br/>Text input"]
 
+    ROOT --> FPM["🖼️ file-preview-modal<br/>File fullscreen preview"]
     ROOT --> CONFIRM["⚠️ tool-confirm<br/>Tool confirmation dialog"]
     ROOT --> BUBBLE["🫧 bubble-icon<br/>Minimized bubble"]
     ROOT --> SETTINGS_PANEL["⚙️ settings-panel<br/>Settings panel"]
@@ -67,6 +70,9 @@ flowchart TD
 | `rtc-settings-panel` | Settings side drawer panel | New |
 | `rtc-settings-layout` | Settings two-column layout | New |
 | `rtc-settings-nav` | Settings category navigation | New |
+| `rtc-file-preview-area` | Attachment preview area (horizontal scrolling thumbnail list) | New |
+| `rtc-file-thumbnail` | File thumbnail (upload progress, delete, preview) | New |
+| `rtc-file-preview-modal` | Fullscreen file preview modal (image/text) | New |
 
 ## Public Component
 
@@ -186,6 +192,51 @@ Additionally, the following auxiliary modules exist:
 
 > 💡 **Why not global state?** Web Components run inside the host application's page and may have multiple instances. For example, a page might embed both a "Customer Support Assistant" and a "Data Analysis Assistant" as two `<rtc-agent>` elements — they need independent sessions, messages, and auth state. Controller + Context ensures each instance's state is fully isolated with no interference.
 
+## File Storage (FileStorage)
+
+RTC Agent includes an offline-first file storage system that distributes `FileStorage` instances to child components via `FileStorageContext`. All file operations are first written to local IndexedDB cache, then synced to S3 in the background, ensuring availability in offline scenarios.
+
+```mermaid
+flowchart LR
+    subgraph FS["📁 FileStorage Context"]
+        direction TB
+        CACHE["💾 IndexedDB Local Cache<br/>File content + metadata"]
+        S3["☁️ S3 Remote Storage<br/>Persistence"]
+    end
+
+    UPLOAD["Upload"] -->|"cacheFileForUpload()"| CACHE
+    CACHE -->|"upload()"| S3
+
+    DOWNLOAD["Download"] -->|"download()"| CACHE
+    CACHE -.->|"Cache miss"| S3
+
+    THUMB["Thumbnail"] -->|"getThumbnailUrl()"| CACHE
+
+    style FS fill:#e3f2fd,stroke:#1565c0,stroke-width:2px
+    style CACHE fill:#fff9c4,stroke:#f9a825,stroke-width:2px
+    style S3 fill:#e8f5e9,stroke:#388e3c,stroke-width:2px
+```
+
+**FileStorage Core API**:
+
+| Method | Description |
+| --- | --- |
+| `cacheFileForUpload(file)` | Cache file to local IndexedDB, calculate MD5, return `FileInfo` (including `md5`, `ext`, `size`) |
+| `upload(options)` | Upload file to S3, supports `onProgress` callback, returns `FileInfo` (including `syncStatus`) |
+| `download(md5, ext, options?)` | Download file, prefers local cache; falls back to S3 on cache miss |
+| `getThumbnailUrl(identifier)` | Get image thumbnail URL (returns blob URL, must call `releaseThumbnailUrl()` to release) |
+| `getPresignedUrl(identifier, expires)` | Get S3 presigned URL (for fallback scenarios) |
+| `list(filter?)` | List files with pagination and filtering support |
+| `delete(identifier)` | Delete file (both local cache and S3) |
+| `getCacheStats()` | Get cache statistics (file count, space usage) |
+
+**Offline-First Features**:
+
+- File uploads are first written to local cache (`syncStatus: 'pending'`), thumbnails are immediately visible
+- When network recovers, files are automatically synced to S3 in the background (`syncStatus: 'synced'`)
+- Downloads prefer local cache; only requests S3 on cache miss
+- Supports interruption recovery: `resumeInterruptedUploads()` resumes incomplete upload tasks
+
 ## Window System
 
 ```mermaid
@@ -261,20 +312,44 @@ flowchart TD
 flowchart TD
     subgraph INPUT["⌨️ Input Area"]
         direction TB
+        FPA["📎 file-preview-area<br/>Attachment preview area"]
         TA["📝 textarea<br/>Multi-line input"]
         TB_BAR["🛠️ Bottom Toolbar"]
     end
 
-    TB_BAR --> ATT["📎 Attachments"]
-    TB_BAR --> TOOL_BTN["🔧 Tools"]
+    TB_BAR --> ATT["📎 Attach"]
+    TB_BAR --> TOOL_BTN["🔧 Commands"]
+    TB_BAR --> SCENARIO_BTN["📋 Scenarios"]
     TB_BAR --> MODE_BTN["⚙️ Mode toggle"]
     TB_BAR --> SEND["📤 Send / Stop"]
+
+    ATT -->|"Click"| FILE_PICK["File picker<br/>image/*,text/*"]
+    ATT -->|"Paste Ctrl/Cmd+V"| PASTE["Paste upload<br/>Extract files from clipboard"]
+
+    FILE_PICK --> UPLOAD["Local cache → Thumbnail preview → Background S3 upload"]
+    PASTE --> UPLOAD
+
+    UPLOAD --> THUMB_DISP["rtc-file-thumbnail<br/>Shows progress/status/retry"]
+    THUMB_DISP --> SEND_COND{"All files<br/>uploaded?"}
+    SEND_COND -->|"✅ Yes"| ENABLE_SEND["Send button enabled"]
+    SEND_COND -->|"❌ Uploading/Failed"| DISABLE_SEND["Send button disabled"]
 
     TA -->|"Enter"| SEND_MSG["Send message"]
     TA -->|"Shift+Enter"| NEWLINE["New line"]
 
     style INPUT fill:#e3f2fd,stroke:#1565c0,stroke-width:2px
+    style FPA fill:#fff9c4,stroke:#f9a825,stroke-width:2px
 ```
+
+**File Upload Flow**:
+
+1. **Trigger**: Click the attach button to open the file picker, or use `Ctrl+V` / `Cmd+V` to paste files from the clipboard
+2. **Local Cache**: Files are first written to local IndexedDB cache (`FileStorage.cacheFileForUpload()`), generating a real `fileid` (in `md5.ext` format)
+3. **Instant Preview**: Thumbnails display immediately (`rtc-file-thumbnail` loads from FileStorage cache), no need to wait for S3 upload
+4. **Background Upload**: Background call to `FileStorage.upload()` uploads to S3, showing real-time upload progress (0-100%)
+5. **State Management**: Each file has three states — `loading` (uploading), `loaded` (success), `error` (failed)
+6. **Retry Mechanism**: Failed uploads show a retry button; clicking it re-uploads the file
+7. **Send Condition**: The send button is enabled only after all files are uploaded; when sent, the file list is submitted with the message
 
 ### Message List
 

@@ -18,7 +18,7 @@ RTC Agent's HTTP API includes three categories of endpoints: **OAuth2 Authentica
 
 **Operational Endpoints** (no JWT required): `/healthz` (health check), `/readyz` (readiness check), `/metrics` (Prometheus metrics).
 
-**Business Endpoints** (JWT required): `/api/sessions/{sessionID}/interrupts/{interruptID}/answer` (submit interrupt answer), `/api/memories/export` (export memory data).
+**Business Endpoints** (JWT required): `/api/sessions/{sessionID}/interrupts/{interruptID}/answer` (submit interrupt answer), `/api/memories/export` (export memory data), `/api/credentials/temporary` (get S3 temporary credentials), `/api/presigned-url` (generate presigned URL).
 
 ## Authentication Flow
 
@@ -355,4 +355,5 @@ Export memory data as an OKF (Open Knowledge Format) bundle. Supports filtering 
 
 - [WebSocket RPC](/docs/en/protocol/rpc/) — After authentication, perform business operations over WebSocket
 - [Real-Time Events](/docs/en/protocol/events/) — Learn about the real-time event push mechanism
+- [Object Storage](/docs/en/integration/object-storage/) — Use S3 SDKs for file upload and download
 - [Protocol Overview](/docs/en/protocol/) — Return to the protocol panorama
