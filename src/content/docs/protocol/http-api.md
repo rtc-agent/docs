@@ -18,7 +18,7 @@ RTC Agent 的 HTTP API 包含三类端点：**OAuth2 认证**处理用户登录�
 
 **运维端点**（无需 JWT 认证）：`/healthz`（健康检查）、`/readyz`（就绪检查）、`/metrics`（Prometheus 指标）。
 
-**业务端点**（需要 JWT 认证）：`/api/sessions/{sessionID}/interrupts/{interruptID}/answer`（提交中断应答）、`/api/memories/export`（导出记忆数据）。
+**业务端点**（需要 JWT 认证）：`/api/sessions/{sessionID}/interrupts/{interruptID}/answer`（提交中断应答）、`/api/memories/export`（导出记忆数据）、`/api/credentials/temporary`（获取 S3 临时凭证）、`/api/presigned-url`（生成预签名 URL）。
 
 ## 认证流程
 
@@ -355,4 +355,5 @@ Prometheus 指标端点，暴露服务运行指标，供监控系统（Prometheu
 
 - [WebSocket RPC](/docs/protocol/rpc/) — 认证完成后，通过 WebSocket 进行业务操作
 - [实时事件](/docs/protocol/events/) — 了解实时事件推送机制
+- [对象存储](/docs/integration/object-storage/) — 使用 S3 SDK 进行文件上传和下载
 - [协议总览](/docs/protocol/) — 返回协议全景

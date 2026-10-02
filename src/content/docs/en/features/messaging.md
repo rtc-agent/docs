@@ -307,7 +307,7 @@ flowchart TD
 |-------|------|-------------|
 | `text` | string | Message text content |
 | `scenarios` | `ScenarioRef[]` | Scenario list (optional), containing full file content |
-| `files` | `FileAttachment[]` | File attachment list (optional, reserved) |
+| `files` | `FileAttachment[]` | File attachment list (optional) |
 
 ### ScenarioRef Structure
 
@@ -317,7 +317,97 @@ flowchart TD
 | `title` | string | Scenario title |
 | `file_content` | string | Full scenario file content (Markdown format) |
 
+### FileAttachment Structure
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `fileid` | string | File unique identifier (content identifier) |
+| `mimetype` | string | MIME type (e.g., `image/png`, `application/pdf`) |
+| `extra` | object | Extension fields (e.g., `name`, `size`) |
+
+**File ID Format Specification**:
+
+File ID is the unique identifier of file content, in the format `{md5}.{ext}`:
+
+- `{md5}`: 32 hexadecimal characters (lowercase `a-f` or digits `0-9`) — the MD5 hash of the file content
+- `{ext}`: 1-10 alphanumeric characters for the file extension (e.g., `txt`, `jpg`, `pdf`)
+
+**Examples**:
+
+- ✅ Correct: `a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6.txt`
+- ✅ Correct: `b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6e7.jpg`
+- ❌ Incorrect: `user-550e8400.../a1b2c3d4...txt` (should not include user prefix)
+- ❌ Incorrect: `myfile.txt` (MD5 format error)
+
+> 💡 **File ID vs File Key**: File ID is the content identifier used by the client (`{md5}.{ext}`). The server constructs the full S3 Key when storing: `user-{userId}/{fileid}`. The client only needs to pass the File ID; the server automatically adds the user prefix for validation and storage.
+
 > 💡 **Injection mechanism**: The server extracts scenarios from `UserMessageContent.Scenarios` and injects them as system messages with `<scenarios>` XML tags. The final message order is: `[system] Attachments` → `[system] Scenarios` → `[system] Command prompts` → `[conversation history]`.
+
+## File Attachments
+
+Users can attach images and text files to messages. The Agent can recognize image content (visual understanding) and read text content, enabling reasoning and responses based on attachment information.
+
+### User Operations
+
+| Operation | Description |
+| --------- | ----------- |
+| Attach button | Click the attach icon in the input area toolbar to open the file picker (accepts `image/*`, `text/*`) |
+| Paste upload | Use Ctrl+V / Cmd+V to paste images or files from the clipboard |
+
+Upload flow: Files are first cached locally (generating a File ID), with thumbnail previews displayed immediately, then uploaded to object storage in the background.
+
+### Supported File Types
+
+| Category | MIME Type | Max Size | Processing |
+| -------- | --------- | -------- | ---------- |
+| Images (supported) | JPEG, PNG, BMP, TIFF | 20MB raw / 5MB base64 | Auto-resize to 2000x2000, multi-level JPEG compression |
+| Images (unsupported) | WebP, GIF | - | Currently unsupported; please convert to JPEG or PNG |
+| Text | text/* | 256KB | UTF-8 validation, truncation if too long |
+
+### Image Processing Pipeline
+
+```mermaid
+flowchart LR
+    A["📷 Original Image"] --> B["🔍 EXIF Orientation"]
+    B --> C{"Size Check"}
+    C -->|"≤ 3.75MB and ≤ 2000×2000"| D["✅ Use as-is"]
+    C -->|"Exceeds limit"| E["📐 Resize to 2000×2000"]
+    E --> F["🎚️ Multi-level Compression<br/>JPEG Q80→60→40→20"]
+    F --> G{"base64 ≤ 5MB?"}
+    G -->|"Yes"| H["✅ Compression Done"]
+    G -->|"No"| I["🔽 Fallback to 400×400<br/>JPEG Q20"]
+    I --> H
+    H --> J["🧠 LLM Vision Recognition"]
+
+    style A fill:#e3f2fd,stroke:#1565c0
+    style J fill:#e8f5e9,stroke:#2e7d32
+```
+
+1. **Read**: Read raw data from object storage (limited to 20MB)
+2. **Detect**: Detect actual MIME type via magic bytes
+3. **Decode**: Auto-apply EXIF orientation correction
+4. **Fast path**: Return as-is if already within size limits
+5. **Resize**: Scale to fit within 2000x2000 bounding box using Lanczos algorithm
+6. **Compress**: Try JPEG quality 80→60→40→20 until base64-encoded size ≤ 5MB
+7. **Fallback**: If still over limit, downscale to 400x400 at lowest quality
+8. **Inject**: Embed as base64 in the LLM request's `image` content part
+
+### Text Processing Pipeline
+
+1. **Read**: Read text data from object storage (limited to 256KB)
+2. **Validate**: Verify the file content is valid UTF-8 encoding
+3. **Truncate**: If over 256KB, safely truncate at UTF-8 character boundary with truncation notice appended
+4. **Wrap**: Wrap with XML tags: `<file_content name="filename" type="MIME type">content</file_content>`
+5. **Append**: Append the wrapped text to the user message's Content field
+
+### Send Conditions
+
+| Condition | Description |
+| --------- | ----------- |
+| All files uploaded | Send button is disabled when any file is still uploading (loading) or has failed (error) |
+| Upload failure handling | Failed files can be retried, or deleted and re-uploaded |
+
+> 💡 File attachments are submitted with the `user_message` when sending. The server loads all files in parallel to improve response speed in multi-file scenarios.
 
 ## Token Usage Display
 

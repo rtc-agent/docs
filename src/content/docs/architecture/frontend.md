@@ -31,9 +31,12 @@ flowchart TD
     MSGITEM --> THINK["💭 thinking-block<br/>推理过程"]
     MSGITEM --> TOOL["🔧 tool-call-card<br/>工具调用卡片"]
 
+    INPUT --> FPA["📎 file-preview-area<br/>附件预览区"]
+    FPA --> THUMB["🖼️ file-thumbnail<br/>文件缩略图"]
     INPUT --> TOOLBAR["🛠️ toolbar<br/>附件 · 工具 · 模式"]
     INPUT --> TA["📝 textarea<br/>文本输入"]
 
+    ROOT --> FPM["🖼️ file-preview-modal<br/>文件全屏预览"]
     ROOT --> CONFIRM["⚠️ tool-confirm<br/>工具确认弹窗"]
     ROOT --> BUBBLE["🫧 bubble-icon<br/>最小化气泡"]
     ROOT --> SETTINGS_PANEL["⚙️ settings-panel<br/>设置面板"]
@@ -67,6 +70,9 @@ flowchart TD
 | `rtc-settings-panel` | 设置侧抽屉面板 | 新增 |
 | `rtc-settings-layout` | 设置两栏布局 | 新增 |
 | `rtc-settings-nav` | 设置分类导航 | 新增 |
+| `rtc-file-preview-area` | 附件预览区（水平滚动缩略图列表） | 新增 |
+| `rtc-file-thumbnail` | 文件缩略图（上传进度、删除、预览） | 新增 |
+| `rtc-file-preview-modal` | 文件全屏预览弹窗（图片/文本） | 新增 |
 
 ## 公开组件
 
@@ -186,6 +192,51 @@ flowchart TD
 
 > 💡 **为什么不用全局状态？** Web Components 运行在宿主应用的页面中，可能有多个实例。例如一个页面同时嵌入"客服助手"和"数据分析助手"两个 `<rtc-agent>`，它们需要各自独立的会话、消息、认证状态。Controller + Context 保证每个实例的状态完全隔离，互不干扰。
 
+## 文件存储（FileStorage）
+
+RTC Agent 内置了离线优先的文件存储系统，通过 `FileStorageContext` 向子组件分发 `FileStorage` 实例。所有文件操作都先写入本地 IndexedDB 缓存，再后台同步到 S3，保证离线场景下的可用性。
+
+```mermaid
+flowchart LR
+    subgraph FS["📁 FileStorage 上下文"]
+        direction TB
+        CACHE["💾 IndexedDB 本地缓存<br/>文件内容 + 元数据"]
+        S3["☁️ S3 远程存储<br/>持久化"]
+    end
+
+    UPLOAD["上传"] -->|"cacheFileForUpload()"| CACHE
+    CACHE -->|"upload()"| S3
+
+    DOWNLOAD["下载"] -->|"download()"| CACHE
+    CACHE -.->|"缓存未命中"| S3
+
+    THUMB["缩略图"] -->|"getThumbnailUrl()"| CACHE
+
+    style FS fill:#e3f2fd,stroke:#1565c0,stroke-width:2px
+    style CACHE fill:#fff9c4,stroke:#f9a825,stroke-width:2px
+    style S3 fill:#e8f5e9,stroke:#388e3c,stroke-width:2px
+```
+
+**FileStorage 核心 API**：
+
+| 方法 | 说明 |
+| --- | --- |
+| `cacheFileForUpload(file)` | 缓存文件到本地 IndexedDB，计算 MD5，返回 `FileInfo`（含 `md5`、`ext`、`size`） |
+| `upload(options)` | 上传文件到 S3，支持 `onProgress` 回调，返回 `FileInfo`（含 `syncStatus`） |
+| `download(md5, ext, options?)` | 下载文件，优先从本地缓存读取，缓存未命中时从 S3 下载 |
+| `getThumbnailUrl(identifier)` | 获取图片缩略图 URL（返回 blob URL，需调用 `releaseThumbnailUrl()` 释放） |
+| `getPresignedUrl(identifier, expires)` | 获取 S3 预签名 URL（用于降级场景） |
+| `list(filter?)` | 列出文件，支持分页和过滤 |
+| `delete(identifier)` | 删除文件（同时删除本地缓存和 S3） |
+| `getCacheStats()` | 获取缓存统计信息（文件数、占用空间） |
+
+**离线优先特性**：
+
+- 文件上传先写入本地缓存（`syncStatus: 'pending'`），缩略图立即可显示
+- 网络恢复后，后台自动同步到 S3（`syncStatus: 'synced'`）
+- 下载优先读取本地缓存，缓存未命中时才请求 S3
+- 支持中断恢复：`resumeInterruptedUploads()` 恢复未完成的上传任务
+
 ## 窗口系统
 
 ```mermaid
@@ -261,20 +312,44 @@ flowchart TD
 flowchart TD
     subgraph INPUT["⌨️ 输入区域"]
         direction TB
+        FPA["📎 file-preview-area<br/>附件预览区"]
         TA["📝 textarea<br/>多行输入"]
         TB_BAR["🛠️ 底部工具栏"]
     end
 
     TB_BAR --> ATT["📎 附件"]
-    TB_BAR --> TOOL_BTN["🔧 工具"]
+    TB_BAR --> TOOL_BTN["🔧 命令"]
+    TB_BAR --> SCENARIO_BTN["📋 场景"]
     TB_BAR --> MODE_BTN["⚙️ 模式切换"]
     TB_BAR --> SEND["📤 发送 / 停止"]
+
+    ATT -->|"点击"| FILE_PICK["文件选择器<br/>image/*,text/*"]
+    ATT -->|"粘贴 Ctrl/Cmd+V"| PASTE["粘贴上传<br/>从剪贴板提取文件"]
+
+    FILE_PICK --> UPLOAD["本地缓存 → 缩略图预览 → 后台上传 S3"]
+    PASTE --> UPLOAD
+
+    UPLOAD --> THUMB_DISP["rtc-file-thumbnail<br/>显示进度/状态/重试"]
+    THUMB_DISP --> SEND_COND{"所有文件<br/>上传完成？"}
+    SEND_COND -->|"✅ 是"| ENABLE_SEND["发送按钮可用"]
+    SEND_COND -->|"❌ 上传中/失败"| DISABLE_SEND["发送按钮禁用"]
 
     TA -->|"Enter"| SEND_MSG["发送消息"]
     TA -->|"Shift+Enter"| NEWLINE["换行"]
 
     style INPUT fill:#e3f2fd,stroke:#1565c0,stroke-width:2px
+    style FPA fill:#fff9c4,stroke:#f9a825,stroke-width:2px
 ```
+
+**文件上传流程**：
+
+1. **触发方式**：点击附件按钮打开文件选择器，或使用 `Ctrl+V` / `Cmd+V` 粘贴剪贴板中的文件
+2. **本地缓存**：文件先写入本地 IndexedDB 缓存（`FileStorage.cacheFileForUpload()`），生成真实的 `fileid`（`md5.ext` 格式）
+3. **即时预览**：缩略图立即显示（`rtc-file-thumbnail` 从 FileStorage 缓存加载），无需等待 S3 上传
+4. **后台上传**：后台调用 `FileStorage.upload()` 上传到 S3，实时显示上传进度（0-100%）
+5. **状态管理**：每个文件有三种状态 —— `loading`（上传中）、`loaded`（成功）、`error`（失败）
+6. **重试机制**：上传失败的文件显示重试按钮，点击后重新上传
+7. **发送条件**：所有文件上传完成后，发送按钮才可用；发送时文件列表随消息一起提交
 
 ### 消息列表
 

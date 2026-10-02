@@ -1,9 +1,9 @@
 ---
 title: Backend Architecture
-description: RTC Agent backend architecture — Go service layers, and the collaboration between WebSocket Gateway, Agent engine, context management, memory system, and RTC handler.
+description: RTC Agent backend architecture — Go service layers, and the collaboration between WebSocket Gateway, Agent engine, context management, memory system, RTC handler, and object storage layer.
 ---
 
-RTC Agent Server is a **Go service** responsible for AI reasoning orchestration, context management, real-time communication, and tool call scheduling. Core components include the WebSocket Gateway, Agent engine, context management, memory system, and RTC handler.
+RTC Agent Server is a **Go service** responsible for AI reasoning orchestration, context management, real-time communication, tool call scheduling, and object storage. Core components include the WebSocket Gateway, Agent engine, context management, memory system, RTC handler, and OSS3 storage engine.
 
 ## Service Layers
 
@@ -14,7 +14,7 @@ flowchart TD
         L1["🌐 Access Layer<br/>WebSocket Gateway · OAuth2"]
         L2["📋 Use Case Layer<br/>Session · Message · Turn · RTC"]
         L3["🤖 Domain Layer<br/>Agent Engine · Context · Memory"]
-        L4["💾 Infrastructure Layer<br/>PostgreSQL · Redis · Centrifuge"]
+        L4["💾 Infrastructure Layer<br/>PostgreSQL · Redis · Centrifuge · MinIO/S3"]
     end
 
     L1 --> L2 --> L3 --> L4
@@ -31,7 +31,7 @@ flowchart TD
 | 🌐 **Access Layer** | Protocol adaptation, authentication & authorization | WebSocket Gateway, OAuth2 Handler |
 | 📋 **Use Case Layer** | Business orchestration, RPC processing | Session / Message / Turn / RTC use cases |
 | 🤖 **Domain Layer** | AI reasoning, state management | Agent Engine, Context Management, Memory System |
-| 💾 **Infrastructure Layer** | Data persistence, message passing | PostgreSQL, Redis, Centrifuge |
+| 💾 **Infrastructure Layer** | Data persistence, message passing, object storage | PostgreSQL, Redis, Centrifuge, MinIO/S3 |
 
 > **OAuth2 Authentication**: The system uses the OAuth2 authorization code flow. The frontend completes authorization via a popup window, obtaining an Access Token (1-hour validity) and Refresh Token (30-day validity). WebSocket connections use the Access Token for authentication. See [Authentication Flow](/docs/en/integration/auth).
 
@@ -46,6 +46,7 @@ flowchart LR
         CTX["🗜️ Context Manager<br/>Prompt assembly · Auto-compression"]
         MEM["🧠 Memory System<br/>Session Memory · User Memory"]
         RTC_P["🔧 RTC Handler<br/>Checkpoint · Recovery"]
+        OSS3["📦 OSS3 Storage Engine<br/>Object storage · File processing"]
     end
 
     subgraph INFRA["💾 Infrastructure"]
@@ -53,16 +54,19 @@ flowchart LR
         PG[("PostgreSQL<br/>Persistent storage")]
         RD[("Redis<br/>Cache · Queue · Pub/Sub")]
         CF["Centrifuge<br/>Real-time push"]
+        S3[("MinIO/S3<br/>Object storage")]
     end
 
     GW --> AGENT
     AGENT --> CTX
     CTX --> MEM
     AGENT --> RTC_P
+    AGENT --> OSS3
     RTC_P --> RD
     GW --> CF
     AGENT --> PG
     CTX --> PG
+    OSS3 --> S3
 
     style CORE fill:#f3e5f5,stroke:#7b1fa2,stroke-width:2px
     style INFRA fill:#fce4ec,stroke:#c62828,stroke-width:2px
@@ -135,6 +139,7 @@ flowchart TD
 | --- | --- |
 | **Reasoning Loop** | Call LLM → Process response → Tool call → Continue reasoning, until the final reply is generated |
 | **Built-in Tools** | File operations (ls/read/write/grep/find/script), sub-agent management (subAgent/listSubAgent/stopSubAgent), user interaction (askUser), goal management (goal), loop tasks (loop), etc. |
+| **Multimodal Understanding** | Processes file attachments in user messages — images are loaded from OSS, preprocessed (EXIF correction, resizing, compression), and injected as base64 into LLM Vision; text files are UTF-8 validated, truncated if needed, XML-wrapped, and appended to Content (see below) |
 | **Streaming Output** | Pushes LLM output to the frontend in real-time |
 | **Error Feedback** | Automatically classifies errors when a Turn fails, generating structured ErrorContent messages pushed to the frontend (see below) |
 | **Sub-Agents** | Complex tasks are automatically decomposed, with multiple specialized sub-agents working in parallel (see below) |
@@ -353,6 +358,92 @@ Different work modes have different confirmation strategies for tool calls:
 | **script tool** | ⚠️ Confirm | ⚠️ Confirm | ⚠️ Confirm | ⚠️ Confirm | ✅ Auto |
 
 See [Work Modes](/docs/en/concepts/work-modes).
+
+### Object Storage Layer
+
+The OSS3 package provides S3-compatible object storage abstraction for managing user-uploaded file attachments (images, text, etc.).
+
+```mermaid
+flowchart LR
+    subgraph OSS3_ARCH["📦 OSS3 Storage Architecture"]
+        direction TB
+        CLIENT["🖥️ Client<br/>Browser / Mobile"]
+        API["🔌 HTTP API<br/>STS · Presign · S3-compatible"]
+        SIGV4["🔐 SigV4 Middleware<br/>Signature verification · Access control"]
+        BACKEND["💾 Backend Interface<br/>S3-compatible storage abstraction"]
+    end
+
+    CLIENT -->|"① Get temporary credentials"| API
+    CLIENT -->|"② Direct upload/download"| BACKEND
+    API --> SIGV4 --> BACKEND
+    BACKEND --> MINIO["MinIO / Alibaba Cloud OSS<br/>or other S3-compatible backends"]
+
+    style OSS3_ARCH fill:#e3f2fd,stroke:#1565c0,stroke-width:2px
+    style SIGV4 fill:#fff9c4,stroke:#f9a825,stroke-width:2px
+    style BACKEND fill:#e8f5e9,stroke:#388e3c,stroke-width:2px
+```
+
+#### Backend Interface
+
+`rtc-oss3.Backend` defines S3-compatible object storage operations:
+
+| Operation Category | Methods | Description |
+| --- | --- | --- |
+| **Basic Operations** | `PutObject` / `GetObject` / `DeleteObject` / `HeadObject` | Object CRUD |
+| **Batch/Range** | `DeleteObjects` / `GetObjectRange` / `ListObjects` / `CopyObject` | Batch delete, range download, list, copy |
+| **Multipart Upload** | `CreateMultipartUpload` / `UploadPart` / `CompleteMultipartUpload` / `AbortMultipartUpload` / `ListParts` | Large file multipart upload |
+| **Presigned URLs** | `PresignGet` / `PresignPut` | Generate presigned URLs (server-side proxy upload/download) |
+| **Lifecycle** | `HealthCheck` / `Close` | Health check, resource cleanup |
+
+> 💡 The current implementation is a MinIO backend, but the interface design is compatible with all S3-protocol storage services including Alibaba Cloud OSS and AWS S3. Switching backends only requires changing the constructor—no business code modifications needed.
+
+#### HTTP API
+
+| Endpoint | Authentication | Purpose |
+| --- | --- | --- |
+| `POST /api/credentials/temporary` | JWT | STS temporary credentials — clients obtain temporary S3 credentials for direct upload/download |
+| `POST /api/presigned-url` | JWT | Presigned URLs — server generates signed GET/PUT URLs with configurable expiry (default 1 hour, max 7 days) |
+| `PUT/GET/DELETE/HEAD /{bucket}/{key}` | SigV4 signature | S3-compatible API — clients use temporary credentials to directly manipulate objects |
+| `POST /{bucket}?delete` | SigV4 signature | Batch delete objects |
+| Multipart upload operations | SigV4 signature | Large file multipart upload (`?uploads`, `?partNumber`, `?uploadId`) |
+
+> 💡 **Two upload modes**: (1) STS temporary credentials mode — clients obtain temporary AK/SK/Token, then use standard AWS SDK to directly operate S3; (2) Presigned URL mode — server generates signed URLs, clients PUT/GET directly without SDK.
+
+### File Attachment Processing
+
+File attachments (`FileAttachment`) in user messages undergo end-to-end processing before being injected into LLM context.
+
+```mermaid
+flowchart TD
+    subgraph FILE_FLOW["📎 File Attachment Processing Flow"]
+        direction TB
+        A["📥 User sends message<br/>with FileAttachment"] --> B["🔍 MIME type detection"]
+        B -->|"image/*"| C["📦 OSS load<br/>20MB limit"]
+        B -->|"text/*"| D["📦 OSS load<br/>256KB limit"]
+        C --> E["🖼️ Image preprocessing<br/>EXIF correction → Resize 2000x2000<br/>→ Multi-level compression [80,60,40,20]"]
+        E --> F["🔐 base64 encoding<br/>≤ 5MB API limit"]
+        F --> G["🧩 MultiContent<br/>Image part"]
+        D --> H["✅ UTF-8 validation<br/>Safe truncation"]
+        H --> I["📝 XML wrapping<br/>&lt;file_content&gt;"]
+        I --> J["📄 Content<br/>Text appended"]
+        G --> K["🧠 Send to LLM"]
+        J --> K
+    end
+
+    style FILE_FLOW fill:#f3e5f5,stroke:#7b1fa2,stroke-width:2px
+    style E fill:#fff9c4,stroke:#f9a825,stroke-width:2px
+    style H fill:#fff9c4,stroke:#f9a825,stroke-width:2px
+    style G fill:#e3f2fd,stroke:#1565c0,stroke-width:2px
+    style J fill:#e8f5e9,stroke:#388e3c,stroke-width:2px
+```
+
+| File Type | Processing Pipeline | Injection Method |
+| --- | --- | --- |
+| **Image** (JPEG/PNG/BMP/TIFF/SVG) | OSS read → Magic bytes detection → EXIF auto-orientation → Resize to 2000x2000 bounding box → Multi-level JPEG compression (80→60→40→20) → base64 encoding (≤ 5MB) | `MultiContent` Image part, directly understood by LLM Vision |
+| **Text** | OSS read → UTF-8 validation → Truncation if over limit (256KB, UTF-8 safe boundary) | XML-wrapped `<file_content name="..." type="...">`, appended to `Content` |
+| **Other** | Skipped (logged warning) | — |
+
+> 💡 **Parallel loading**: Multiple file attachments are loaded in parallel using goroutines, reducing latency in multi-file scenarios. WebP/GIF formats are rejected due to decoding library limitations—users should convert to JPEG/PNG.
 
 ## Real-Time Communication Layer
 
