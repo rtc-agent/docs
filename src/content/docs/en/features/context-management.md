@@ -311,6 +311,9 @@ The attachment system dynamically injects contextual information during conversa
 | 📝 TodoList | Every turn | Pending task list |
 | 🧠 SessionMemory | Every turn | Latest 5 session memories (up to 5,000 tokens) |
 | 🗂️ UserMemory | Every turn | User memories filtered by importance |
+| 📎 File Attachments | Every turn | Files uploaded by the user with the message (images and text) |
+
+> 💡 **File attachments**: Images are injected via MultiContent (vision channel); text files are XML-wrapped and appended to Content. Token consumption depends on file type — images consume tokens based on resolution, while text files consume tokens based on character count.
 
 ## Compression Status Visualization
 

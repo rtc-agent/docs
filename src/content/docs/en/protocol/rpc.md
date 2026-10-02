@@ -190,6 +190,18 @@ sequenceDiagram
 | `error` | Structured error message | `ErrorContent` object |
 | `prompt` | System prompt (persisted system-level instructions) | `PromptContent` object |
 
+#### user_message files field
+
+The `user_message` content type supports a `files` field in `content_data` for attaching files (images, text, etc.) with the message. `files` is an array of `FileAttachment`:
+
+| Field | Type | Description |
+|------|:----:|------|
+| `fileid` | string | File unique identifier (references an uploaded file) |
+| `mimetype` | string | MIME type (e.g., `image/png`, `text/plain`) |
+| `extra` | object? | Optional extension field (e.g., filename, size) |
+
+Currently supported file types: `image/*` (images, injected into LLM via vision channel) and `text/*` (text, XML-wrapped and appended to message content).
+
 ### ErrorContent Error Messages
 
 When a Turn fails, the server inserts an `error`-type message, which the frontend can render as an error prompt with a retry button.

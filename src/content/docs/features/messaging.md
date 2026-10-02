@@ -307,7 +307,7 @@ flowchart TD
 |------|------|------|
 | `text` | string | 消息文本内容 |
 | `scenarios` | `ScenarioRef[]` | 场景列表（可选），包含完整文件内容 |
-| `files` | `FileAttachment[]` | 文件附件列表（可选，预留） |
+| `files` | `FileAttachment[]` | 文件附件列表（可选） |
 
 ### ScenarioRef 结构
 
@@ -317,7 +317,97 @@ flowchart TD
 | `title` | string | 场景标题 |
 | `file_content` | string | 场景文件完整内容（Markdown 格式） |
 
+### FileAttachment 结构
+
+| 字段 | 类型 | 说明 |
+|------|------|------|
+| `fileid` | string | 文件唯一标识（内容标识符） |
+| `mimetype` | string | MIME 类型（如 `image/png`、`application/pdf`） |
+| `extra` | object | 扩展字段（如 `name`、`size`） |
+
+**File ID 格式规范**：
+
+File ID 是文件内容的唯一标识符，格式为 `{md5}.{ext}`：
+
+- `{md5}`：32 个十六进制字符（小写 `a-f` 或数字 `0-9`）的文件内容 MD5 哈希值
+- `{ext}`：1-10 个字母数字字符的文件扩展名（如 `txt`、`jpg`、`pdf`）
+
+**示例**：
+
+- ✅ 正确：`a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6.txt`
+- ✅ 正确：`b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6e7.jpg`
+- ❌ 错误：`user-550e8400.../a1b2c3d4...txt`（不应包含用户前缀）
+- ❌ 错误：`myfile.txt`（MD5 格式错误）
+
+> 💡 **File ID vs File Key**：File ID 是客户端使用的内容标识符（`{md5}.{ext}`），服务端在存储时会构造完整的 S3 Key：`user-{userId}/{fileid}`。客户端只需传递 File ID，服务端会自动添加用户前缀进行验证和存储。
+
 > 💡 **注入机制**：服务端从 `UserMessageContent.Scenarios` 提取场景，以 `<scenarios>` XML 标签注入系统消息。最终消息顺序为：`[system] Attachments` → `[system] Scenarios` → `[system] Command prompts` → `[conversation history]`。
+
+## 文件附件
+
+用户可以在消息中附加图片和文本文件，Agent 能够识别图片内容（视觉理解）和读取文本内容，从而基于附件信息进行推理和回答。
+
+### 用户操作
+
+| 操作方式 | 说明 |
+| ------ | ------ |
+| 附件按钮 | 点击输入区域工具栏的附件图标，打开文件选择对话框（接受 `image/*`、`text/*`） |
+| 粘贴上传 | 使用 Ctrl+V / Cmd+V 粘贴剪贴板中的图片或文件 |
+
+上传流程：文件先在本地缓存（生成 File ID），立即显示缩略图预览，然后后台上传至对象存储。
+
+### 支持的文件类型
+
+| 类别 | MIME 类型 | 最大大小 | 处理方式 |
+| ---- | --------- | -------- | -------- |
+| 图片（支持） | JPEG、PNG、BMP、TIFF | 原始 20MB / base64 5MB | 自动缩放至 2000x2000，多级 JPEG 压缩 |
+| 图片（不支持） | WebP、GIF | - | 当前不支持，请转换为 JPEG 或 PNG |
+| 文本 | text/* | 256KB | UTF-8 校验，超长截断 |
+
+### 图片处理流程
+
+```mermaid
+flowchart LR
+    A["📷 原始图片"] --> B["🔍 EXIF 方向校正"]
+    B --> C{"尺寸检查"}
+    C -->|"≤ 3.75MB 且 ≤ 2000×2000"| D["✅ 直接使用"]
+    C -->|"超出限制"| E["📐 缩放至 2000×2000"]
+    E --> F["🎚️ 多级压缩<br/>JPEG Q80→60→40→20"]
+    F --> G{"base64 ≤ 5MB?"}
+    G -->|"是"| H["✅ 压缩完成"]
+    G -->|"否"| I["🔽 降级至 400×400<br/>JPEG Q20"]
+    I --> H
+    H --> J["🧠 LLM Vision 识别"]
+
+    style A fill:#e3f2fd,stroke:#1565c0
+    style J fill:#e8f5e9,stroke:#2e7d32
+```
+
+1. **读取**：从对象存储读取原始数据（限制 20MB）
+2. **检测**：通过 magic bytes 检测真实 MIME 类型
+3. **解码**：自动应用 EXIF 方向校正
+4. **快速路径**：若已满足尺寸要求，直接返回
+5. **缩放**：使用 Lanczos 算法缩放至 2000×2000 边界框内
+6. **压缩**：依次尝试 JPEG 质量 80→60→40→20，直到 base64 编码后 ≤ 5MB
+7. **兜底**：若仍超限，缩小至 400×400 并以最低质量输出
+8. **注入**：以 base64 格式嵌入 LLM 请求的 `image` content part
+
+### 文本处理流程
+
+1. **读取**：从对象存储读取文本数据（限制 256KB）
+2. **校验**：验证文件内容为合法 UTF-8 编码
+3. **截断**：若超过 256KB，在 UTF-8 字符边界处安全截断，并附加截断提示
+4. **包裹**：使用 XML 标签包裹：`<file_content name="文件名" type="MIME 类型">内容</file_content>`
+5. **追加**：将包裹后的文本追加到用户消息的 Content 字段
+
+### 发送条件
+
+| 条件 | 说明 |
+| ---- | ---- |
+| 所有文件上传完成 | 存在上传中（loading）或失败（error）的文件时，发送按钮禁用 |
+| 上传失败处理 | 失败的文件可重试，或删除后重新上传 |
+
+> 💡 文件附件在消息发送时随 `user_message` 一同提交，服务端并行加载所有文件以提升多文件场景的响应速度。
 
 ## Token 用量显示
 

@@ -39,6 +39,10 @@ Dual-layer memory: **Session Memory** (conversation context compression) + **Use
 
 Automatically compresses long conversations, keeping token consumption under control. Say goodbye to "context length exceeded" errors.
 
+### Multimodal Understanding
+
+Supports image and text file attachments — the Agent can recognize and understand image content, performing comprehensive analysis in combination with text context.
+
 ### Sub-Agents + Goal-Driven Execution
 
 Complex tasks are automatically decomposed, with multiple specialized sub-agents working in parallel. AI sets, tracks, and completes multi-step goals, with turn-boundary checkpoints ensuring no task is lost.

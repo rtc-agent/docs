@@ -190,6 +190,18 @@ sequenceDiagram
 | `error` | 结构化错误消息 | `ErrorContent` 对象 |
 | `prompt` | 系统提示词（持久化系统级指令） | `PromptContent` 对象 |
 
+#### user_message 的 files 字段
+
+`user_message` 类型的 `content_data` 支持 `files` 字段，用于随消息附带文件附件（图片、文本等）。`files` 为 `FileAttachment` 数组：
+
+| 字段 | 类型 | 说明 |
+|------|:----:|------|
+| `fileid` | string | 文件唯一标识（引用已上传的文件） |
+| `mimetype` | string | MIME 类型（如 `image/png`、`text/plain`） |
+| `extra` | object? | 可选扩展字段（如文件名、大小等） |
+
+目前支持的文件类型：`image/*`（图片，通过视觉通道注入 LLM）和 `text/*`（文本，XML 包裹后追加到消息内容）。
+
 ### ErrorContent 错误消息
 
 当 Turn 失败时，服务端会插入一条 `error` 类型的消息，前端可渲染为带重试按钮的错误提示。

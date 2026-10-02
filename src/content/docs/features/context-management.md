@@ -311,6 +311,9 @@ flowchart TD
 | 📝 TodoList | 每轮 | 待办事项列表 |
 | 🧠 SessionMemory | 每轮 | 最近 5 条会话记忆（最多 5,000 tokens） |
 | 🗂️ UserMemory | 每轮 | 按重要性过滤的用户记忆 |
+| 📎 文件附件 | 每轮 | 用户随消息上传的文件（图片和文本） |
+
+> 💡 **文件附件**：图片通过 MultiContent（视觉通道）注入，文本文件通过 XML 标签包裹后追加到 Content。Token 消耗取决于文件类型——图片按分辨率计算 Token，文本按字符计算。
 
 ## 压缩状态可视化
 
