@@ -1,9 +1,9 @@
 ---
 title: 后端架构
-description: RTC Agent 的后端架构——Go 服务分层，WebSocket Gateway、Agent 引擎、上下文管理、记忆系统、RTC 处理器的协作机制。
+description: RTC Agent 的后端架构——Go 服务分层，WebSocket Gateway、Agent 引擎、上下文管理、记忆系统、RTC 处理器、对象存储层的协作机制。
 ---
 
-RTC Agent Server 是一个 **Go 服务**，负责 AI 推理编排、上下文管理、实时通信和工具调用调度。核心组件包括 WebSocket Gateway、Agent 引擎、上下文管理、记忆系统和 RTC 处理器。
+RTC Agent Server 是一个 **Go 服务**，负责 AI 推理编排、上下文管理、实时通信、工具调用调度和对象存储。核心组件包括 WebSocket Gateway、Agent 引擎、上下文管理、记忆系统、RTC 处理器和 OSS3 存储引擎。
 
 ## 服务分层
 
@@ -14,7 +14,7 @@ flowchart TD
         L1["🌐 接入层<br/>WebSocket Gateway · OAuth2"]
         L2["📋 用例层<br/>Session · Message · Turn · RTC"]
         L3["🤖 领域层<br/>Agent 引擎 · 上下文 · 记忆"]
-        L4["💾 基础设施层<br/>PostgreSQL · Redis · Centrifuge"]
+        L4["💾 基础设施层<br/>PostgreSQL · Redis · Centrifuge · MinIO/S3"]
     end
 
     L1 --> L2 --> L3 --> L4
@@ -31,7 +31,7 @@ flowchart TD
 | 🌐 **接入层** | 协议适配、认证鉴权 | WebSocket Gateway、OAuth2 Handler |
 | 📋 **用例层** | 业务编排、RPC 处理 | Session / Message / Turn / RTC 用例 |
 | 🤖 **领域层** | AI 推理、状态管理 | Agent 引擎、上下文管理、记忆系统 |
-| 💾 **基础设施层** | 数据持久化、消息传递 | PostgreSQL、Redis、Centrifuge |
+| 💾 **基础设施层** | 数据持久化、消息传递、对象存储 | PostgreSQL、Redis、Centrifuge、MinIO/S3 |
 
 > **OAuth2 认证**：系统采用 OAuth2 授权码流程，前端通过弹窗（popup window）跳转完成授权，获取 Access Token（1 小时有效）和 Refresh Token（30 天有效）。WebSocket 建连时使用 Access Token 鉴权。详见 [认证流程](/docs/integration/auth)。
 
@@ -46,6 +46,7 @@ flowchart LR
         CTX["🗜️ 上下文管理<br/>Prompt 组装 · 自动压缩"]
         MEM["🧠 记忆系统<br/>Session Memory · User Memory"]
         RTC_P["🔧 RTC 处理器<br/>Checkpoint · 恢复"]
+        OSS3["📦 OSS3 存储引擎<br/>对象存储 · 文件处理"]
     end
 
     subgraph INFRA["💾 基础设施"]
@@ -53,16 +54,19 @@ flowchart LR
         PG[("PostgreSQL<br/>持久化存储")]
         RD[("Redis<br/>缓存 · 队列 · Pub/Sub")]
         CF["Centrifuge<br/>实时推送"]
+        S3[("MinIO/S3<br/>对象存储")]
     end
 
     GW --> AGENT
     AGENT --> CTX
     CTX --> MEM
     AGENT --> RTC_P
+    AGENT --> OSS3
     RTC_P --> RD
     GW --> CF
     AGENT --> PG
     CTX --> PG
+    OSS3 --> S3
 
     style CORE fill:#f3e5f5,stroke:#7b1fa2,stroke-width:2px
     style INFRA fill:#fce4ec,stroke:#c62828,stroke-width:2px
@@ -135,6 +139,7 @@ flowchart TD
 | --- | --- |
 | **推理循环** | 调用 LLM → 处理响应 → 工具调用 → 继续推理，直到生成最终回复 |
 | **内置工具** | 文件操作（ls/read/write/grep/find/script）、子代理（subAgent/listSubAgent/stopSubAgent）、用户交互（askUser）、目标管理（goal）、循环任务（loop）等 |
+| **多模态理解** | 处理用户消息中的文件附件——图片经 OSS 加载、预处理（EXIF 校正/缩放/压缩）后以 base64 注入 LLM Vision；文本文件经 UTF-8 校验/截断后 XML 包裹追加到 Content（详见下文） |
 | **流式输出** | 实时将 LLM 输出推送到前端 |
 | **错误反馈** | Turn 失败时自动分类错误，生成结构化 ErrorContent 消息推送给前端（详见下文） |
 | **子代理** | 复杂任务自动拆解，多个专业子代理并行工作（详见下文） |
@@ -353,6 +358,92 @@ flowchart LR
 | **script 工具** | ⚠️ 需确认 | ⚠️ 需确认 | ⚠️ 需确认 | ⚠️ 需确认 | ✅ 自动执行 |
 
 详见 [工作模式](/docs/concepts/work-modes)。
+
+### 对象存储层
+
+OSS3 包提供 S3 兼容的对象存储抽象，用于管理用户上传的文件附件（图片、文本等）。
+
+```mermaid
+flowchart LR
+    subgraph OSS3_ARCH["📦 OSS3 存储架构"]
+        direction TB
+        CLIENT["🖥️ 客户端<br/>浏览器 / 移动端"]
+        API["🔌 HTTP API<br/>STS · Presign · S3 兼容"]
+        SIGV4["🔐 SigV4 中间件<br/>签名验证 · 权限控制"]
+        BACKEND["💾 Backend 接口<br/>S3 兼容存储抽象"]
+    end
+
+    CLIENT -->|"① 获取临时凭证"| API
+    CLIENT -->|"② 直传/下载"| BACKEND
+    API --> SIGV4 --> BACKEND
+    BACKEND --> MINIO["MinIO / 阿里云 OSS<br/>或其他 S3 兼容后端"]
+
+    style OSS3_ARCH fill:#e3f2fd,stroke:#1565c0,stroke-width:2px
+    style SIGV4 fill:#fff9c4,stroke:#f9a825,stroke-width:2px
+    style BACKEND fill:#e8f5e9,stroke:#388e3c,stroke-width:2px
+```
+
+#### Backend 接口
+
+`rtc-oss3.Backend` 定义了 S3 兼容的对象存储操作：
+
+| 操作类别 | 方法 | 说明 |
+| --- | --- | --- |
+| **基础操作** | `PutObject` / `GetObject` / `DeleteObject` / `HeadObject` | 对象的增删查改 |
+| **批量/范围** | `DeleteObjects` / `GetObjectRange` / `ListObjects` / `CopyObject` | 批量删除、范围下载、列表、复制 |
+| **分片上传** | `CreateMultipartUpload` / `UploadPart` / `CompleteMultipartUpload` / `AbortMultipartUpload` / `ListParts` | 大文件分片上传 |
+| **预签名** | `PresignGet` / `PresignPut` | 生成预签名 URL（服务端代理上传/下载） |
+| **生命周期** | `HealthCheck` / `Close` | 健康检查、资源释放 |
+
+> 💡 当前实现为 MinIO 后端，接口设计兼容阿里云 OSS、AWS S3 等所有 S3 协议的存储服务。切换后端只需更换构造函数，无需修改业务代码。
+
+#### HTTP API
+
+| 端点 | 认证方式 | 用途 |
+| --- | --- | --- |
+| `POST /api/credentials/temporary` | JWT | STS 临时凭证——客户端获取临时 S3 凭证后直传/下载对象 |
+| `POST /api/presigned-url` | JWT | 预签名 URL——服务端生成带签名的 GET/PUT URL，有效期可配（默认 1 小时，最长 7 天） |
+| `PUT/GET/DELETE/HEAD /{bucket}/{key}` | SigV4 签名 | S3 兼容 API——客户端使用临时凭证直接操作对象 |
+| `POST /{bucket}?delete` | SigV4 签名 | 批量删除对象 |
+| 分片上传相关 | SigV4 签名 | 大文件分片上传（`?uploads`、`?partNumber`、`?uploadId`） |
+
+> 💡 **两种上传模式**：(1) STS 临时凭证模式——客户端获取临时 AK/SK/Token 后，使用标准 AWS SDK 直接操作 S3；(2) 预签名 URL 模式——服务端生成签名 URL，客户端直接 PUT/GET，无需 SDK。
+
+### 文件附件处理
+
+用户消息中的文件附件（`FileAttachment`）经过端到端处理后注入 LLM 上下文。
+
+```mermaid
+flowchart TD
+    subgraph FILE_FLOW["📎 文件附件处理流程"]
+        direction TB
+        A["📥 用户发送消息<br/>携带 FileAttachment"] --> B["🔍 MIME 类型判断"]
+        B -->|"image/*"| C["📦 OSS 加载<br/>限制 20MB"]
+        B -->|"text/*"| D["📦 OSS 加载<br/>限制 256KB"]
+        C --> E["🖼️ 图片预处理<br/>EXIF 校正 → 缩放 2000x2000<br/>→ 多级压缩 [80,60,40,20]"]
+        E --> F["🔐 base64 编码<br/>≤ 5MB API 限制"]
+        F --> G["🧩 MultiContent<br/>图片部分"]
+        D --> H["✅ UTF-8 校验<br/>安全截断"]
+        H --> I["📝 XML 包裹<br/>&lt;file_content&gt;"]
+        I --> J["📄 Content<br/>文本追加"]
+        G --> K["🧠 发送给 LLM"]
+        J --> K
+    end
+
+    style FILE_FLOW fill:#f3e5f5,stroke:#7b1fa2,stroke-width:2px
+    style E fill:#fff9c4,stroke:#f9a825,stroke-width:2px
+    style H fill:#fff9c4,stroke:#f9a825,stroke-width:2px
+    style G fill:#e3f2fd,stroke:#1565c0,stroke-width:2px
+    style J fill:#e8f5e9,stroke:#388e3c,stroke-width:2px
+```
+
+| 文件类型 | 处理管线 | 注入方式 |
+| --- | --- | --- |
+| **图片**（JPEG/PNG/BMP/TIFF/SVG） | OSS 读取 → Magic bytes 检测 → EXIF 自动校正 → 缩放至 2000x2000 边界 → 多级 JPEG 压缩（80→60→40→20）→ base64 编码（≤ 5MB） | `MultiContent` Image 部分，LLM Vision 直接理解 |
+| **文本** | OSS 读取 → UTF-8 校验 → 超限截断（256KB，UTF-8 安全边界） | XML 包裹 `<file_content name="..." type="...">`，追加到 `Content` |
+| **其他** | 跳过（日志警告） | — |
+
+> 💡 **并行加载**：多个文件附件使用 goroutine 并行加载，降低多文件场景的延迟。WebP/GIF 格式因解码库限制被拒绝，建议用户转换为 JPEG/PNG。
 
 ## 实时通信层
 
