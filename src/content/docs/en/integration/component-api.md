@@ -33,10 +33,7 @@ const config: RtcAgentConfig = {
   
   // Authentication (AuthProvider, see "Auth Configuration" below)
   auth: {
-    type: 'provider',
     getToken: async () => localStorage.getItem('token') || '',
-    refreshToken: async () => localStorage.getItem('refreshToken') || '',
-    isLoggedIn: () => !!localStorage.getItem('token'),
     userId: 'user-123',
     deviceId: 'uuid-from-your-backend',  // required — must match the Device ID in the server-issued JWT
   },
@@ -292,15 +289,7 @@ agent.destroy();
 
 ## Auth Configuration
 
-The `auth` field in `RtcAgentConfig` controls how the component obtains authentication credentials. The component supports three client authentication modes, distinguished by the `type` field:
-
-### Three Modes Overview
-
-| Mode | `type` Value | Use Case |
-|:----:|:------------:|:--------:|
-| StaticTokenAuth | `'static'` | Dev/testing, long-lived tokens |
-| DynamicTokenAuth | `'dynamic'` | Tokens need auto-refresh |
-| AuthProvider | `'provider'` | Production (recommended) |
+The `auth` field in `RtcAgentConfig` controls how the component obtains authentication credentials. The recommended approach is AuthProvider mode, which delegates all authentication concerns to your provider:
 
 ### AuthProvider (Recommended)
 
@@ -310,7 +299,6 @@ Full control over the authentication lifecycle. Implement this when your host ap
 const config: RtcAgentConfig = {
   // ...other config
   auth: {
-    type: 'provider',
     getToken: async () => myAuthStore.getAccessToken(),
     refreshToken: async () => myAuthStore.refreshAccessToken(),
     isLoggedIn: () => myAuthStore.isAuthenticated,

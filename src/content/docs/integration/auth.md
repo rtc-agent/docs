@@ -252,82 +252,9 @@ flowchart TD
 
 内置的 OAuth2 流程适合独立应用，但许多开发者需要将 RTC Agent 集成到已有认证体系的产品中。从 **web-components v0.2.5** 起，`<rtc-agent>` 组件支持客户端认证模式——通过调用 `createRtcAgent()` 时 `RtcAgentConfig` 中的 `auth` 字段进行配置。该模式让你可以提供完整的认证 Provider，而无需依赖服务端 OAuth2 流程。
 
-### 三种认证模式
+> 📌 **为什么只有一种模式？** 早期版本曾提供 StaticTokenAuth 和 DynamicTokenAuth 两种额外模式，但实践验证 AuthProvider 已覆盖全部场景（开发/测试/生产），且与宿主应用的认证系统集成最干净。为避免维护负担和接入者的选择困惑，这两种模式已移除。**请勿重新引入**。
 
-组件支持三种客户端认证模式，通过 `type` 字段区分：
-
-| 模式 | `type` 值 | 适用场景 | 说明 |
-|:----:|:---------:|:--------:|:-----|
-| StaticTokenAuth | `'static'` | 开发/测试、长期令牌 | 提供固定的 access token，组件不自动刷新 |
-| DynamicTokenAuth | `'dynamic'` | 令牌需要自动刷新 | 提供 `getToken` 回调，组件按需获取令牌 |
-| AuthProvider | `'provider'` | 生产环境（推荐） | 完全委托认证生命周期，支持登录状态检查和登出 |
-
-### 模式 1：StaticTokenAuth — 固定令牌
-
-最简单的模式——提供固定的 access token。适用于开发、测试或令牌长期有效的场景。
-
-```typescript
-import { createRtcAgent } from '@rtc-agent/component';
-
-const agent = createRtcAgent({
-  server: { url: 'https://your-server.com' },
-  auth: {
-    type: 'static',
-    accessToken: 'eyJhbGc...',
-    refreshToken: 'optional-refresh-token',  // 可选
-    userId: 'user-123',
-    deviceId: 'uuid-from-your-backend',
-  },
-});
-```
-
-| 字段 | 必填 | 说明 |
-|:------:|:--------:|-------------|
-| `type` | ✅ | 固定为 `'static'` |
-| `accessToken` | ✅ | 访问令牌字符串 |
-| `refreshToken` | 可选 | 刷新令牌（static 模式下不使用，保留供未来扩展） |
-| `userId` | ✅ | 用户唯一标识（用于 IndexedDB 隔离） |
-| `deviceId` | ✅ | 设备唯一标识，必须与服务端 JWT 中的 Device ID 一致 |
-
-### 模式 2：DynamicTokenAuth — 动态令牌
-
-提供令牌获取回调，组件在需要时调用。适用于令牌过期且需要自动刷新的场景。
-
-```typescript
-import { createRtcAgent } from '@rtc-agent/component';
-
-const agent = createRtcAgent({
-  server: { url: 'https://your-server.com' },
-  auth: {
-    type: 'dynamic',
-    getToken: async () => {
-      // 你的令牌获取逻辑
-      return await myAuthService.getLatestToken();
-    },
-    refreshToken: async () => {
-      // 你的令牌刷新逻辑
-      const result = await myAuthService.refresh();
-      return {
-        accessToken: result.access,
-        refreshToken: result.refresh,
-        expiresIn: 3600,
-      };
-    },
-    userId: myAuthService.getUserId(),
-    deviceId: 'uuid-from-your-backend',
-  },
-});
-```
-
-| 字段 | 必填 | 说明 |
-|:------:|:--------:|-------------|
-| `type` | ✅ | 固定为 `'dynamic'` |
-| `getToken()` | ✅ | 异步——返回当前令牌字符串 |
-| `refreshToken()` | 可选 | 异步——令牌过期时刷新，返回新令牌信息 |
-| `userId` | ✅ | 用户唯一标识（用于 IndexedDB 隔离） |
-| `deviceId` | ✅ | 设备唯一标识，必须与服务端 JWT 中的 Device ID 一致 |
-
-### 模式 3：AuthProvider — 完全委托（推荐）
+### 模式：AuthProvider — 完全委托（推荐）
 
 最灵活的模式——将**所有**认证关注点委托给你自己的 Provider。除了令牌管理，你还可以控制登录状态检查（`isLoggedIn`）和登出行为。适用于**多租户平台、SSO 集成或具有复杂认证需求的应用**。
 
@@ -337,7 +264,6 @@ import { createRtcAgent } from '@rtc-agent/component';
 const agent = createRtcAgent({
   server: { url: 'https://your-server.com' },
   auth: {
-    type: 'provider',
     getToken: async () => {
       // 你的自定义令牌获取逻辑（返回令牌字符串）
       return await myAuthStore.getToken();
@@ -366,7 +292,6 @@ const agent = createRtcAgent({
 
 | 方法 | 必填 | 说明 |
 |:------:|:--------:|-------------|
-| `type` | ✅ | 固定为 `'provider'` |
 | `getToken()` | ✅ | 异步——返回当前认证令牌 |
 | `refreshToken()` | ✅ | 异步——令牌过期时刷新 |
 | `isLoggedIn()` | ✅ | **同步**——返回 `boolean`，表示用户是否已认证 |
@@ -375,15 +300,6 @@ const agent = createRtcAgent({
 | `deviceId` | ✅ | 设备唯一标识，必须与服务端嵌入 JWT 中的 Device ID 一致，否则脚本（RTC）无法执行 |
 
 > 💡 **关于 `getUserId()`**：组件使用 `userId` 构建每个用户独立的 IndexedDB（数据库名格式为 `{databaseName}-{userId}`）。如果不提供 `getUserId()`，`userId` 会回退为固定字符串 `'provider-managed'`，导致所有用户共享同一个数据库——在多租户场景下这通常不是期望的行为。
-
-### 向后兼容
-
-对于未使用 `type` 字段的旧配置，组件会通过字段存在性自动检测模式：
-- 包含 `accessToken` 字段 → StaticTokenAuth
-- 包含 `getToken` 且不含 `isLoggedIn` → DynamicTokenAuth
-- 包含 `isLoggedIn` → AuthProvider
-
-但**推荐使用 `type` 字段**，获得更好的类型安全和代码可读性。
 
 ---
 
