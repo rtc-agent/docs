@@ -33,7 +33,10 @@ const config: RtcAgentConfig = {
   
   // 认证配置（AuthProvider，见下方"认证配置"章节）
   auth: {
+    type: 'provider',
     getToken: async () => localStorage.getItem('token') || '',
+    refreshToken: async () => localStorage.getItem('refreshToken') || '',
+    isLoggedIn: () => !!localStorage.getItem('token'),
     userId: 'user-123',
     deviceId: 'uuid-from-your-backend',  // 必填，与服务端 JWT 中的 Device ID 一致
   },
@@ -289,7 +292,15 @@ agent.destroy();
 
 ## 认证配置
 
-`RtcAgentConfig` 中的 `auth` 字段控制组件如何获取认证凭据。推荐使用 AuthProvider 模式，将认证关注点完全委托给你的 Provider：
+`RtcAgentConfig` 中的 `auth` 字段控制组件如何获取认证凭据。组件支持三种客户端认证模式，通过 `type` 字段区分：
+
+### 三种模式概览
+
+| 模式 | `type` 值 | 适用场景 |
+|:----:|:---------:|:--------:|
+| StaticTokenAuth | `'static'` | 开发/测试、长期令牌 |
+| DynamicTokenAuth | `'dynamic'` | 令牌需要自动刷新 |
+| AuthProvider | `'provider'` | 生产环境（推荐） |
 
 ### AuthProvider（推荐）
 
@@ -299,6 +310,7 @@ agent.destroy();
 const config: RtcAgentConfig = {
   // ...其他配置
   auth: {
+    type: 'provider',
     getToken: async () => myAuthStore.getAccessToken(),
     refreshToken: async () => myAuthStore.refreshAccessToken(),
     isLoggedIn: () => myAuthStore.isAuthenticated,
