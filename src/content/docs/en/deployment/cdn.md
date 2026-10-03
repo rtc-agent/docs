@@ -58,7 +58,7 @@ If you need programmatic control (instead of HTML attributes), you can use the `
 
   const agent = createRtcAgent({
     server: { url: 'https://rtc-agent.example.com' },
-    workerUrl: '/rtc-agent/shared-worker.js',
+    workerURL: '/rtc-agent/shared-worker.js',
     theme: 'system',
     appLabel: 'My App',
   });
@@ -67,7 +67,7 @@ If you need programmatic control (instead of HTML attributes), you can use the `
 </script>
 ```
 
-> 💡 For CDN usage, the SharedWorker file is already bundled in the package. Copy the `shared-worker-*.js` file from `dist/assets/` in the CDN package to your public directory (e.g., `/rtc-agent/`), rename it to `shared-worker.js`, and set `workerUrl` to that path so the worker is same-origin with your page. Use `npx rtc-agent-setup` to automate this.
+> 💡 For CDN usage, the SharedWorker file is already bundled in the package. Copy the `shared-worker-*.js` file from `dist/assets/` in the CDN package to your public directory (e.g., `/rtc-agent/`), rename it to `shared-worker.js`, and set `workerURL` to that path so the worker is same-origin with your page. Use `npx rtc-agent-setup` to automate this.
 
 All TypeScript types are available via the module export — you can import them alongside `createRtcAgent` for type-safe configuration.
 

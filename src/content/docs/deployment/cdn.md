@@ -58,7 +58,7 @@ flowchart LR
 
   const agent = createRtcAgent({
     server: { url: 'https://rtc-agent.example.com' },
-    workerUrl: '/rtc-agent/shared-worker.js',
+    workerURL: '/rtc-agent/shared-worker.js',
     theme: 'system',
     appLabel: 'My App',
   });
@@ -67,7 +67,7 @@ flowchart LR
 </script>
 ```
 
-> 💡 CDN 使用时，SharedWorker 文件已包含在包中。将 `dist/assets/` 下的 `shared-worker-*.js` 文件复制到你的公共目录（如 `/rtc-agent/`），并重命名为 `shared-worker.js`，然后将 `workerUrl` 设置为该路径，使 Worker 与页面同源。推荐使用 `npx rtc-agent-setup` 自动完成此操作。
+> 💡 CDN 使用时，SharedWorker 文件已包含在包中。将 `dist/assets/` 下的 `shared-worker-*.js` 文件复制到你的公共目录（如 `/rtc-agent/`），并重命名为 `shared-worker.js`，然后将 `workerURL` 设置为该路径，使 Worker 与页面同源。推荐使用 `npx rtc-agent-setup` 自动完成此操作。
 
 所有 TypeScript 类型均可通过模块导出使用——可以与 `createRtcAgent` 一起导入以实现类型安全的配置。
 

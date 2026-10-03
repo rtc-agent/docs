@@ -333,10 +333,10 @@ const agent: RtcAgentWithLifecycle = createRtcAgent({
   },
   
   // SharedWorker URL（多 Tab 支持所需）
-  workerUrl: '/rtc-agent/shared-worker.js',
+  workerURL: '/rtc-agent/shared-worker.js',
   
   // 场景文档
-  scenariosUrl: '/scenarios/',
+  scenariosURL: '/scenarios/',
   
   // 窗口配置
   window: {
@@ -403,7 +403,7 @@ agent.destroy();
 ```typescript
 const agent = createRtcAgent({
   server: { url: 'https://rtc-agent.example.com' },
-  workerUrl: '/rtc-agent/shared-worker.js',
+  workerURL: '/rtc-agent/shared-worker.js',
   auth: {
     accessToken: 'your-jwt-token',
     userId: 'user-123',
@@ -418,7 +418,7 @@ const agent = createRtcAgent({
 ```typescript
 const agent = createRtcAgent({
   server: { url: 'https://rtc-agent.example.com' },
-  workerUrl: '/rtc-agent/shared-worker.js',
+  workerURL: '/rtc-agent/shared-worker.js',
   auth: {
     userId: 'user-123',
     getToken: async () => {
@@ -441,7 +441,7 @@ const agent = createRtcAgent({
 ```typescript
 const agent = createRtcAgent({
   server: { url: 'https://rtc-agent.example.com' },
-  workerUrl: '/rtc-agent/shared-worker.js',
+  workerURL: '/rtc-agent/shared-worker.js',
   auth: {
     getToken: async () => myAuthProvider.getToken(),
     refreshToken: async () => myAuthProvider.refresh(),
@@ -475,8 +475,8 @@ const agent = createRtcAgent({
         url: 'https://rtc-agent.cherish.chat',
         redirectUri: `${base}/auth/callback.html`,
       },
-      workerUrl: `${base}/rtc-agent/shared-worker.js`,
-      scenariosUrl: `${base}/scenarios/`,
+      workerURL: `${base}/rtc-agent/shared-worker.js`,
+      scenariosURL: `${base}/scenarios/`,
       // ... 其他配置
     });
 
@@ -510,7 +510,7 @@ function RtcAgentWrapper() {
         url: 'https://rtc-agent.cherish.chat',
         redirectUri: '/auth/callback.html',
       },
-      workerUrl: '/rtc-agent/shared-worker.js',
+      workerURL: '/rtc-agent/shared-worker.js',
       // ... 其他配置
     });
 
@@ -546,7 +546,7 @@ onMounted(() => {
       url: 'https://rtc-agent.cherish.chat',
       redirectUri: '/auth/callback.html',
     },
-    workerUrl: '/rtc-agent/shared-worker.js',
+    workerURL: '/rtc-agent/shared-worker.js',
     // ... 其他配置
   });
 
@@ -584,7 +584,7 @@ onUnmounted(() => {
 
 | 属性 | 类型 | 默认值 | 说明 |
 | --- | --- | --- | --- |
-| `workerUrl` | `string` | `undefined` | SharedWorker 文件 URL（多 Tab 支持所需） |
+| `workerURL` | `string` | `undefined` | SharedWorker 文件 URL（多 Tab 支持所需） |
 
 ### 认证配置
 
@@ -647,11 +647,11 @@ npx rtc-agent-setup
 ```typescript
 // 读取 manifest.json
 const manifest = await fetch('/rtc-agent/manifest.json').then(r => r.json());
-const workerUrl = `/rtc-agent/shared-worker.js?v=${manifest.version}`;
+const workerURL = `/rtc-agent/shared-worker.js?v=${manifest.version}`;
 
 // 在 createRtcAgent() 中使用
 const agent = createRtcAgent({
-  workerUrl,
+  workerURL,
   // ...
 });
 ```
@@ -672,7 +672,7 @@ location /rtc-agent/shared-worker.js {
 
 **解决**：
 1. 验证 Worker 文件存在：`ls public/rtc-agent/` 或 `ls static/rtc-agent/`
-2. 检查 `workerUrl` 路径与实际文件位置匹配
+2. 检查 `workerURL` 路径与实际文件位置匹配
 3. 重启开发服务器
 4. 重新运行 `npx rtc-agent-setup`
 
@@ -681,7 +681,7 @@ location /rtc-agent/shared-worker.js {
 **现象**：一个标签页的变更不显示在其他标签页
 
 **解决**：
-1. 确保 `createRtcAgent()` 中配置了 `workerUrl`
+1. 确保 `createRtcAgent()` 中配置了 `workerURL`
 2. 检查浏览器控制台是否有 SharedWorker 错误
 3. 验证所有标签页在同一 origin（协议 + 域名 + 端口）
 4. 检查 SharedWorker 是否被浏览器扩展阻止

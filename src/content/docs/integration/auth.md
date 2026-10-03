@@ -241,22 +241,20 @@ flowchart TD
 
 ## 下一步
 
-- [客户端认证模式](#-客户端认证模式) — 使用 AuthProvider 将 RTC Agent 集成到你自己的认证系统
+- [客户端认证](#-客户端认证) — 使用 AuthProvider 将 RTC Agent 集成到你自己的认证系统
 - [Web Component API](/docs/integration/component-api/) — 了解如何通过 `<rtc-agent>` 组件集成 RTC Agent
 - [Function 注册指南](/docs/integration/function-registration/) — 注册自定义函数扩展 AI 能力
 - [核心协议 RTC](/docs/concepts/rtc/) — 了解 Remote Tool Calling 的完整生命周期
 
 ---
 
-## 🧩 客户端认证模式
+## 🧩 客户端认证
 
-内置的 OAuth2 流程适合独立应用，但许多开发者需要将 RTC Agent 集成到已有认证体系的产品中。从 **web-components v0.2.5** 起，`<rtc-agent>` 组件支持客户端认证模式——通过调用 `createRtcAgent()` 时 `RtcAgentConfig` 中的 `auth` 字段进行配置。该模式让你可以提供完整的认证 Provider，而无需依赖服务端 OAuth2 流程。
+内置的 OAuth2 流程适合独立应用，但许多开发者需要将 RTC Agent 集成到已有认证体系的产品中。`<rtc-agent>` 组件支持通过 `createRtcAgent()` 的 `auth` 字段配置认证 Provider，将认证完全委托给宿主应用，无需依赖服务端 OAuth2 流程。
 
-> 📌 **为什么只有一种模式？** 早期版本曾提供 StaticTokenAuth 和 DynamicTokenAuth 两种额外模式，但实践验证 AuthProvider 已覆盖全部场景（开发/测试/生产），且与宿主应用的认证系统集成最干净。为避免维护负担和接入者的选择困惑，这两种模式已移除。**请勿重新引入**。
+### AuthProvider — 完全委托
 
-### 模式：AuthProvider — 完全委托（推荐）
-
-最灵活的模式——将**所有**认证关注点委托给你自己的 Provider。除了令牌管理，你还可以控制登录状态检查（`isLoggedIn`）和登出行为。适用于**多租户平台、SSO 集成或具有复杂认证需求的应用**。
+将**所有**认证关注点委托给你的 Provider。除了令牌管理，你还可以控制登录状态检查（`isLoggedIn`）和登出行为。适用于**多租户平台、SSO 集成或具有复杂认证需求的应用**。
 
 ```typescript
 import { createRtcAgent } from '@rtc-agent/component';
@@ -350,7 +348,7 @@ flowchart LR
 **请求**（RTC Agent Server 拼接后由浏览器访问）：
 
 ```http
-GET /oauth2/authorize?state=<hex>&client_id=<id>&redirect_uri=<uri>
+GET /oauth2/authorize?state=<hex>&client_id=<id>&redirect_uri=<uri>&code_challenge=<challenge>&code_challenge_method=S256
 ```
 
 | 参数 | 说明 |
@@ -358,6 +356,8 @@ GET /oauth2/authorize?state=<hex>&client_id=<id>&redirect_uri=<uri>
 | `state` | 防 CSRF 随机串，必须原样传回 |
 | `client_id` | 客户端标识 |
 | `redirect_uri` | 授权成功后的回调地址 |
+| `code_challenge` | PKCE challenge（可选），由前端 `code_verifier` 经 SHA-256 + base64url 编码得到 |
+| `code_challenge_method` | PKCE 方法（可选），默认 `S256`，也支持 `plain` |
 
 **行为要求**：
 
@@ -385,8 +385,12 @@ POST /oauth2/token/exchange
 Content-Type: application/x-www-form-urlencoded
 Accept: application/json
 
-client_id=<id>&client_secret=<secret>&code=<code>&redirect_uri=<uri>
+client_id=<id>&client_secret=<secret>&code=<code>&redirect_uri=<uri>&code_verifier=<verifier>
 ```
+
+| 额外参数 | 说明 |
+| --- | --- |
+| `code_verifier` | PKCE 原始验证器（可选），与授权时的 `code_challenge` 配对 |
 
 **成功响应**（200）：
 
@@ -434,7 +438,8 @@ client_id=<id>&client_secret=<secret>&code=<code>&redirect_uri=<uri>
 
 - ❌ 不需要签发 access_token / refresh_token — RTC Agent Server 自己签发 JWT
 - ❌ 不需要实现标准 OAuth2 的 `/token` 端点 — `/oauth2/token/exchange` 本质是用户信息接口
-- ❌ 不需要支持 scope、PKCE 等扩展
+- ❌ 不需要支持 scope 等扩展
+- ✅ **建议支持 PKCE**（RFC 7636）— RTC Agent Server 现已支持 PKCE，前端可传入 `code_challenge` / `code_verifier`，Server 会透传给你的 Provider
 
 ### 配置 RTC Agent Server
 

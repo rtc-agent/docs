@@ -55,6 +55,8 @@ Get the redirect URL for the OAuth2 authorization page. The frontend uses this U
 |------|:----:|:----:|:----:|------|
 | `provider` | query | ✅ | string | OAuth2 Provider name (e.g., `"github"`) |
 | `redirect_uri` | query | ❌ | string | Callback URL after authorization (optional, required by some Providers) |
+| `code_challenge` | query | ❌ | string | PKCE code_challenge (RFC 7636), derived from `code_verifier` via SHA-256 + base64url encoding |
+| `code_challenge_method` | query | ❌ | string | PKCE challenge method, recommended `S256` (default); also supports `plain` |
 
 ### Response
 
@@ -121,6 +123,9 @@ Exchange an authorization code for an access_token and refresh_token. This is th
 | `device_id` | ❌ | string | Client-generated device UUID, used to identify the client device |
 | `device_name` | ❌ | string | Device display name, e.g., `"Chrome on Mac"` |
 | `user_agent` | ❌ | string | Client User-Agent, used for device identification |
+| `code_verifier` | ❌ | string | PKCE code_verifier (RFC 7636); pass the original verifier when `code_challenge` was sent during authorization |
+
+> 📌 **PKCE constraint**: If `code_challenge` was included in the authorization request, `code_verifier` becomes **required** during token exchange. The server validates that `code_verifier` matches the stored `code_challenge`.
 
 ### Response
 

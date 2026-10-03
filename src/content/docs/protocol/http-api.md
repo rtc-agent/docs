@@ -55,6 +55,8 @@ sequenceDiagram
 |------|:----:|:----:|:----:|------|
 | `provider` | query | ✅ | string | OAuth2 Provider 名称（如 `"github"`） |
 | `redirect_uri` | query | ❌ | string | 授权完成后的回调地址（可选，部分 Provider 需要） |
+| `code_challenge` | query | ❌ | string | PKCE code_challenge（RFC 7636），由 `code_verifier` 经 SHA-256 + base64url 编码得到 |
+| `code_challenge_method` | query | ❌ | string | PKCE challenge 方法，推荐 `S256`（默认），也支持 `plain` |
 
 ### 响应
 
@@ -121,6 +123,9 @@ sequenceDiagram
 | `device_id` | ❌ | string | 前端生成的设备 UUID，用于标识客户端设备 |
 | `device_name` | ❌ | string | 设备显示名称，如 `"Chrome on Mac"` |
 | `user_agent` | ❌ | string | 客户端 User-Agent，用于设备识别 |
+| `code_verifier` | ❌ | string | PKCE code_verifier（RFC 7636），授权请求时传入 `code_challenge`，交换时传入原始 verifier |
+
+> 📌 **PKCE 约束**：如果授权请求中携带了 `code_challenge`，则令牌交换时 `code_verifier` 变为**必填**，服务端将验证 `code_verifier` 与 `code_challenge` 的匹配性。
 
 ### 响应
 

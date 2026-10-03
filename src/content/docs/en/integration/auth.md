@@ -241,22 +241,20 @@ flowchart TD
 
 ## Next Steps
 
-- [Client Authentication Mode](#-client-authentication-mode) — Integrate RTC Agent with your own auth system using AuthProvider
+- [Client Authentication](#-client-authentication) — Integrate RTC Agent with your own auth system using AuthProvider
 - [Web Component API](/docs/en/integration/component-api/) — Learn how to integrate RTC Agent via the `<rtc-agent>` component
 - [Function Registration Guide](/docs/en/integration/function-registration/) — Register custom functions to extend AI capabilities
 - [Core Protocol RTC](/docs/en/concepts/rtc/) — Learn about the full lifecycle of Remote Tool Calling
 
 ---
 
-## 🧩 Client Authentication Mode
+## 🧩 Client Authentication
 
-The built-in OAuth2 flow is great for standalone apps, but many developers integrate RTC Agent into existing products that already have their own auth systems. Starting from **web-components v0.2.5**, the `<rtc-agent>` component supports a client-side authentication mode — configured via the `auth` field in `RtcAgentConfig` when calling `createRtcAgent()`. This mode lets you provide a full auth provider, without relying on the server-side OAuth2 flow.
+The built-in OAuth2 flow is great for standalone apps, but many developers integrate RTC Agent into existing products that already have their own auth systems. The `<rtc-agent>` component supports configuring an authentication provider via the `auth` field in `RtcAgentConfig` when calling `createRtcAgent()`. This lets you delegate authentication entirely to the host application, without relying on the server-side OAuth2 flow.
 
-> 📌 **Why only one mode?** Earlier versions offered two additional modes — StaticTokenAuth and DynamicTokenAuth — but practice showed AuthProvider covers all scenarios (dev, testing, and production) and integrates most cleanly with host application auth systems. To reduce maintenance burden and avoid choice paralysis for integrators, those two modes have been removed. **Please do not re-introduce them.**
+### AuthProvider — Full Delegation
 
-### Mode: AuthProvider — Full Delegation (Recommended)
-
-The most flexible mode — delegate **all** authentication concerns to your own provider. In addition to token management, you control login state checks (`isLoggedIn`) and logout behavior. Ideal for **multi-tenant platforms, SSO integrations, or apps with complex auth requirements**.
+Delegate **all** authentication concerns to your provider. In addition to token management, you control login state checks (`isLoggedIn`) and logout behavior. Ideal for **multi-tenant platforms, SSO integrations, or apps with complex auth requirements**.
 
 ```typescript
 import { createRtcAgent } from '@rtc-agent/component';
@@ -350,7 +348,7 @@ Opened in a popup window, used to display the login/authorization UI.
 **Request** (assembled by RTC Agent Server, accessed by the browser):
 
 ```http
-GET /oauth2/authorize?state=<hex>&client_id=<id>&redirect_uri=<uri>
+GET /oauth2/authorize?state=<hex>&client_id=<id>&redirect_uri=<uri>&code_challenge=<challenge>&code_challenge_method=S256
 ```
 
 | Parameter | Description |
@@ -358,6 +356,8 @@ GET /oauth2/authorize?state=<hex>&client_id=<id>&redirect_uri=<uri>
 | `state` | Anti-CSRF random string, must be echoed back as-is |
 | `client_id` | Client identifier |
 | `redirect_uri` | Callback URL after successful authorization |
+| `code_challenge` | PKCE challenge (optional), derived from the frontend's `code_verifier` via SHA-256 + base64url encoding |
+| `code_challenge_method` | PKCE method (optional), defaults to `S256`; also supports `plain` |
 
 **Behavior requirements**:
 
@@ -385,8 +385,12 @@ POST /oauth2/token/exchange
 Content-Type: application/x-www-form-urlencoded
 Accept: application/json
 
-client_id=<id>&client_secret=<secret>&code=<code>&redirect_uri=<uri>
+client_id=<id>&client_secret=<secret>&code=<code>&redirect_uri=<uri>&code_verifier=<verifier>
 ```
+
+| Extra Parameter | Description |
+| --- | --- |
+| `code_verifier` | PKCE original verifier (optional), paired with the `code_challenge` from the authorization request |
 
 **Success response** (200):
 
@@ -434,7 +438,8 @@ client_id=<id>&client_secret=<secret>&code=<code>&redirect_uri=<uri>
 
 - ❌ No need to issue access_token / refresh_token — RTC Agent Server issues JWTs itself
 - ❌ No need to implement a standard OAuth2 `/token` endpoint — `/oauth2/token/exchange` is essentially a user info endpoint
-- ❌ No need to support scope, PKCE, or other extensions
+- ❌ No need to support scope or other extensions
+- ✅ **PKCE support recommended** (RFC 7636) — RTC Agent Server now supports PKCE; the frontend may send `code_challenge` / `code_verifier`, and the Server will pass them through to your Provider
 
 ### Configure RTC Agent Server
 

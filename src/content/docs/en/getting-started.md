@@ -131,7 +131,7 @@ const agent = createRtcAgent({
     url: 'https://rtc-agent.cherish.chat',
     redirectUri: '/auth/callback.html',
   },
-  workerUrl: '/rtc-agent/shared-worker.js',
+  workerURL: '/rtc-agent/shared-worker.js',
   // ... other configuration
 });
 

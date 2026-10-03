@@ -29,7 +29,7 @@ const config: RtcAgentConfig = {
   },
   
   // SharedWorker URL（多标签页支持所需）
-  workerUrl: '/rtc-agent/shared-worker.js',
+  workerURL: '/rtc-agent/shared-worker.js',
   
   // 认证配置（AuthProvider，见下方"认证配置"章节）
   auth: {
@@ -353,7 +353,7 @@ flowchart TD
 | 📄 `scenarios-url` | `string` | — | 场景文档的 URL，指向 `manifest.json` |
 | 🔗 `server-url` | `string` | `""` | 服务端地址。为空时使用当前页面域名 |
 | 🔁 `redirect-uri` | `string` | `window.location.origin + '/auth/callback.html'` | OAuth 回调地址。支持绝对路径和相对路径 |
-| 👷 `worker-url` | `string` | `""` | SharedWorker 文件 URL。用于多标签页共享 WebSocket 连接。工厂函数配置中使用 `workerUrl` |
+| 👷 `worker-url` | `string` | `""` | SharedWorker 文件 URL。用于多标签页共享 WebSocket 连接。工厂函数配置中使用 `workerURL` |
 
 **JS 属性**（仅通过 JavaScript 设置，非 HTML attribute）：
 

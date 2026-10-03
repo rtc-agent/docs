@@ -181,8 +181,8 @@ export function createPeepRtcAgent(): RtcAgentWithLifecycle {
     // Business function groups (6 groups, 40+ functions)
     groups: FUNCTION_GROUPS,
     
-    scenariosUrl: `${import.meta.env.BASE_URL}scenarios/`,
-    workerUrl: `${import.meta.env.BASE_URL}rtc-agent/shared-worker.js`,
+    scenariosURL: `${import.meta.env.BASE_URL}scenarios/`,
+    workerURL: `${import.meta.env.BASE_URL}rtc-agent/shared-worker.js`,
     server: {
       url: 'https://rtc-agent.cherish.chat',
       redirectUri: `${import.meta.env.BASE_URL}auth/callback.html`,

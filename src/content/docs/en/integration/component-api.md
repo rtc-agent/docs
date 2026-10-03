@@ -29,7 +29,7 @@ const config: RtcAgentConfig = {
   },
   
   // SharedWorker URL (required for multi-tab support)
-  workerUrl: '/rtc-agent/shared-worker.js',
+  workerURL: '/rtc-agent/shared-worker.js',
   
   // Authentication (AuthProvider, see "Auth Configuration" below)
   auth: {
@@ -353,7 +353,7 @@ flowchart TD
 | 📄 `scenarios-url` | `string` | — | URL of the scenario manifest, pointing to `manifest.json` |
 | 🔗 `server-url` | `string` | `""` | Server address. Falls back to the current page's domain when empty |
 | 🔁 `redirect-uri` | `string` | `window.location.origin + '/auth/callback.html'` | OAuth callback URL. Supports both absolute and relative paths |
-| 👷 `worker-url` | `string` | `""` | SharedWorker file URL. Used for multi-tab WebSocket sharing. Use `workerUrl` in factory config |
+| 👷 `worker-url` | `string` | `""` | SharedWorker file URL. Used for multi-tab WebSocket sharing. Use `workerURL` in factory config |
 
 **JS Properties** (set via JavaScript only, not HTML attributes):
 

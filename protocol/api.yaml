@@ -23,6 +23,20 @@ paths:
           schema:
             type: string
           description: 客户端回调地址（Provider 授权完成后重定向到此地址）
+        - name: code_challenge
+          in: query
+          required: false
+          schema:
+            type: string
+          description: PKCE code_challenge (RFC 7636)，由 code_verifier 经 SHA-256 + base64url 编码得到
+        - name: code_challenge_method
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [ S256, plain ]
+            default: S256
+          description: PKCE challenge 方法，推荐 S256
       responses:
         "200":
           description: 成功
@@ -123,6 +137,9 @@ components:
         user_agent:
           type: string
           description: 客户端 User-Agent 字符串，用于设备识别
+        code_verifier:
+          type: string
+          description: PKCE code_verifier (RFC 7636)，授权请求时传入 code_challenge，交换时传入原始 verifier
       required: [ code, redirect_uri, state, device_id ]
 
     OAuth2TokenExchangeResponse:
@@ -1164,9 +1181,8 @@ components:
         session_id:
           $ref: '#/components/schemas/UUID'
         cursor:
-          type: integer
-          format: uint32
-          description: 分页游标（上一页最后一条的 global_offset）
+          type: string
+          description: 分页游标（上一页最后一条消息的 global_offset 字符串形式）
         limit:
           type: integer
           description: 每页数量，默认 50
@@ -1180,9 +1196,8 @@ components:
           items:
             $ref: '#/components/schemas/Message'
         next_cursor:
-          type: integer
-          format: uint32
-          description: 下一页游标
+          type: string
+          description: 下一页游标（最后一条消息的 global_offset 字符串形式，为空表示没有更多数据）
       required: [ items ]
 
     # ---------- MessageGet ----------

@@ -226,10 +226,10 @@ const agent: RtcAgentWithLifecycle = createRtcAgent({
   },
   
   // SharedWorker URL (required for multi-tab support)
-  workerUrl: '/rtc-agent/shared-worker.js',
+  workerURL: '/rtc-agent/shared-worker.js',
   
   // Scenario documentation
-  scenariosUrl: '/scenarios/',
+  scenariosURL: '/scenarios/',
   
   // Window configuration
   window: {
@@ -296,7 +296,7 @@ Pass a fixed access token directly. Simple but not suitable for production — t
 ```typescript
 const agent = createRtcAgent({
   server: { url: 'https://rtc-agent.example.com' },
-  workerUrl: '/rtc-agent/shared-worker.js',
+  workerURL: '/rtc-agent/shared-worker.js',
   auth: {
     accessToken: 'your-jwt-token',
     userId: 'user-123',
@@ -311,7 +311,7 @@ Provide a `getToken` callback (required) and an optional `refreshToken` callback
 ```typescript
 const agent = createRtcAgent({
   server: { url: 'https://rtc-agent.example.com' },
-  workerUrl: '/rtc-agent/shared-worker.js',
+  workerURL: '/rtc-agent/shared-worker.js',
   auth: {
     userId: 'user-123',
     getToken: async () => {
@@ -334,7 +334,7 @@ Implement a full auth interface with `isLoggedIn` and `logout` hooks. Use this w
 ```typescript
 const agent = createRtcAgent({
   server: { url: 'https://rtc-agent.example.com' },
-  workerUrl: '/rtc-agent/shared-worker.js',
+  workerURL: '/rtc-agent/shared-worker.js',
   auth: {
     getToken: async () => myAuthProvider.getToken(),
     refreshToken: async () => myAuthProvider.refresh(),
@@ -368,8 +368,8 @@ const agent = createRtcAgent({
         url: 'https://rtc-agent.cherish.chat',
         redirectUri: `${base}/auth/callback.html`,
       },
-      workerUrl: `${base}/rtc-agent/shared-worker.js`,
-      scenariosUrl: `${base}/scenarios/`,
+      workerURL: `${base}/rtc-agent/shared-worker.js`,
+      scenariosURL: `${base}/scenarios/`,
       // ... other configuration
     });
 
@@ -403,7 +403,7 @@ function RtcAgentWrapper() {
         url: 'https://rtc-agent.cherish.chat',
         redirectUri: '/auth/callback.html',
       },
-      workerUrl: '/rtc-agent/shared-worker.js',
+      workerURL: '/rtc-agent/shared-worker.js',
       // ... other configuration
     });
 
@@ -439,7 +439,7 @@ onMounted(() => {
       url: 'https://rtc-agent.cherish.chat',
       redirectUri: '/auth/callback.html',
     },
-    workerUrl: '/rtc-agent/shared-worker.js',
+    workerURL: '/rtc-agent/shared-worker.js',
     // ... other configuration
   });
 
@@ -477,7 +477,7 @@ onUnmounted(() => {
 
 | Property | Type | Default | Description |
 |:----:|:----:|:------:|:----:|
-| `workerUrl` | `string` | `undefined` | URL to the SharedWorker file (required for multi-tab support) |
+| `workerURL` | `string` | `undefined` | URL to the SharedWorker file (required for multi-tab support) |
 
 ### Authentication Configuration
 
@@ -539,11 +539,11 @@ For production deployments, use version-based cache busting:
 ```typescript
 // Read manifest.json
 const manifest = await fetch('/rtc-agent/manifest.json').then(r => r.json());
-const workerUrl = `/rtc-agent/shared-worker.js?v=${manifest.version}`;
+const workerURL = `/rtc-agent/shared-worker.js?v=${manifest.version}`;
 
 // Use in createRtcAgent()
 const agent = createRtcAgent({
-  workerUrl,
+  workerURL,
   // ...
 });
 ```
@@ -564,7 +564,7 @@ location /rtc-agent/shared-worker.js {
 
 **Solution**:
 1. Verify worker files exist: `ls public/rtc-agent/` or `ls static/rtc-agent/`
-2. Check `workerUrl` path matches the actual file location
+2. Check `workerURL` path matches the actual file location
 3. Restart the dev server
 4. Re-run `npx rtc-agent-setup`
 
@@ -573,7 +573,7 @@ location /rtc-agent/shared-worker.js {
 **Symptom**: Changes in one tab don't appear in other tabs
 
 **Solution**:
-1. Ensure `workerUrl` is configured in `createRtcAgent()`
+1. Ensure `workerURL` is configured in `createRtcAgent()`
 2. Check browser console for SharedWorker errors
 3. Verify all tabs are on the same origin (protocol + domain + port)
 4. Check that SharedWorker is not blocked by browser extensions
