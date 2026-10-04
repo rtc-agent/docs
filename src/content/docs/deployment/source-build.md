@@ -128,13 +128,13 @@ jwt:
 
 ### 生成 JWT 密钥对
 
-Admin-server 使用非对称密钥签名 JWT。首次启动时，如果配置中的密钥路径对应的文件不存在，admin-server 会自动生成密钥对并保存到磁盘（跨重启持久化）。你也可以手动生成：
+Admin-server 使用非对称密钥签名 JWT。源码构建部署时，需要**在首次启动前**手动生成密钥对（admin-server 不会在启动时自动生成密钥文件，密钥路径对应的文件不存在时启动会失败）：
 
 ```bash
-# 手动生成密钥对（推荐 ES256）
+# 生成密钥对（推荐 ES256）
 ./bin/rtc-agent admin keygen --algorithm ES256
 
-# 或 RSA
+# 或 RSA（默认）
 ./bin/rtc-agent admin keygen --algorithm RS256
 
 # 或 EdDSA (Ed25519)
@@ -146,7 +146,7 @@ Admin-server 使用非对称密钥签名 JWT。首次启动时，如果配置中
 
 密钥默认存储在 `etc/keys/` 目录（已在 `.gitignore` 中排除 `*.pem`）。
 
-> 💡 Docker 部署时，`docker-entrypoint.sh` 会自动在 named volume 中生成持久化密钥，无需手动操作。
+> 💡 Docker 部署时，`docker-entrypoint.sh` 会自动在 named volume 中生成持久化密钥，无需手动操作。源码构建如果不配置密钥路径（`private_key_path` 和 `public_key_path` 均留空），admin-server 会生成临时内存密钥用于开发调试，但重启后密钥会丢失，已签发的 JWT 也将失效。
 
 ### 创建管理员账号
 

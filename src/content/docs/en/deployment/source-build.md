@@ -128,13 +128,13 @@ jwt:
 
 ### Generate JWT Key Pair
 
-Admin-server uses asymmetric keys to sign JWTs. On first startup, if the key files at the configured paths do not exist, admin-server automatically generates a key pair and saves it to disk (persists across restarts). You can also generate keys manually:
+Admin-server uses asymmetric keys to sign JWTs. For source builds, you must **generate the key pair before first startup** (admin-server does not auto-generate key files on startup — it will fail to start if the configured key paths do not exist):
 
 ```bash
-# Manually generate key pair (ES256 recommended)
+# Generate key pair (ES256 recommended)
 ./bin/rtc-agent admin keygen --algorithm ES256
 
-# Or RSA
+# Or RSA (default)
 ./bin/rtc-agent admin keygen --algorithm RS256
 
 # Or EdDSA (Ed25519)
@@ -146,7 +146,7 @@ Admin-server uses asymmetric keys to sign JWTs. On first startup, if the key fil
 
 Keys are stored in the `etc/keys/` directory by default (already excluded from `.gitignore` as `*.pem`).
 
-> 💡 In Docker deployments, `docker-entrypoint.sh` automatically generates persistent keys in a named volume — no manual operation needed.
+> 💡 In Docker deployments, `docker-entrypoint.sh` automatically generates persistent keys in a named volume — no manual operation needed. For source builds, if you leave both `private_key_path` and `public_key_path` empty in the config, admin-server generates ephemeral in-memory keys for development, but the keys are lost on restart and all issued JWTs become invalid.
 
 ### Create Admin Account
 

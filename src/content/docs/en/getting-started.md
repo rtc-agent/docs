@@ -58,7 +58,7 @@ echo "LLM__API_KEY=your-api-key-here" >> .env
 
 > 💡 **Environment variable naming**: Uppercase letters + double underscore `__` to separate hierarchy levels, matching YAML config structure. For example, `llm.api_key` → `LLM__API_KEY`.
 >
-> ⚠️ **Sensitive field handling**: If a field (like `api_key`) is explicitly written in the YAML config file, environment variables **will not override** it. Therefore, sensitive fields should not be written in plaintext in YAML; instead, configure them via environment variables.
+> ⚠️ **Sensitive field handling**: Sensitive fields (like `api_key`, `password`) should not be written in plaintext in YAML; instead, configure them via environment variables. Environment variables have higher priority than config files and can safely override YAML values.
 
 ### 2. Start
 
