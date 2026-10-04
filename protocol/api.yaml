@@ -83,6 +83,98 @@ paths:
               schema:
                 $ref: '#/components/schemas/OAuth2TokenRefreshResponse'
 
+  # ============================================================
+  # Admin Server API（独立服务，端口 8081）
+  # ============================================================
+
+  /api/auth/login:
+    post:
+      operationId: adminLogin
+      summary: Admin 登录
+      description: 管理员使用邮箱和密码登录，获取 JWT 令牌。登录成功后，admin-server 签发的 JWT 可通过主服务器的 token_exchange 机制（RFC 8693）换取主服务器的 access_token。
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AdminLoginRequest'
+      responses:
+        "200":
+          description: 登录成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AdminLoginResponse'
+
+  /api/auth/refresh:
+    post:
+      operationId: adminRefresh
+      summary: Admin 令牌刷新
+      description: 使用 refresh_token 换取新的 access_token（Admin-server 端点）
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AdminRefreshRequest'
+      responses:
+        "200":
+          description: 刷新成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AdminRefreshResponse'
+
+  /api/auth/me:
+    get:
+      operationId: adminGetCurrentUser
+      summary: 获取当前 Admin 用户信息
+      description: 需要 admin-server JWT 认证
+      responses:
+        "200":
+          description: 成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AdminUserResponse'
+
+  /api/auth/logout:
+    post:
+      operationId: adminLogout
+      summary: Admin 登出
+      description: 撤销 refresh_token，需要 JWT 认证
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AdminLogoutRequest'
+      responses:
+        "200":
+          description: 登出成功
+
+  /.well-known/jwks.json:
+    get:
+      operationId: adminJWKS
+      summary: Admin-server JWKS 端点
+      description: |
+        返回 admin-server 的 JSON Web Key Set，主服务器通过此端点获取公钥以验证 admin JWT 签名。
+        这是 RFC 8693 Token Exchange 机制的核心端点——主服务器的 `token_exchange.external_issuers` 配置中的 `jwks_uri` 指向此地址。
+      responses:
+        "200":
+          description: JWKS 公钥集合
+          content:
+            application/json:
+              schema:
+                type: object
+                description: JWK Set (RFC 7517)
+                properties:
+                  keys:
+                    type: array
+                    items:
+                      type: object
+                      description: JWK 公钥
+                required: [ keys ]
 
 components:
   schemas:
@@ -182,6 +274,123 @@ components:
           format: int64
           description: 新 access token 过期时间（秒）
       required: [ access_token, expires_in ]
+
+    # ============================================================
+    # Admin Server Schemas（独立服务，端口 8081）
+    # ============================================================
+
+    AdminLoginRequest:
+      type: object
+      description: Admin 登录请求
+      properties:
+        email:
+          type: string
+          format: email
+          description: 管理员邮箱
+        password:
+          type: string
+          minLength: 6
+          description: 管理员密码（最少 6 个字符）
+      required: [ email, password ]
+
+    AdminLoginResponse:
+      type: object
+      description: Admin 登录成功响应
+      properties:
+        access_token:
+          type: string
+          description: Admin JWT access token
+        refresh_token:
+          type: string
+          description: Admin JWT refresh token（支持轮换）
+        expires_in:
+          type: integer
+          description: access token 过期时间（秒）
+        token_type:
+          type: string
+          description: 固定为 "Bearer"
+        user:
+          $ref: '#/components/schemas/AdminUserResponse'
+      required: [ access_token, refresh_token, expires_in, token_type, user ]
+
+    AdminRefreshRequest:
+      type: object
+      description: Admin 令牌刷新请求
+      properties:
+        refresh_token:
+          type: string
+          description: 之前签发的 refresh token
+      required: [ refresh_token ]
+
+    AdminRefreshResponse:
+      type: object
+      description: Admin 令牌刷新响应（refresh token 轮换）
+      properties:
+        access_token:
+          type: string
+          description: 新的 JWT access token
+        refresh_token:
+          type: string
+          description: 新的 JWT refresh token（每次刷新都会轮换）
+        expires_in:
+          type: integer
+          description: 新 access token 过期时间（秒）
+        token_type:
+          type: string
+          description: 固定为 "Bearer"
+      required: [ access_token, refresh_token, expires_in, token_type ]
+
+    AdminUserResponse:
+      type: object
+      description: Admin 用户信息
+      properties:
+        id:
+          type: string
+          description: 用户 UUID
+        email:
+          type: string
+          description: 邮箱地址
+        name:
+          type: string
+          description: 显示名称
+        avatar_url:
+          type: string
+          description: 头像 URL
+      required: [ id, email ]
+
+    AdminLogoutRequest:
+      type: object
+      description: Admin 登出请求
+      properties:
+        refresh_token:
+          type: string
+          description: 要撤销的 refresh token
+      required: [ refresh_token ]
+
+    AdminErrorResponse:
+      type: object
+      description: |
+        Admin-server 统一错误响应格式（Ant Design Pro 约定）。
+        HTTP 状态码始终为 200，客户端通过 `success=false` 和 `errorCode` 判断错误类型。
+      properties:
+        success:
+          type: boolean
+          description: 始终为 false
+          enum: [ false ]
+        errorCode:
+          type: string
+          description: |
+            错误码，可能的值：
+            - `invalid_request`：请求参数校验失败
+            - `invalid_credentials`：邮箱或密码错误
+            - `invalid_grant`：refresh_token 无效/已撤销/已过期
+            - `unauthorized`：JWT 认证失败
+            - `user_not_found`：用户不存在
+            - `server_error`：服务器内部错误
+        errorMessage:
+          type: string
+          description: 人类可读的错误描述信息
+      required: [ success, errorCode, errorMessage ]
 
     # ============================================================
     # Domain Models（来自 protocol/models.go，非 HTTP 接口）

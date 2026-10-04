@@ -1,9 +1,9 @@
 ---
 title: Backend Architecture
-description: RTC Agent backend architecture — Go service layers, and the collaboration between WebSocket Gateway, Agent engine, context management, memory system, RTC handler, and object storage layer.
+description: RTC Agent backend architecture — Go service layers, and the collaboration between WebSocket Gateway, Agent engine, context management, memory system, RTC handler, object storage layer, and Admin-server.
 ---
 
-RTC Agent Server is a **Go service** responsible for AI reasoning orchestration, context management, real-time communication, tool call scheduling, and object storage. Core components include the WebSocket Gateway, Agent engine, context management, memory system, RTC handler, and OSS3 storage engine.
+RTC Agent consists of two Go services: the **Main Server** handles AI reasoning orchestration, context management, real-time communication, tool call scheduling, and object storage; the **Admin-server** is an independent management service providing administrator authentication, user management, and other functions, integrated with the Main Server via RFC 8693 Token Exchange.
 
 ## Service Layers
 
@@ -11,29 +11,38 @@ RTC Agent Server is a **Go service** responsible for AI reasoning orchestration,
 flowchart TD
     subgraph LAYERS["🏗️ Service Layers"]
         direction TB
-        L1["🌐 Access Layer<br/>WebSocket Gateway · OAuth2"]
+        L1["🌐 Access Layer<br/>WebSocket Gateway · OAuth2 · Token Exchange"]
         L2["📋 Use Case Layer<br/>Session · Message · Turn · RTC"]
         L3["🤖 Domain Layer<br/>Agent Engine · Context · Memory"]
         L4["💾 Infrastructure Layer<br/>PostgreSQL · Redis · Centrifuge · MinIO/S3"]
     end
 
+    subgraph ADMIN["🔐 Admin-server (Independent Service)"]
+        direction LR
+        ADM_AUTH["Admin Authentication<br/>JWT Signing · JWKS"]
+        ADM_UI["Admin UI<br/>SPA Static Assets"]
+    end
+
     L1 --> L2 --> L3 --> L4
+    ADM_AUTH -.->|"RFC 8693<br/>Token Exchange"| L1
 
     style LAYERS fill:#e3f2fd,stroke:#1565c0,stroke-width:2px
     style L1 fill:#e8f5e9,stroke:#388e3c,stroke-width:2px
     style L2 fill:#fff9c4,stroke:#f9a825,stroke-width:2px
     style L3 fill:#f3e5f5,stroke:#7b1fa2,stroke-width:2px
     style L4 fill:#fce4ec,stroke:#c62828,stroke-width:2px
+    style ADMIN fill:#fff3e0,stroke:#e65100,stroke-width:2px
 ```
 
 | Layer | Responsibility | Key Modules |
 | --- | --- | --- |
-| 🌐 **Access Layer** | Protocol adaptation, authentication & authorization | WebSocket Gateway, OAuth2 Handler |
+| 🌐 **Access Layer** | Protocol adaptation, authentication & authorization | WebSocket Gateway, OAuth2 Handler, Token Exchange |
 | 📋 **Use Case Layer** | Business orchestration, RPC processing | Session / Message / Turn / RTC use cases |
 | 🤖 **Domain Layer** | AI reasoning, state management | Agent Engine, Context Management, Memory System |
 | 💾 **Infrastructure Layer** | Data persistence, message passing, object storage | PostgreSQL, Redis, Centrifuge, MinIO/S3 |
+| 🔐 **Admin-server** | Administrator authentication, user management | JWT signing (RS256/ES256), JWKS endpoint, Admin UI |
 
-> **OAuth2 Authentication**: The system uses the OAuth2 authorization code flow. The frontend completes authorization via a popup window, obtaining an Access Token (1-hour validity) and Refresh Token (30-day validity). WebSocket connections use the Access Token for authentication. See [Authentication Flow](/docs/en/integration/auth).
+> **Authentication System**: The Main Server uses OAuth2 authorization code flow for end users; Admin-server uses email/password login for service administrators. Administrators obtain JWTs from Admin-server, which can be recognized by the Main Server via RFC 8693 Token Exchange. See [Authentication Flow](/docs/en/integration/auth) and [HTTP API](/docs/en/protocol/http-api/#admin-server-authentication).
 
 ## Core Components
 

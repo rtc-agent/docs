@@ -295,10 +295,20 @@ agent.destroy();
 
 完全控制认证生命周期。当宿主应用已经管理认证状态，且你希望组件与之集成时使用。
 
+AuthProvider 支持两种认证模式：
+
+| 模式 | `type` 值 | 适用场景 |
+| --- | --- | --- |
+| OAuth2 重定向（默认） | `'oauth2-redirect'` | 宿主应用自行管理令牌，组件直接使用 |
+| Token Exchange | `'token-exchange'` | 宿主持有外部 JWT（如 Admin-server），组件通过 RFC 8693 换取 RTC JWT |
+
+#### 模式一：OAuth2 重定向（默认）
+
 ```ts
 const config: RtcAgentConfig = {
   // ...其他配置
   auth: {
+    // type: 'oauth2-redirect',  // 默认值，可省略
     getToken: async () => myAuthStore.getAccessToken(),
     refreshToken: async () => myAuthStore.refreshAccessToken(),
     isLoggedIn: () => myAuthStore.isAuthenticated,
@@ -308,6 +318,39 @@ const config: RtcAgentConfig = {
   },
 };
 ```
+
+#### 模式二：Token Exchange（RFC 8693）
+
+当宿主应用持有外部 JWT（如 admin-server 签发的管理员 JWT），组件可以通过 Token Exchange 将其换取 RTC 主服务器的 JWT。适用于 Admin UI 集成等场景。
+
+```ts
+const config: RtcAgentConfig = {
+  // ...其他配置
+  auth: {
+    type: 'token-exchange',
+    getExchangeToken: async () => adminAuthStore.getAdminToken(),
+    isLoggedIn: () => adminAuthStore.isAuthenticated(),
+    logout: async () => { await adminAuthStore.clearSession(); },
+    getUserId: () => adminAuthStore.getUserId(),
+    deviceId: 'uuid-from-your-backend',
+  },
+};
+```
+
+> 💡 Token Exchange 模式下不需要 `getToken()` 和 `refreshToken()`——组件内部自动完成 JWT 交换和刷新。主服务器需要在 `config.yaml` 中配置 `token_exchange.external_issuers` 以信任对应的 JWT 签发方。详见 [HTTP API - Admin-server 认证](/docs/protocol/http-api/#admin-server-认证)。
+
+#### AuthProvider 方法参考
+
+| 方法 | 必填 | 适用模式 | 说明 |
+| --- | --- | --- | --- |
+| `type` | 可选 | 两者 | `'oauth2-redirect'`（默认）或 `'token-exchange'` |
+| `getToken()` | OAuth2 模式必填 | oauth2-redirect | 异步——返回当前认证令牌 |
+| `refreshToken()` | OAuth2 模式必填 | oauth2-redirect | 异步——令牌过期时刷新 |
+| `getExchangeToken()` | Token Exchange 模式必填 | token-exchange | 异步——返回外部 JWT，组件将其换取 RTC JWT |
+| `isLoggedIn()` | 必填 | 两者 | **同步**——返回 `boolean`，表示用户是否已认证 |
+| `logout()` | 可选 | 两者 | 异步——组件需要终止会话时调用 |
+| `getUserId()` | 可选 | 两者 | 同步——返回当前用户的唯一标识。**强烈建议提供**，否则所有用户将共享同一个 IndexedDB |
+| `deviceId` | 必填 | 两者 | 设备唯一标识，必须与服务端嵌入 JWT 中的 Device ID 一致 |
 
 > 详细指南，请参阅[认证与授权](/docs/integration/auth/)。
 

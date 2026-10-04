@@ -33,7 +33,7 @@ docker compose up -d postgres redis
 Copy the config template and edit:
 
 ```bash
-cp etc/config.docker.yaml etc/config.local.yaml
+cp etc/config.yaml.example etc/config.local.yaml
 ```
 
 Edit `etc/config.local.yaml`, modifying at least the following fields:
@@ -86,7 +86,65 @@ curl http://localhost:8888/healthz
 # {"status":"ok"}
 ```
 
-## 6. Embed Frontend
+## 6. Start Admin-server (Optional)
+
+Admin-server is an independent management service that uses the same binary as the main server. It provides admin login, user management, and other features, integrating with the main server via RFC 8693 Token Exchange.
+
+### Configuration
+
+Copy the admin config template and edit:
+
+```bash
+cp etc/admin.yaml etc/admin.local.yaml
+```
+
+Edit `etc/admin.local.yaml`, modifying at least the following fields:
+
+```yaml
+database:
+  dsn: "postgres://rtc_agent:rtc_agent@localhost:25432/rtc_agent?sslmode=disable"
+
+jwt:
+  algorithm: "RS256"
+  issuer: "http://localhost:8081"
+  audience: "http://localhost:8888"
+  private_key_path: "./etc/keys/admin-private.pem"
+  public_key_path: "./etc/keys/admin-public.pem"
+```
+
+### Generate JWT Key Pair
+
+Admin-server uses asymmetric keys to sign JWTs. Keys are auto-generated on first startup, or you can generate them manually:
+
+```bash
+# Manually generate key pair (ES256 recommended)
+./bin/rtc-agent admin keygen --algorithm ES256
+
+# Or RSA
+./bin/rtc-agent admin keygen --algorithm RS256
+```
+
+Keys are stored in the `etc/keys/` directory by default (already excluded from `.gitignore` as `*.pem`).
+
+### Create Admin Account
+
+```bash
+./bin/rtc-agent admin account create \
+  --email admin@example.com \
+  --password your-password \
+  --name "Admin"
+```
+
+### Start the Service
+
+```bash
+# Start admin-server (default port 8081)
+./bin/rtc-agent admin serve --config etc/admin.local.yaml
+```
+
+> 💡 Admin-server must connect to the same PostgreSQL database as the main server. The main server needs `token_exchange.external_issuers` configured in `config.yaml` to trust JWTs issued by admin-server. See [HTTP API - Admin-server Authentication](/docs/en/protocol/http-api/#admin-server-authentication).
+
+## 7. Embed Frontend
 
 After the Server is running, add the `<rtc-agent>` component to your web page:
 

@@ -1,9 +1,9 @@
 ---
 title: Docker 分布式集群
-description: 2 个 Server + Nginx 负载均衡 + 完整可观测性栈，验证多 Worker 分布式部署能力。
+description: 2 个 Server + Admin-server + Nginx 负载均衡 + 完整可观测性栈，验证多 Worker 分布式部署能力。
 ---
 
-分布式集群部署用于验证 RTC Agent 的多 Worker 能力 — 2 个 Server 容器 + Nginx 负载均衡 + 完整可观测性栈（Jaeger、Prometheus、Grafana、Loki 等）。
+分布式集群部署用于验证 RTC Agent 的多 Worker 能力 — 2 个 Server 容器 + Admin-server 管理服务 + Nginx 负载均衡 + 完整可观测性栈（Jaeger、Prometheus、Grafana、Loki 等）。
 
 ## 架构
 
@@ -11,6 +11,7 @@ description: 2 个 Server + Nginx 负载均衡 + 完整可观测性栈，验证�
 flowchart TB
     subgraph Client["客户端层"]
         Client1[浏览器 / Web Component]
+        AdminBrowser[管理员浏览器]
     end
 
     subgraph Access["接入层"]
@@ -20,6 +21,7 @@ flowchart TB
     subgraph App["应用层"]
         Server1[Server-1 :8888]
         Server2[Server-2 :8888]
+        AdminSvr[Admin-server :8081]
     end
 
     subgraph Data["数据层"]
@@ -37,14 +39,21 @@ flowchart TB
     Client1 --> Nginx
     Nginx --> Server1
     Nginx --> Server2
+    AdminBrowser -->|"管理员登录"| AdminSvr
+    AdminSvr -.->|"RFC 8693<br/>JWKS 验证"| Server1
+    AdminSvr -.->|"RFC 8693<br/>JWKS 验证"| Server2
     Server1 --> PostgreSQL
     Server1 --> Redis
     Server2 --> PostgreSQL
     Server2 --> Redis
+    AdminSvr --> PostgreSQL
+    AdminSvr --> Redis
     Server1 -.-> Jaeger
     Server2 -.-> Jaeger
+    AdminSvr -.-> Jaeger
     Server1 -.-> Prometheus
     Server2 -.-> Prometheus
+    AdminSvr -.-> Prometheus
     Grafana --> Prometheus
     Grafana --> Loki
 ```
@@ -55,6 +64,7 @@ flowchart TB
 | --- | --- | --- |
 | Nginx | 28080 | 负载均衡入口 |
 | Server 1 & 2 | 内部 8888 | 不直接暴露 |
+| Admin-server | 28081 | 管理后台（:28081 → :8081） |
 | PostgreSQL | 25432 | 带 pgvector |
 | Redis | 26379 | Worker 协调 |
 | Jaeger UI | 26686 | 追踪可视化 |
@@ -113,6 +123,20 @@ tracing:
   endpoint: "jaeger:4317"
   sample_rate: 1.0
 
+# Token Exchange: 信任 admin-server 签发的 JWT（RFC 8693）
+token_exchange:
+  external_issuers:
+    - name: "admin-server"
+      issuer: "http://admin-server:8081"
+      jwks_uri: "http://admin-server:8081/.well-known/jwks.json"
+      allowed_algorithms: ["RS256", "ES256"]
+      cache_ttl: 3600
+      claims_mapping:
+        sub: "sub"
+        email: "email"
+        name: "name"
+        avatar_url: "picture"
+
 providers:
   mock:
     enabled: true
@@ -125,6 +149,8 @@ llm:
 ```
 
 > ⚠️ **OAuth2 服务地址**：`providers.mock.url` 指向 OAuth2 授权服务。示例中的 `192.168.31.60:20060` 是开发环境的公网 IP 示例。开发者需要部署自己的 OAuth2 服务（协议与 mock-oauth2 兼容），并将此地址替换为实际的服务地址。详见 [认证与授权](/docs/integration/auth/)。
+>
+> 💡 **Token Exchange**：配置 `token_exchange` 后，主服务器可通过 JWKS 端点验证 admin-server 签发的 JWT，实现管理员统一认证。Admin-server 使用独立的 `etc/admin.docker.yaml` 配置文件。详见 [HTTP API - Admin-server](/docs/protocol/http-api/#admin-server-认证)。
 
 ## 2. 启动
 
@@ -132,7 +158,19 @@ llm:
 docker compose up -d
 ```
 
-启动顺序：PostgreSQL/Redis → migrate（一次性容器）→ Server-1 & Server-2 → Nginx
+启动顺序：PostgreSQL/Redis → migrate（一次性容器）→ Server-1 & Server-2 & Admin-server → Nginx
+
+Admin-server 首次启动时会自动生成 JWT 密钥对（RS256），存储在 `full-admin-server-keys` Docker volume 中。如需手动创建管理员账号：
+
+```bash
+# 创建管理员用户
+docker compose exec admin-server ./rtc-agent admin account create \
+  --email admin@example.com \
+  --password your-password \
+  --name "Admin"
+```
+
+访问管理后台：`http://localhost:28081`
 
 ## 3. 验证
 

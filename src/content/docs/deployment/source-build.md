@@ -33,7 +33,7 @@ docker compose up -d postgres redis
 复制配置模板并编辑：
 
 ```bash
-cp etc/config.docker.yaml etc/config.local.yaml
+cp etc/config.yaml.example etc/config.local.yaml
 ```
 
 编辑 `etc/config.local.yaml`，至少修改以下字段：
@@ -86,7 +86,65 @@ curl http://localhost:8888/healthz
 # {"status":"ok"}
 ```
 
-## 6. 嵌入前端
+## 6. 启动 Admin-server（可选）
+
+Admin-server 是独立的管理服务，与主服务器使用同一个二进制文件。提供管理员登录、用户管理等功能，通过 RFC 8693 Token Exchange 与主服务器集成。
+
+### 配置
+
+复制 admin 配置模板并编辑：
+
+```bash
+cp etc/admin.yaml etc/admin.local.yaml
+```
+
+编辑 `etc/admin.local.yaml`，至少修改以下字段：
+
+```yaml
+database:
+  dsn: "postgres://rtc_agent:rtc_agent@localhost:25432/rtc_agent?sslmode=disable"
+
+jwt:
+  algorithm: "RS256"
+  issuer: "http://localhost:8081"
+  audience: "http://localhost:8888"
+  private_key_path: "./etc/keys/admin-private.pem"
+  public_key_path: "./etc/keys/admin-public.pem"
+```
+
+### 生成 JWT 密钥对
+
+Admin-server 使用非对称密钥签名 JWT。首次启动时会自动生成密钥对，也可以手动生成：
+
+```bash
+# 手动生成密钥对（推荐 ES256）
+./bin/rtc-agent admin keygen --algorithm ES256
+
+# 或 RSA
+./bin/rtc-agent admin keygen --algorithm RS256
+```
+
+密钥默认存储在 `etc/keys/` 目录（已在 `.gitignore` 中排除 `*.pem`）。
+
+### 创建管理员账号
+
+```bash
+./bin/rtc-agent admin account create \
+  --email admin@example.com \
+  --password your-password \
+  --name "Admin"
+```
+
+### 启动服务
+
+```bash
+# 启动 admin-server（默认端口 8081）
+./bin/rtc-agent admin serve --config etc/admin.local.yaml
+```
+
+> 💡 Admin-server 需要与主服务器连接同一个 PostgreSQL 数据库。主服务器需在 `config.yaml` 中配置 `token_exchange.external_issuers` 以信任 admin-server 签发的 JWT。详见 [HTTP API - Admin-server 认证](/docs/protocol/http-api/#admin-server-认证)。
+
+## 7. 嵌入前端
 
 Server 启动后，在你的网页中添加 `<rtc-agent>` 组件：
 

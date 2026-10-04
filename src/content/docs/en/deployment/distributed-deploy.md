@@ -1,9 +1,9 @@
 ---
 title: Docker Distributed Cluster
-description: 2 Servers + Nginx load balancing + full observability stack — validate multi-Worker distributed deployment.
+description: 2 Servers + Admin-server + Nginx load balancing + full observability stack — validate multi-Worker distributed deployment.
 ---
 
-The distributed cluster deployment validates RTC Agent's multi-Worker capabilities — 2 Server containers + Nginx load balancing + full observability stack (Jaeger, Prometheus, Grafana, Loki, etc.).
+The distributed cluster deployment validates RTC Agent's multi-Worker capabilities — 2 Server containers + Admin-server management service + Nginx load balancing + full observability stack (Jaeger, Prometheus, Grafana, Loki, etc.).
 
 ## Architecture
 
@@ -11,6 +11,7 @@ The distributed cluster deployment validates RTC Agent's multi-Worker capabiliti
 flowchart TB
     subgraph Client["Client Layer"]
         Client1[Browser / Web Component]
+        AdminBrowser[Admin Browser]
     end
 
     subgraph Access["Access Layer"]
@@ -20,6 +21,7 @@ flowchart TB
     subgraph App["Application Layer"]
         Server1[Server-1 :8888]
         Server2[Server-2 :8888]
+        AdminSvr[Admin-server :8081]
     end
 
     subgraph Data["Data Layer"]
@@ -37,14 +39,21 @@ flowchart TB
     Client1 --> Nginx
     Nginx --> Server1
     Nginx --> Server2
+    AdminBrowser -->|"Admin Login"| AdminSvr
+    AdminSvr -.->|"RFC 8693<br/>JWKS Verify"| Server1
+    AdminSvr -.->|"RFC 8693<br/>JWKS Verify"| Server2
     Server1 --> PostgreSQL
     Server1 --> Redis
     Server2 --> PostgreSQL
     Server2 --> Redis
+    AdminSvr --> PostgreSQL
+    AdminSvr --> Redis
     Server1 -.-> Jaeger
     Server2 -.-> Jaeger
+    AdminSvr -.-> Jaeger
     Server1 -.-> Prometheus
     Server2 -.-> Prometheus
+    AdminSvr -.-> Prometheus
     Grafana --> Prometheus
     Grafana --> Loki
 ```
@@ -55,6 +64,7 @@ flowchart TB
 | --- | --- | --- |
 | Nginx | 28080 | Load balancer entry point |
 | Server 1 & 2 | Internal 8888 | Not directly exposed |
+| Admin-server | 28081 | Admin panel (:28081 → :8081) |
 | PostgreSQL | 25432 | With pgvector |
 | Redis | 26379 | Worker coordination |
 | Jaeger UI | 26686 | Trace visualization |
@@ -113,6 +123,20 @@ tracing:
   endpoint: "jaeger:4317"
   sample_rate: 1.0
 
+# Token Exchange: Trust JWTs issued by admin-server (RFC 8693)
+token_exchange:
+  external_issuers:
+    - name: "admin-server"
+      issuer: "http://admin-server:8081"
+      jwks_uri: "http://admin-server:8081/.well-known/jwks.json"
+      allowed_algorithms: ["RS256", "ES256"]
+      cache_ttl: 3600
+      claims_mapping:
+        sub: "sub"
+        email: "email"
+        name: "name"
+        avatar_url: "picture"
+
 providers:
   mock:
     enabled: true
@@ -125,6 +149,8 @@ llm:
 ```
 
 > ⚠️ **OAuth2 service address**: `providers.mock.url` points to the OAuth2 authorization service. The example `192.168.31.60:20060` is a public IP example from the dev environment. Developers need to deploy their own OAuth2 service (compatible with the mock-oauth2 protocol) and replace this with the actual service address. See [Authentication](/docs/en/integration/auth/) for details.
+>
+> 💡 **Token Exchange**: After configuring `token_exchange`, the Main Server can verify JWTs issued by admin-server via the JWKS endpoint, enabling unified administrator authentication. Admin-server uses its own `etc/admin.docker.yaml` configuration file. See [HTTP API - Admin-server](/docs/en/protocol/http-api/#admin-server-authentication).
 
 ## 2. Start
 
@@ -132,7 +158,19 @@ llm:
 docker compose up -d
 ```
 
-Startup order: PostgreSQL/Redis → migrate (one-time container) → Server-1 & Server-2 → Nginx
+Startup order: PostgreSQL/Redis → migrate (one-time container) → Server-1 & Server-2 & Admin-server → Nginx
+
+Admin-server automatically generates a JWT key pair (RS256) on first startup, stored in the `full-admin-server-keys` Docker volume. To manually create an administrator account:
+
+```bash
+# Create administrator user
+docker compose exec admin-server ./rtc-agent admin account create \
+  --email admin@example.com \
+  --password your-password \
+  --name "Admin"
+```
+
+Access the admin panel: `http://localhost:28081`
 
 ## 3. Verify
 

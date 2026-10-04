@@ -16,7 +16,20 @@ RTC Agent's HTTP API includes three categories of endpoints: **OAuth2 Authentica
 | `/oauth2/token`     | POST   | Exchange authorization code for tokens | After authorization callback  |
 | `/oauth2/refresh`   | POST   | Refresh access_token                 | When token is about to expire   |
 
+### Admin-server Endpoints (Independent Service, Port 8081)
+
+| Endpoint                       | Method | Function                                    | Authentication |
+| ------------------------------ | ------ | ------------------------------------------- | -------------- |
+| `/api/auth/login`              | POST   | Admin email/password login                  | None           |
+| `/api/auth/refresh`            | POST   | Refresh admin access_token                  | None           |
+| `/api/auth/me`                 | GET    | Get current admin info                      | Admin JWT      |
+| `/api/auth/logout`             | POST   | Logout, revoke refresh_token                | Admin JWT      |
+| `/.well-known/jwks.json`       | GET    | JWKS public key set (for Main Server JWT verification) | None  |
+| `/health`                      | GET    | Health check                                | None           |
+
 **Operational Endpoints** (no JWT required): `/healthz` (health check), `/readyz` (readiness check), `/metrics` (Prometheus metrics).
+
+> 📌 **Security change**: In production, `/metrics` and debug endpoints require authentication. Configure Basic Auth via `metrics.user` and `metrics.password`; the server will reject access when unconfigured.
 
 **Business Endpoints** (JWT required): `/api/sessions/{sessionID}/interrupts/{interruptID}/answer` (submit interrupt answer), `/api/memories/export` (export memory data), `/api/credentials/temporary` (get S3 temporary credentials), `/api/presigned-url` (generate presigned URL).
 
@@ -355,6 +368,164 @@ Export memory data as an OKF (Open Knowledge Format) bundle. Supports filtering 
 > 💡 Because this uses a streaming response, JSON error responses are no longer possible once writing to the response body begins. Clients should check HTTP status code and `Content-Length` to determine export success.
 >
 > 📌 Timestamps in the OKF bundle use **UTC timezone**, formatted as RFC 3339 (e.g., `2026-09-26T08:30:00Z`).
+
+---
+
+## Admin-server Authentication
+
+Admin-server is an independent management service separate from the Main Server, providing administrator login, user management, and other features. After administrators log in to admin-server, they receive a JWT that can be recognized by the Main Server via the RFC 8693 Token Exchange mechanism.
+
+### Architecture
+
+```mermaid
+flowchart LR
+    subgraph Admin["Admin-server (:8081)"]
+        LOGIN["POST /api/auth/login"]
+        JWKS["GET /.well-known/jwks.json"]
+    end
+
+    subgraph Main["Main Server (:8888)"]
+        TE["token_exchange config"]
+        API["Business API"]
+    end
+
+    AdminUser["👤 Administrator"] -->|"① Email+Password Login"| LOGIN
+    LOGIN -->|"② Issue admin JWT"| AdminUser
+    AdminUser -->|"③ Carry admin JWT"| API
+    API -->|"④ Verify signature via JWKS"| JWKS
+    JWKS -->|"⑤ Return public key"| API
+    API -->|"⑥ Verification passed, map user identity"| Main
+```
+
+### Main Server Configuration
+
+Configure `token_exchange` in the Main Server's `config.yaml` to trust JWTs issued by admin-server:
+
+```yaml
+token_exchange:
+  external_issuers:
+    - name: "admin-server"
+      issuer: "http://admin-server:8081"       # admin-server address
+      jwks_uri: "http://admin-server:8081/.well-known/jwks.json"
+      allowed_algorithms: ["RS256", "ES256"]
+      cache_ttl: 3600
+      claims_mapping:
+        sub: "sub"
+        email: "email"
+        name: "name"
+        avatar_url: "picture"
+```
+
+| Field | Description |
+| --- | --- |
+| `name` | Identifier name for the issuer |
+| `issuer` | Value that the JWT `iss` claim must match |
+| `jwks_uri` | JWKS public key endpoint address |
+| `allowed_algorithms` | Allowed signature algorithms (ES256 or RS256 recommended) |
+| `cache_ttl` | JWKS public key cache time (seconds) |
+| `claims_mapping` | Mapping from JWT claims to user fields |
+
+### JWT Key Management
+
+Admin-server uses asymmetric keys (RS256 / ES256) to sign JWTs. The Main Server obtains public keys via the JWKS endpoint for verification, with no shared secrets required.
+
+```bash
+# Generate key pairs
+./scripts/generate-keys.sh all     # RS256 + ES256
+./scripts/generate-keys.sh es256   # ES256 only (recommended)
+
+# Auto mode (admin-server auto-generates keys on startup if none exist)
+# Production environments should use persistent keys to avoid invalidating all JWTs after restart
+```
+
+| Environment | Key Storage Recommendation |
+| --- | --- |
+| Development | Local `etc/keys/` directory (already excluded `*.pem` in `.gitignore`) |
+| Production | KMS service (AWS KMS / Alibaba Cloud KMS / HashiCorp Vault) |
+
+> 💡 Rotate keys every 90 days. When rotating, retain old public keys for 24-48 hours to maintain compatibility with already-issued tokens. See `etc/keys/README.md` for details.
+
+### Admin-server Endpoint Details
+
+> 💡 Admin-server uses the Ant Design Pro unified response format: `{ "success": true, "data": {...} }` on success, `{ "success": false, "errorCode": "...", "errorMessage": "..." }` on failure (HTTP status code is always 200).
+
+#### POST /api/auth/login
+
+Administrator email/password login.
+
+**Request Body**:
+
+```json
+{
+  "email": "admin@example.com",
+  "password": "your-password"
+}
+```
+
+**Success Response** (200):
+
+```json
+{
+  "success": true,
+  "data": {
+    "access_token": "eyJhbGciOi...",
+    "refresh_token": "dGhpcyBpcyBh...",
+    "expires_in": 3600,
+    "token_type": "Bearer",
+    "user": {
+      "id": "uuid",
+      "email": "admin@example.com",
+      "name": "Admin",
+      "avatar_url": ""
+    }
+  }
+}
+```
+
+#### POST /api/auth/refresh
+
+Exchange a refresh_token for a new access_token. Each refresh returns a new refresh_token (rotation mechanism), and the old refresh_token is immediately invalidated.
+
+**Request Body**:
+
+```json
+{
+  "refresh_token": "previous-refresh-token"
+}
+```
+
+#### GET /api/auth/me
+
+Get current administrator information. Requires `Authorization: Bearer <admin-jwt>` header.
+
+#### POST /api/auth/logout
+
+Revoke a refresh_token. Requires JWT authentication.
+
+**Request Body**:
+
+```json
+{
+  "refresh_token": "refresh-token-to-revoke"
+}
+```
+
+#### GET /.well-known/jwks.json
+
+Returns the admin-server's JWK Set (RFC 7517). The Main Server uses this endpoint to obtain public keys for verifying JWT signatures.
+
+### Error Code Reference
+
+Admin-server error responses always return HTTP 200, distinguishing error types via the `errorCode` field:
+
+| `errorCode` | Trigger | Description |
+| --- | --- | --- |
+| `invalid_request` | Malformed request body, field validation failure | Client should check request parameters |
+| `invalid_credentials` | Incorrect email or password | Login credentials are wrong |
+| `invalid_grant` | refresh_token is invalid, revoked, or expired | User should re-login |
+| `unauthorized` | Missing/invalid/expired Authorization header | JWT authentication failed |
+| `user_not_found` | No user found for the given user ID | Data consistency issue |
+| `server_error` | Internal server error (key generation failure, database exception, etc.) | Retryable; investigate if persistent |
 
 ## Next Steps
 

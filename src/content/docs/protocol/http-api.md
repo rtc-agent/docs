@@ -16,7 +16,22 @@ RTC Agent 的 HTTP API 包含三类端点：**OAuth2 认证**处理用户登录�
 | `/oauth2/token`                     | POST | 授权码换取令牌                   | 授权回调后       |
 | `/oauth2/refresh`                   | POST | 刷新 access_token                | 令牌即将过期     |
 
+### Admin-server 端点（独立服务，端口 8081）
+
+| 端点                           | 方法 | 功能                                | 认证       |
+| ------------------------------ | ---- | ----------------------------------- | ---------- |
+| `/api/auth/login`              | POST | 管理员邮箱密码登录                  | 无需认证   |
+| `/api/auth/refresh`            | POST | 刷新 admin access_token             | 无需认证   |
+| `/api/auth/me`                 | GET  | 获取当前管理员信息                  | Admin JWT  |
+| `/api/auth/logout`             | POST | 登出，撤销 refresh_token            | Admin JWT  |
+| `/.well-known/jwks.json`       | GET  | JWKS 公钥集合（供主服务器验证 JWT） | 无需认证   |
+| `/health`                      | GET  | 健康检查                            | 无需认证   |
+
+> 💡 Admin-server 是独立服务，通过 RFC 8693 Token Exchange 机制与主服务器集成。管理员登录 admin-server 后，其 JWT 可被主服务器识别为合法用户身份。详见下文 [Admin-server 认证](#admin-server-认证)。
+
 **运维端点**（无需 JWT 认证）：`/healthz`（健康检查）、`/readyz`（就绪检查）、`/metrics`（Prometheus 指标）。
+
+> 📌 **安全变更**：生产环境中 `/metrics` 和 debug 端点强制要求认证。通过 `metrics.user` 和 `metrics.password` 配置 Basic Auth，未配置时将拒绝访问。
 
 **业务端点**（需要 JWT 认证）：`/api/sessions/{sessionID}/interrupts/{interruptID}/answer`（提交中断应答）、`/api/memories/export`（导出记忆数据）、`/api/credentials/temporary`（获取 S3 临时凭证）、`/api/presigned-url`（生成预签名 URL）。
 
@@ -355,6 +370,164 @@ Prometheus 指标端点，暴露服务运行指标，供监控系统（Prometheu
 > 💡 由于采用流式响应，一旦开始写入响应体后发生错误，将无法返回 JSON 错误响应。客户端应通过 HTTP 状态码和 `Content-Length` 判断导出是否成功。
 >
 > 📌 OKF bundle 中的时间戳统一使用 **UTC 时区**，格式为 RFC 3339（如 `2026-09-26T08:30:00Z`）。
+
+---
+
+## Admin-server 认证
+
+Admin-server 是独立于主服务器的管理服务，提供管理员登录、用户管理等功能。管理员通过 admin-server 登录后获得 JWT，该 JWT 可通过 RFC 8693 Token Exchange 机制被主服务器识别。
+
+### 架构关系
+
+```mermaid
+flowchart LR
+    subgraph Admin["Admin-server (:8081)"]
+        LOGIN["POST /api/auth/login"]
+        JWKS["GET /.well-known/jwks.json"]
+    end
+
+    subgraph Main["Main Server (:8888)"]
+        TE["token_exchange 配置"]
+        API["业务 API"]
+    end
+
+    AdminUser["👤 管理员"] -->|"① 邮箱+密码登录"| LOGIN
+    LOGIN -->|"② 签发 admin JWT"| AdminUser
+    AdminUser -->|"③ 携带 admin JWT"| API
+    API -->|"④ 通过 JWKS 验证签名"| JWKS
+    JWKS -->|"⑤ 返回公钥"| API
+    API -->|"⑥ 验证通过，映射用户身份"| Main
+```
+
+### 主服务器配置
+
+在主服务器的 `config.yaml` 中配置 `token_exchange` 以信任 admin-server 签发的 JWT：
+
+```yaml
+token_exchange:
+  external_issuers:
+    - name: "admin-server"
+      issuer: "http://admin-server:8081"       # admin-server 地址
+      jwks_uri: "http://admin-server:8081/.well-known/jwks.json"
+      allowed_algorithms: ["RS256", "ES256"]
+      cache_ttl: 3600
+      claims_mapping:
+        sub: "sub"
+        email: "email"
+        name: "name"
+        avatar_url: "picture"
+```
+
+| 字段 | 说明 |
+| --- | --- |
+| `name` | issuer 标识名称 |
+| `issuer` | JWT `iss` claim 必须匹配的值 |
+| `jwks_uri` | JWKS 公钥端点地址 |
+| `allowed_algorithms` | 允许的签名算法（推荐 ES256 或 RS256） |
+| `cache_ttl` | JWKS 公钥缓存时间（秒） |
+| `claims_mapping` | JWT claims 到用户字段的映射 |
+
+### JWT 密钥管理
+
+Admin-server 使用非对称密钥（RS256 / ES256）签名 JWT。主服务器通过 JWKS 端点获取公钥进行验证，无需共享密钥。
+
+```bash
+# 生成密钥对
+./scripts/generate-keys.sh all     # RS256 + ES256
+./scripts/generate-keys.sh es256   # 仅 ES256（推荐）
+
+# 自动模式（admin-server 启动时无密钥自动生成）
+# 生产环境建议使用持久化密钥，避免重启后所有 JWT 失效
+```
+
+| 环境 | 密钥存储建议 |
+| --- | --- |
+| 开发 | 本地 `etc/keys/` 目录（已在 `.gitignore` 中排除 `*.pem`） |
+| 生产 | KMS 服务（AWS KMS / 阿里云凭据管家 / HashiCorp Vault） |
+
+> 💡 建议每 90 天轮换密钥。轮换时保留旧公钥 24-48 小时以兼容已签发的 token，详见 `etc/keys/README.md`。
+
+### Admin-server 端点详情
+
+> 💡 Admin-server 使用 Ant Design Pro 统一响应格式：成功时 `{ "success": true, "data": {...} }`，失败时 `{ "success": false, "errorCode": "...", "errorMessage": "..." }`（HTTP 状态码始终为 200）。
+
+#### POST /api/auth/login
+
+管理员邮箱密码登录。
+
+**请求体**：
+
+```json
+{
+  "email": "admin@example.com",
+  "password": "your-password"
+}
+```
+
+**成功响应**（200）：
+
+```json
+{
+  "success": true,
+  "data": {
+    "access_token": "eyJhbGciOi...",
+    "refresh_token": "dGhpcyBpcyBh...",
+    "expires_in": 3600,
+    "token_type": "Bearer",
+    "user": {
+      "id": "uuid",
+      "email": "admin@example.com",
+      "name": "Admin",
+      "avatar_url": ""
+    }
+  }
+}
+```
+
+#### POST /api/auth/refresh
+
+使用 refresh_token 换取新的 access_token。每次刷新会同时返回新的 refresh_token（轮换机制），旧 refresh_token 立即失效。
+
+**请求体**：
+
+```json
+{
+  "refresh_token": "previous-refresh-token"
+}
+```
+
+#### GET /api/auth/me
+
+获取当前管理员信息。需要 `Authorization: Bearer <admin-jwt>` 请求头。
+
+#### POST /api/auth/logout
+
+撤销 refresh_token。需要 JWT 认证。
+
+**请求体**：
+
+```json
+{
+  "refresh_token": "refresh-token-to-revoke"
+}
+```
+
+#### GET /.well-known/jwks.json
+
+返回 admin-server 的 JWK Set（RFC 7517），主服务器通过此端点获取公钥以验证 JWT 签名。
+
+### 错误码参考
+
+Admin-server 错误响应始终返回 HTTP 200，通过 `errorCode` 字段区分错误类型：
+
+| `errorCode` | 触发场景 | 说明 |
+| --- | --- | --- |
+| `invalid_request` | 请求体格式错误、字段校验失败 | 客户端应检查请求参数 |
+| `invalid_credentials` | 邮箱或密码错误 | 登录凭证不正确 |
+| `invalid_grant` | refresh_token 无效、已撤销或已过期 | 应引导用户重新登录 |
+| `unauthorized` | 缺少/无效/过期的 Authorization 头 | JWT 认证失败 |
+| `user_not_found` | 用户 ID 对应的用户不存在 | 数据一致性异常 |
+| `server_error` | 服务器内部错误（密钥生成失败、数据库异常等） | 可重试，持续发生需排查 |
 
 ## 下一步
 

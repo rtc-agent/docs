@@ -30,7 +30,7 @@ flowchart TD
 | 2 | The dialog opens a popup window to load the OAuth2 Provider's authorization page |
 | 3 | User completes authorization on the Provider page (e.g., GitHub, Google) |
 | 4 | After successful authorization, the system obtains the authorization code and exchanges it for tokens |
-| 5 | Tokens are stored in the browser locally, and login is complete |
+| 5 | Access Token is stored in memory, Refresh Token is hashed and stored locally, and login is complete |
 
 > 💡 **Design Principle**: The login flow is fully delegated to the OAuth2 Provider — RTC Agent never handles user passwords; security is guaranteed by the Provider.
 
@@ -108,7 +108,7 @@ flowchart LR
 
     subgraph STORAGE["💾 Storage Strategy"]
         direction TB
-        C["Access Token<br/>Stored in plaintext"]
+        C["Access Token<br/>In-memory only (XSS-proof)"]
         D["Refresh Token<br/>Hash only"]
     end
 
@@ -117,9 +117,9 @@ flowchart LR
 ```
 
 | Token | Validity | Purpose | Storage |
-|:----:|:------:|:----:|:--------:|
-| 🔑 Access Token | 1 hour | Access API and WebSocket | Plaintext (short validity, manageable risk) |
-| 🔄 Refresh Token | 30 days | Refresh Access Token | Hash only (plaintext returned once at issuance, then discarded) |
+| --- | --- | --- | --- |
+| 🔑 Access Token | 1 hour | Access API and WebSocket | In-memory only, never persisted (XSS-proof) |
+| 🔄 Refresh Token | 30 days | Refresh Access Token | Hash only (plaintext returned once, then discarded) |
 
 > 📌 **Security Key Point**: The Refresh Token's plaintext is only returned once at issuance; afterward, the server stores only the hash. Even if browser storage is compromised, attackers cannot impersonate the user long-term.
 
@@ -217,7 +217,7 @@ flowchart TD
         direction TB
         A["🔒 CSRF Protection<br/>OAuth2 state parameter"]
         B["🏷️ Channel Isolation<br/>Users can only receive their own messages"]
-        C["💾 Token Storage<br/>Stored in browser locally, not sent to third parties"]
+        C["🧠 Token Storage<br/>Access Token in memory only<br/>Never persisted to disk"]
         D["🔑 Refresh Token<br/>Hash only, plaintext returned once"]
     end
 
@@ -225,10 +225,10 @@ flowchart TD
 ```
 
 | Constraint | Mechanism | Purpose |
-|:----:|:----:|:----:|
+| --- | --- | --- |
 | 🛡️ CSRF Protection | Use `state` parameter during OAuth2 authorization | Prevent cross-site request forgery attacks |
 | 🏷️ Channel Isolation | Users can only subscribe to their own dedicated channel | Prevent data leaks and unauthorized access |
-| 💾 Token Storage | Tokens stored only in browser locally | Not sent to third parties, reducing leak risk |
+| 🧠 Token Storage | Access Token stored in memory only, not in localStorage | Prevent XSS attacks from stealing tokens |
 | 🔑 Refresh Token | Plaintext returned once; server stores hash only | Cannot be used long-term even if storage is compromised |
 
 ## Error Handling
@@ -256,12 +256,22 @@ The built-in OAuth2 flow is great for standalone apps, but many developers integ
 
 Delegate **all** authentication concerns to your provider. In addition to token management, you control login state checks (`isLoggedIn`) and logout behavior. Ideal for **multi-tenant platforms, SSO integrations, or apps with complex auth requirements**.
 
+AuthProvider supports two authentication modes:
+
+| Mode | `type` Value | Use Case |
+| --- | --- | --- |
+| OAuth2 Redirect (default) | `'oauth2-redirect'` | Host manages tokens, component uses them directly |
+| Token Exchange | `'token-exchange'` | Host holds an external JWT (e.g., from Admin-server), component exchanges it for an RTC JWT via RFC 8693 |
+
+#### Mode 1: OAuth2 Redirect (default)
+
 ```typescript
 import { createRtcAgent } from '@rtc-agent/component';
 
 const agent = createRtcAgent({
   server: { url: 'https://your-server.com' },
   auth: {
+    // type: 'oauth2-redirect',  // default, can be omitted
     getToken: async () => {
       // Your custom token retrieval logic (returns a token string)
       return await myAuthStore.getToken();
@@ -288,14 +298,48 @@ const agent = createRtcAgent({
 });
 ```
 
-| Method | Required | Description |
-|:------:|:--------:|-------------|
-| `getToken()` | ✅ | Async — returns the current auth token |
-| `refreshToken()` | ✅ | Async — refreshes the token when expired |
-| `isLoggedIn()` | ✅ | **Synchronous** — returns `boolean` indicating whether the user is authenticated |
-| `logout()` | Optional | Async — called when the component needs to terminate the session |
-| `getUserId()` | Optional | Synchronous — returns the current user's unique identifier. **Strongly recommended** — without it, all users share the same IndexedDB (database name falls back to `{databaseName}-provider-managed`) |
-| `deviceId` | ✅ | Unique device identifier — must match the Device ID embedded in the JWT by the server, otherwise scripts (RTCs) will not execute |
+#### Mode 2: Token Exchange (RFC 8693)
+
+When the host application holds an external JWT (e.g., an admin JWT issued by admin-server), the component can exchange it for an RTC main-server JWT via Token Exchange. This is suitable for Admin UI integration scenarios.
+
+```typescript
+import { createRtcAgent } from '@rtc-agent/component';
+
+const agent = createRtcAgent({
+  server: { url: 'https://your-server.com' },
+  auth: {
+    type: 'token-exchange',
+    getExchangeToken: async () => {
+      // Return the external JWT (e.g., admin-server JWT)
+      // The component exchanges it for an RTC JWT via RFC 8693 Token Exchange
+      return await adminAuthStore.getAdminToken();
+    },
+    isLoggedIn: () => {
+      return adminAuthStore.isAuthenticated();
+    },
+    logout: async () => {
+      await adminAuthStore.clearSession();
+    },
+    getUserId: () => adminAuthStore.getUserId(),
+    deviceId: 'uuid-from-your-backend',
+  },
+});
+```
+
+> 💡 Token Exchange mode does not require `getToken()` or `refreshToken()` — the component handles JWT exchange and refresh internally. The main server must configure `token_exchange.external_issuers` in `config.yaml` to trust the corresponding JWT issuer. See [HTTP API - Admin-server Authentication](/docs/protocol/http-api/#admin-server-认证).
+
+#### AuthProvider Method Reference
+
+| Method | Required | Mode | Description |
+| --- | --- | --- | --- |
+| `type` | Optional | Both | `'oauth2-redirect'` (default) or `'token-exchange'` |
+| `getToken()` | Required for OAuth2 mode | oauth2-redirect | Async — returns the current auth token |
+| `refreshToken()` | Required for OAuth2 mode | oauth2-redirect | Async — refreshes the token when expired |
+| `getExchangeToken()` | Required for Token Exchange mode | token-exchange | Async — returns the external JWT for the component to exchange for an RTC JWT |
+| `isLoggedIn()` | ✅ | Both | **Synchronous** — returns `boolean` indicating whether the user is authenticated |
+| `logout()` | Optional | Both | Async — called when the component needs to terminate the session |
+| `getUserId()` | Optional | Both | Synchronous — returns the current user's unique identifier. **Strongly recommended** — without it, all users share the same IndexedDB (database name falls back to `{databaseName}-provider-managed`) |
+| `deviceId` | ✅ | Both | Unique device identifier — must match the Device ID embedded in the JWT by the server, otherwise scripts (RTCs) will not execute |
 
 > 💡 **About `getUserId()`**: The component uses `userId` to build per-user IndexedDB databases (database name format: `{databaseName}-{userId}`). If `getUserId()` is not provided, `userId` falls back to the fixed string `'provider-managed'`, causing all users to share the same database — which is usually not desirable in multi-tenant scenarios.
 

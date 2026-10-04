@@ -30,7 +30,7 @@ flowchart TD
 | 2 | 对话框弹出新窗口（popup window），加载 OAuth2 Provider 的授权页面 |
 | 3 | 用户在 Provider 页面完成授权（如 GitHub、Google 等） |
 | 4 | 授权成功后，系统获取授权码并换取令牌 |
-| 5 | 令牌存储到浏览器本地，登录完成 |
+| 5 | Access Token 存入内存，Refresh Token 哈希后存入本地，登录完成 |
 
 > 💡 **设计原则**：登录流程完全委托给 OAuth2 Provider——RTC Agent 不接触用户密码，安全由 Provider 保障。
 
@@ -108,7 +108,7 @@ flowchart LR
 
     subgraph STORAGE["💾 存储策略"]
         direction TB
-        C["Access Token<br/>明文存储"]
+        C["Access Token<br/>内存存储（防 XSS）"]
         D["Refresh Token<br/>仅存哈希值"]
     end
 
@@ -117,8 +117,8 @@ flowchart LR
 ```
 
 | 令牌 | 有效期 | 用途 | 存储方式 |
-|:----:|:------:|:----:|:--------:|
-| 🔑 Access Token | 1 小时 | 访问 API 和 WebSocket | 明文（短有效期，风险可控） |
+| --- | --- | --- | --- |
+| 🔑 Access Token | 1 小时 | 访问 API 和 WebSocket | 内存存储（不落盘，防 XSS 窃取） |
 | 🔄 Refresh Token | 30 天 | 刷新 Access Token | 仅存哈希值（明文一次性返回后丢弃） |
 
 > 📌 **安全要点**：Refresh Token 的明文只在签发时返回一次，之后服务端仅保存哈希。即使浏览器存储被泄露，攻击者也无法长期冒充用户。
@@ -217,7 +217,7 @@ flowchart TD
         direction TB
         A["🔒 CSRF 防护<br/>OAuth2 state 参数"]
         B["🏷️ 频道隔离<br/>用户只能接收自己的消息"]
-        C["💾 令牌存储<br/>存储在浏览器本地，不传输到第三方"]
+        C["🧠 令牌存储<br/>Access Token 仅存内存<br/>不落盘防 XSS"]
         D["🔑 刷新令牌<br/>只存哈希值，明文一次性返回"]
     end
 
@@ -225,10 +225,10 @@ flowchart TD
 ```
 
 | 约束 | 机制 | 目的 |
-|:----:|:----:|:----:|
+| --- | --- | --- |
 | 🛡️ CSRF 防护 | OAuth2 授权时使用 `state` 参数 | 防止跨站请求伪造攻击 |
 | 🏷️ 频道隔离 | 用户只能订阅自己的专属频道 | 防止数据泄露和越权访问 |
-| 💾 令牌存储 | 令牌仅存储在浏览器本地 | 不传输到第三方，降低泄露风险 |
+| 🧠 令牌存储 | Access Token 存内存，不写入 localStorage | 防止 XSS 攻击窃取令牌 |
 | 🔑 刷新令牌 | 明文一次性返回，服务端仅存哈希 | 即使存储泄露也无法长期使用 |
 
 ## 错误处理
@@ -256,12 +256,22 @@ flowchart TD
 
 将**所有**认证关注点委托给你的 Provider。除了令牌管理，你还可以控制登录状态检查（`isLoggedIn`）和登出行为。适用于**多租户平台、SSO 集成或具有复杂认证需求的应用**。
 
+AuthProvider 支持两种认证模式：
+
+| 模式 | `type` 值 | 适用场景 |
+| --- | --- | --- |
+| OAuth2 重定向（默认） | `'oauth2-redirect'` | 宿主应用自行管理令牌，组件直接使用 |
+| Token Exchange | `'token-exchange'` | 宿主持有外部 JWT（如 Admin-server），组件通过 RFC 8693 换取 RTC JWT |
+
+#### 模式一：OAuth2 重定向（默认）
+
 ```typescript
 import { createRtcAgent } from '@rtc-agent/component';
 
 const agent = createRtcAgent({
   server: { url: 'https://your-server.com' },
   auth: {
+    // type: 'oauth2-redirect',  // 默认值，可省略
     getToken: async () => {
       // 你的自定义令牌获取逻辑（返回令牌字符串）
       return await myAuthStore.getToken();
@@ -288,16 +298,50 @@ const agent = createRtcAgent({
 });
 ```
 
-| 方法 | 必填 | 说明 |
-|:------:|:--------:|-------------|
-| `getToken()` | ✅ | 异步——返回当前认证令牌 |
-| `refreshToken()` | ✅ | 异步——令牌过期时刷新 |
-| `isLoggedIn()` | ✅ | **同步**——返回 `boolean`，表示用户是否已认证 |
-| `logout()` | 可选 | 异步——组件需要终止会话时调用 |
-| `getUserId()` | 可选 | 同步——返回当前用户的唯一标识。**强烈建议提供**，否则所有用户将共享同一个 IndexedDB（数据库名回退为 `{databaseName}-provider-managed`） |
-| `deviceId` | ✅ | 设备唯一标识，必须与服务端嵌入 JWT 中的 Device ID 一致，否则脚本（RTC）无法执行 |
+#### 模式二：Token Exchange（RFC 8693）
 
-> 💡 **关于 `getUserId()`**：组件使用 `userId` 构建每个用户独立的 IndexedDB（数据库名格式为 `{databaseName}-{userId}`）。如果不提供 `getUserId()`，`userId` 会回退为固定字符串 `'provider-managed'`，导致所有用户共享同一个数据库——在多租户场景下这通常不是期望的行为。
+当宿主应用持有外部 JWT（如 admin-server 签发的管理员 JWT），组件可以通过 Token Exchange 将其换取 RTC 主服务器的 JWT。适用于 Admin UI 集成等场景。
+
+```typescript
+import { createRtcAgent } from '@rtc-agent/component';
+
+const agent = createRtcAgent({
+  server: { url: 'https://your-server.com' },
+  auth: {
+    type: 'token-exchange',
+    getExchangeToken: async () => {
+      // 返回外部 JWT（如 admin-server 签发的 JWT）
+      // 组件会将其通过 RFC 8693 Token Exchange 换取 RTC JWT
+      return await adminAuthStore.getAdminToken();
+    },
+    isLoggedIn: () => {
+      return adminAuthStore.isAuthenticated();
+    },
+    logout: async () => {
+      await adminAuthStore.clearSession();
+    },
+    getUserId: () => adminAuthStore.getUserId(),
+    deviceId: 'uuid-from-your-backend',
+  },
+});
+```
+
+> 💡 Token Exchange 模式下不需要 `getToken()` 和 `refreshToken()`——组件内部自动完成 JWT 交换和刷新。主服务器需要在 `config.yaml` 中配置 `token_exchange.external_issuers` 以信任对应的 JWT 签发方。详见 [HTTP API - Admin-server 认证](/docs/protocol/http-api/#admin-server-认证)。
+
+#### AuthProvider 方法参考
+
+| 方法 | 必填 | 适用模式 | 说明 |
+| --- | --- | --- | --- |
+| `type` | 可选 | 两者 | `'oauth2-redirect'`（默认）或 `'token-exchange'` |
+| `getToken()` | OAuth2 模式必填 | oauth2-redirect | 异步——返回当前认证令牌 |
+| `refreshToken()` | OAuth2 模式必填 | oauth2-redirect | 异步——令牌过期时刷新 |
+| `getExchangeToken()` | Token Exchange 模式必填 | token-exchange | 异步——返回外部 JWT，组件将其换取 RTC JWT |
+| `isLoggedIn()` | ✅ | 两者 | **同步**——返回 `boolean`，表示用户是否已认证 |
+| `logout()` | 可选 | 两者 | 异步——组件需要终止会话时调用 |
+| `getUserId()` | 可选 | 两者 | 同步——返回当前用户的唯一标识。**强烈建议提供**，否则所有用户将共享同一个 IndexedDB（数据库名回退为 `{databaseName}-provider-managed`） |
+| `deviceId` | ✅ | 两者 | 设备唯一标识，必须与服务端嵌入 JWT 中的 Device ID 一致，否则脚本（RTC）无法执行 |
+
+> 💡 **关于 `getUserId()`**：组件使用 `userId` 构建每个用户独立的 IndexedDB（数据库名格式为 `{databaseName}-${userId}`）。如果不提供 `getUserId()`，`userId` 会回退为固定字符串 `'provider-managed'`，导致所有用户共享同一个数据库——在多租户场景下这通常不是期望的行为。
 
 ---
 

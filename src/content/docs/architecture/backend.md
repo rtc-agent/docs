@@ -1,9 +1,9 @@
 ---
 title: 后端架构
-description: RTC Agent 的后端架构——Go 服务分层，WebSocket Gateway、Agent 引擎、上下文管理、记忆系统、RTC 处理器、对象存储层的协作机制。
+description: RTC Agent 的后端架构——Go 服务分层，WebSocket Gateway、Agent 引擎、上下文管理、记忆系统、RTC 处理器、对象存储层、Admin-server 的协作机制。
 ---
 
-RTC Agent Server 是一个 **Go 服务**，负责 AI 推理编排、上下文管理、实时通信、工具调用调度和对象存储。核心组件包括 WebSocket Gateway、Agent 引擎、上下文管理、记忆系统、RTC 处理器和 OSS3 存储引擎。
+RTC Agent 包含两个 Go 服务：**主服务器**（Main Server）负责 AI 推理编排、上下文管理、实时通信、工具调用调度和对象存储；**Admin-server** 是独立的管理服务，提供管理员认证、用户管理等功能，通过 RFC 8693 Token Exchange 与主服务器集成。
 
 ## 服务分层
 
@@ -11,29 +11,38 @@ RTC Agent Server 是一个 **Go 服务**，负责 AI 推理编排、上下文管
 flowchart TD
     subgraph LAYERS["🏗️ 服务分层"]
         direction TB
-        L1["🌐 接入层<br/>WebSocket Gateway · OAuth2"]
+        L1["🌐 接入层<br/>WebSocket Gateway · OAuth2 · Token Exchange"]
         L2["📋 用例层<br/>Session · Message · Turn · RTC"]
         L3["🤖 领域层<br/>Agent 引擎 · 上下文 · 记忆"]
         L4["💾 基础设施层<br/>PostgreSQL · Redis · Centrifuge · MinIO/S3"]
     end
 
+    subgraph ADMIN["🔐 Admin-server（独立服务）"]
+        direction LR
+        ADM_AUTH["管理员认证<br/>JWT 签发 · JWKS"]
+        ADM_UI["Admin UI<br/>SPA 静态资源"]
+    end
+
     L1 --> L2 --> L3 --> L4
+    ADM_AUTH -.->|"RFC 8693<br/>Token Exchange"| L1
 
     style LAYERS fill:#e3f2fd,stroke:#1565c0,stroke-width:2px
     style L1 fill:#e8f5e9,stroke:#388e3c,stroke-width:2px
     style L2 fill:#fff9c4,stroke:#f9a825,stroke-width:2px
     style L3 fill:#f3e5f5,stroke:#7b1fa2,stroke-width:2px
     style L4 fill:#fce4ec,stroke:#c62828,stroke-width:2px
+    style ADMIN fill:#fff3e0,stroke:#e65100,stroke-width:2px
 ```
 
 | 层 | 职责 | 关键模块 |
 | --- | --- | --- |
-| 🌐 **接入层** | 协议适配、认证鉴权 | WebSocket Gateway、OAuth2 Handler |
+| 🌐 **接入层** | 协议适配、认证鉴权 | WebSocket Gateway、OAuth2 Handler、Token Exchange |
 | 📋 **用例层** | 业务编排、RPC 处理 | Session / Message / Turn / RTC 用例 |
 | 🤖 **领域层** | AI 推理、状态管理 | Agent 引擎、上下文管理、记忆系统 |
 | 💾 **基础设施层** | 数据持久化、消息传递、对象存储 | PostgreSQL、Redis、Centrifuge、MinIO/S3 |
+| 🔐 **Admin-server** | 管理员认证、用户管理 | JWT 签发（RS256/ES256）、JWKS 端点、Admin UI |
 
-> **OAuth2 认证**：系统采用 OAuth2 授权码流程，前端通过弹窗（popup window）跳转完成授权，获取 Access Token（1 小时有效）和 Refresh Token（30 天有效）。WebSocket 建连时使用 Access Token 鉴权。详见 [认证流程](/docs/integration/auth)。
+> **认证体系**：主服务器采用 OAuth2 授权码流程服务终端用户；Admin-server 使用邮箱密码登录服务管理员。管理员通过 Admin-server 获得的 JWT 可通过 RFC 8693 Token Exchange 被主服务器识别。详见 [认证流程](/docs/integration/auth) 和 [HTTP API](/docs/protocol/http-api/#admin-server-认证)。
 
 ## 核心组件
 

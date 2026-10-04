@@ -295,10 +295,20 @@ The `auth` field in `RtcAgentConfig` controls how the component obtains authenti
 
 Full control over the authentication lifecycle. Implement this when your host application already manages auth state and you want the component to integrate with it.
 
+AuthProvider supports two authentication modes:
+
+| Mode | `type` value | Use case |
+| --- | --- | --- |
+| OAuth2 Redirect (default) | `'oauth2-redirect'` | Host application manages tokens directly |
+| Token Exchange | `'token-exchange'` | Host holds an external JWT (e.g., from Admin-server), component exchanges it for an RTC JWT via RFC 8693 |
+
+#### Mode 1: OAuth2 Redirect (default)
+
 ```ts
 const config: RtcAgentConfig = {
   // ...other config
   auth: {
+    // type: 'oauth2-redirect',  // default, can be omitted
     getToken: async () => myAuthStore.getAccessToken(),
     refreshToken: async () => myAuthStore.refreshAccessToken(),
     isLoggedIn: () => myAuthStore.isAuthenticated,
@@ -308,6 +318,39 @@ const config: RtcAgentConfig = {
   },
 };
 ```
+
+#### Mode 2: Token Exchange (RFC 8693)
+
+When the host application holds an external JWT (e.g., an admin JWT issued by admin-server), the component can exchange it for an RTC main-server JWT via Token Exchange. This is suitable for Admin UI integration scenarios.
+
+```ts
+const config: RtcAgentConfig = {
+  // ...other config
+  auth: {
+    type: 'token-exchange',
+    getExchangeToken: async () => adminAuthStore.getAdminToken(),
+    isLoggedIn: () => adminAuthStore.isAuthenticated(),
+    logout: async () => { await adminAuthStore.clearSession(); },
+    getUserId: () => adminAuthStore.getUserId(),
+    deviceId: 'uuid-from-your-backend',
+  },
+};
+```
+
+> 💡 Token Exchange mode does not require `getToken()` or `refreshToken()` — the component handles JWT exchange and refresh internally. The main server must configure `token_exchange.external_issuers` in `config.yaml` to trust the corresponding JWT issuer. See [HTTP API - Admin-server Authentication](/docs/protocol/http-api/#admin-server-认证).
+
+#### AuthProvider Method Reference
+
+| Method | Required | Applicable modes | Description |
+| --- | --- | --- | --- |
+| `type` | Optional | Both | `'oauth2-redirect'` (default) or `'token-exchange'` |
+| `getToken()` | Required for OAuth2 mode | oauth2-redirect | Async — returns the current authentication token |
+| `refreshToken()` | Required for OAuth2 mode | oauth2-redirect | Async — refreshes the token when expired |
+| `getExchangeToken()` | Required for Token Exchange mode | token-exchange | Async — returns the external JWT, which the component exchanges for an RTC JWT |
+| `isLoggedIn()` | Required | Both | **Synchronous** — returns `boolean` indicating whether the user is authenticated |
+| `logout()` | Optional | Both | Async — called when the component needs to terminate the session |
+| `getUserId()` | Optional | Both | Synchronous — returns the current user's unique ID. **Strongly recommended**; otherwise all users share the same IndexedDB |
+| `deviceId` | Required | Both | Device unique identifier, must match the Device ID embedded in the server-issued JWT |
 
 > For detailed guidance, see [Authentication & Authorization](/docs/en/integration/auth/).
 
