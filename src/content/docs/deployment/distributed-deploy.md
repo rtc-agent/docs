@@ -107,6 +107,8 @@ cp .env.example .env
 LLM__API_KEY=your-api-key-here
 ```
 
+> ⚠️ **生产环境必须设置 `SERVER__ENV=production`**：Docker 配置默认 `env: "development"` 以方便本地调试。生产部署时必须通过环境变量 `SERVER__ENV=production` 覆盖，否则将跳过关键安全检查（OAuth2 redirect_uri 白名单、debug 端点强制认证、metrics 端点强制认证等）。
+>
 > 💡 **环境变量命名规则**：大写字母 + 双下划线 `__` 分隔层级，对应 YAML 配置的层级结构。例如 `llm.api_key` → `LLM__API_KEY`，`database.dsn` → `DATABASE__DSN`。这种映射由 Viper 的 `SetEnvKeyReplacer(".", "__")` 实现。
 
 **配置优先级**（从高到低）：

@@ -238,16 +238,16 @@ metrics:
 
 ### 启用 Debug 端点认证
 
-生产环境中，debug 端点（pprof、goroutines）**必须**配置认证，否则端点将被禁用：
+Debug 端点（pprof、goroutines）**默认禁用**（`enabled: false`）。如需启用，必须同时配置认证：
 
 ```yaml
 debug:
-  enabled: true
+  enabled: true          # 默认 false，需显式开启
   user: "admin"
   password: "${DEBUG__PASSWORD}"
 ```
 
-> ⚠️ 与 `/metrics` 一致，生产环境未配置 debug 认证时将直接禁用 debug 端点。
+> ⚠️ 生产环境未配置 debug 认证时将直接禁用 debug 端点。即使 `enabled: true`，缺少认证配置也会被关闭。
 
 ### 安全防护
 
@@ -258,6 +258,10 @@ Server 在生产环境自动启用以下安全防护措施：
 | **OAuth2 IP 限流** | OAuth2 认证端点（`/oauth2/authorize`、`/oauth2/token`、`/oauth2/refresh`）实施每 IP 5 req/s 限流，突发上限 10，防止暴力攻击 |
 | **HSTS 头** | 强制 HTTPS 传输，防止协议降级攻击 |
 | **Permissions-Policy 头** | 限制浏览器 API 访问权限，缩小攻击面 |
+| **Debug 端点默认禁用** | Debug 端点（pprof、goroutines）默认关闭，需显式开启并配置认证 |
+| **Redirect URI 白名单** | 生产环境强制校验 OAuth2 redirect_uri 白名单，防止开放重定向攻击 |
+| **OSS3 SecretAccessKey 静态加密** | 对象存储的 SecretAccessKey 在数据库中加密存储，防止明文泄露 |
+| **Trusted Proxy 支持** | 支持配置可信代理，确保审计日志和限流正确识别客户端真实 IP |
 
 ### Alertmanager 集成
 
