@@ -72,7 +72,7 @@ RTC Agent 内置了完整的可观测性基础设施：通过 Prometheus 采集�
 | 指标名 | 类型 | 标签 | 说明 |
 | --- | --- | --- | --- |
 | `rtc_session_created_total` | Counter | — | Session 创建总数 |
-| `rtc_session_closed_total` | Counter | `reason` (normal/timeout/error) | Session 关闭总数（按原因分布） |
+| `rtc_session_closed_total` | Counter | `reason` (normal/error/stopped_by_parent) | Session 关闭总数（按原因分布） |
 | `rtc_messages_sent_total` | Counter | `type` (user/assistant/system) | 消息发送总数（按类型分布） |
 
 ### OSS3 对象存储指标 (rtc_oss3_*)
@@ -116,7 +116,7 @@ RTC Agent 内置了完整的可观测性基础设施：通过 Prometheus 采集�
 
 | 仪表盘 | 说明 | 关键面板 |
 | --- | --- | --- |
-| **RTC Agent** | 核心业务仪表盘 | Session 活跃数、Turn 执行、LLM 调用、Token 消耗、缓存命中率 |
+| **RTC Agent** | 核心业务仪表盘 | Session 活跃数、Turn 执行、LLM 调用、Token 消耗、缓存命中率；WebSocket/Centrifuge 连接与 RPC 监控、Queue 生命周期、认证与安全、熔断器状态、数据库查询、业务事件（Session/消息） |
 | **OSS3 Overview** | 对象存储概览 | 上传/下载吞吐量、配额使用、分片上传状态、后端健康 |
 | **MinIO Overview** | MinIO 后端详情 | 磁盘使用率、S3 请求率、节点状态 |
 | **HTTP Server** | HTTP 层监控 | 请求率、延迟分布、状态码分布 |

@@ -204,7 +204,7 @@ open http://localhost:23001
 curl http://localhost:28080/metrics
 ```
 
-> 💡 The distributed deployment includes 8 preconfigured Grafana dashboards and 30+ alert rules covering the full stack: database, queue, WebSocket, authentication, circuit breaker, object storage, and more. See [Monitoring & Observability](/docs/en/operations/monitoring/) for details.
+> 💡 The distributed deployment includes 8 preconfigured Grafana dashboards and 40+ alert rules covering the full stack: database, queue, WebSocket, authentication, circuit breaker, object storage, and more. See [Monitoring & Observability](/docs/en/operations/monitoring/) for details.
 
 ## 4. Validate Distributed Behavior
 

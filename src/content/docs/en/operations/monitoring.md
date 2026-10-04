@@ -72,7 +72,7 @@ Track core business events (Session lifecycle and message sending).
 | Metric | Type | Labels | Description |
 | --- | --- | --- | --- |
 | `rtc_session_created_total` | Counter | — | Total sessions created |
-| `rtc_session_closed_total` | Counter | `reason` (normal/timeout/error) | Total sessions closed (by reason) |
+| `rtc_session_closed_total` | Counter | `reason` (normal/error/stopped_by_parent) | Total sessions closed (by reason) |
 | `rtc_messages_sent_total` | Counter | `type` (user/assistant/system) | Total messages sent (by type) |
 
 ### OSS3 Object Storage Metrics (rtc_oss3_*)
@@ -116,7 +116,7 @@ The distributed deployment includes pre-configured Grafana (port 23001, default 
 
 | Dashboard | Description | Key Panels |
 | --- | --- | --- |
-| **RTC Agent** | Core business dashboard | Active sessions, Turn execution, LLM calls, Token consumption, Cache hit rate |
+| **RTC Agent** | Core business dashboard | Active sessions, Turn execution, LLM calls, Token consumption, Cache hit rate; WebSocket/Centrifuge connections & RPC, Queue lifecycle, Auth & Security, Circuit breaker state, Database queries, Business events (Session/messages) |
 | **OSS3 Overview** | Object storage overview | Upload/download throughput, Quota usage, Multipart upload status, Backend health |
 | **MinIO Overview** | MinIO backend details | Disk usage, S3 request rate, Node status |
 | **HTTP Server** | HTTP layer monitoring | Request rate, Latency distribution, Status code distribution |
