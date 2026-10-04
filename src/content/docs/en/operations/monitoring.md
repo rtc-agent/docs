@@ -238,16 +238,16 @@ metrics:
 
 ### Enable Debug Endpoint Authentication
 
-In production, debug endpoints (pprof, goroutines) **require** authentication — otherwise the endpoints are disabled:
+Debug endpoints (pprof, goroutines) are **disabled by default** (`enabled: false`). To enable them, you must also configure authentication:
 
 ```yaml
 debug:
-  enabled: true
+  enabled: true          # Default false; must be explicitly enabled
   user: "admin"
   password: "${DEBUG__PASSWORD}"
 ```
 
-> ⚠️ Consistent with `/metrics`, debug endpoints are **disabled** in production when authentication is not configured.
+> ⚠️ In production, debug endpoints are **disabled** when authentication is not configured. Even if `enabled: true`, they will be turned off without authentication configuration.
 
 ### Security Hardening
 
@@ -258,6 +258,10 @@ The Server automatically enables the following security protections in productio
 | **OAuth2 IP Rate Limiting** | OAuth2 endpoints (`/oauth2/authorize`, `/oauth2/token`, `/oauth2/refresh`) are rate-limited to 5 req/s per IP with a burst of 10, preventing brute-force attacks |
 | **HSTS Header** | Enforces HTTPS transport, preventing protocol downgrade attacks |
 | **Permissions-Policy Header** | Restricts browser API access, reducing the attack surface |
+| **Debug Endpoints Default Disabled** | Debug endpoints (pprof, goroutines) are disabled by default; must be explicitly enabled and configured with authentication |
+| **Redirect URI Whitelist** | Production enforces OAuth2 redirect_uri whitelist validation, preventing open redirect attacks |
+| **OSS3 SecretAccessKey Static Encryption** | Object storage SecretAccessKey is encrypted at rest in the database, preventing plaintext leakage |
+| **Trusted Proxy Support** | Supports configuring trusted proxies to ensure audit logs and rate limiting correctly identify the real client IP |
 
 ### Alertmanager Integration
 

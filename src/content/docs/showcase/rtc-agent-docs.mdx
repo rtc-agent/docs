@@ -48,7 +48,7 @@ export default defineConfig({
           tag: 'script', 
           attrs: { 
             type: 'module', 
-            src: 'https://cdn.jsdelivr.net/npm/@rtc-agent/component@0.2.8/dist/index.js' 
+            src: 'https://cdn.jsdelivr.net/npm/@rtc-agent/component@0.3.0-rc.4/dist/index.js' 
           } 
         },
       ],
@@ -66,12 +66,12 @@ export default defineConfig({
 ```javascript
 // astro.config.mjs
 head: [
-  { tag: 'script', attrs: { type: 'module', src: 'https://cdn.jsdelivr.net/npm/@rtc-agent/component@0.2.8/dist/index.js' } },
+  { tag: 'script', attrs: { type: 'module', src: 'https://cdn.jsdelivr.net/npm/@rtc-agent/component@0.3.0-rc.4/dist/index.js' } },
   { 
     tag: 'script', 
     attrs: { type: 'module' }, 
     content: `
-      import { z, withMeta, createRtcAgent } from 'https://cdn.jsdelivr.net/npm/@rtc-agent/component@0.2.8/dist/index.js';
+      import { z, withMeta, createRtcAgent } from 'https://cdn.jsdelivr.net/npm/@rtc-agent/component@0.3.0-rc.4/dist/index.js';
 
       // 文档搜索函数
       const searchDocs = async ({ query } = {}) => {

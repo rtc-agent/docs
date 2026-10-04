@@ -97,7 +97,7 @@ agent.destroy();
 对于简单场景或 CDN 快速预览，可以直接使用 HTML 属性：
 
 ```html
-<script type="module" src="https://cdn.jsdelivr.net/npm/@rtc-agent/component@0.2.8-rc.0/dist/index.js"></script>
+<script type="module" src="https://cdn.jsdelivr.net/npm/@rtc-agent/component@0.3.0-rc.4/dist/index.js"></script>
 
 <rtc-agent theme="dark" app-label="我的 AI 助手"></rtc-agent>
 ```

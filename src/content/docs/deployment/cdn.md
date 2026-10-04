@@ -42,11 +42,11 @@ flowchart LR
 在你的网页中添加以下代码：
 
 ```html
-<script type="module" src="https://cdn.jsdelivr.net/npm/@rtc-agent/component@0.2.8-rc.0/dist/index.js"></script>
+<script type="module" src="https://cdn.jsdelivr.net/npm/@rtc-agent/component@0.3.0-rc.4/dist/index.js"></script>
 <rtc-agent server-url="https://your-rtc-server.com"></rtc-agent>
 ```
 
-> 💡 将 `your-rtc-server.com` 替换为实际的 RTC Agent Server 地址。如需使用最新版本，可将 `@0.2.8-rc.0` 替换为最新版本号或移除版本号以使用最新版。
+> 💡 将 `your-rtc-server.com` 替换为实际的 RTC Agent Server 地址。如需使用最新版本，可将 `@0.3.0-rc.4` 替换为最新版本号或移除版本号以使用最新版。
 
 ## 使用 `createRtcAgent()` 工厂函数
 
@@ -125,7 +125,7 @@ Access-Control-Allow-Origin: *
 使用 `curl` 检查 CDN 是否正确返回 CORS 头：
 
 ```bash
-curl -I https://cdn.jsdelivr.net/npm/@rtc-agent/component@0.2.8-rc.0/dist/assets/shared-worker-xxx.js
+curl -I https://cdn.jsdelivr.net/npm/@rtc-agent/component@0.3.0-rc.4/dist/assets/shared-worker-xxx.js
 # 应包含: Access-Control-Allow-Origin: *
 # 注意：实际文件名包含 hash（如 shared-worker-DNuUtKfr.js），请从包的 dist/assets/ 目录确认
 ```

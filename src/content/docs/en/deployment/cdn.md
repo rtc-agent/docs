@@ -42,11 +42,11 @@ flowchart LR
 Add the following code to your web page:
 
 ```html
-<script type="module" src="https://cdn.jsdelivr.net/npm/@rtc-agent/component@0.2.8-rc.0/dist/index.js"></script>
+<script type="module" src="https://cdn.jsdelivr.net/npm/@rtc-agent/component@0.3.0-rc.4/dist/index.js"></script>
 <rtc-agent server-url="https://your-rtc-server.com"></rtc-agent>
 ```
 
-> 💡 Replace `your-rtc-server.com` with your actual RTC Agent Server address. To use the latest version, replace `@0.2.8-rc.0` with the latest version number or remove the version to use the latest.
+> 💡 Replace `your-rtc-server.com` with your actual RTC Agent Server address. To use the latest version, replace `@0.3.0-rc.4` with the latest version number or remove the version to use the latest.
 
 ## Using `createRtcAgent()` with CDN
 
@@ -125,7 +125,7 @@ Access-Control-Allow-Origin: *
 Use `curl` to check if the CDN correctly returns CORS headers:
 
 ```bash
-curl -I https://cdn.jsdelivr.net/npm/@rtc-agent/component@0.2.8-rc.0/dist/assets/shared-worker-xxx.js
+curl -I https://cdn.jsdelivr.net/npm/@rtc-agent/component@0.3.0-rc.4/dist/assets/shared-worker-xxx.js
 # Should include: Access-Control-Allow-Origin: *
 # Note: The actual filename includes a hash (e.g., shared-worker-DNuUtKfr.js). Check the package's dist/assets/ directory for the exact name.
 ```
