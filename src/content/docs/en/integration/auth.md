@@ -458,19 +458,26 @@ client_id=<id>&client_secret=<secret>&code=<code>&redirect_uri=<uri>&code_verifi
 
 **Error responses**:
 
+Admin-server error responses always return HTTP 200, with error information in the response body via `success: false` and `errorCode` fields:
+
 ```json
 {
-  "error": "invalid_client",
-  "error_description": "Invalid client_id or client_secret"
+  "success": false,
+  "errorCode": "invalid_credentials",
+  "errorMessage": "Invalid email or password"
 }
 ```
 
-| HTTP Status | `error` value | Meaning |
-| :---: | --- | --- |
-| 400 | `invalid_request` | Missing or invalid parameters |
-| 400 | `invalid_grant` | Authorization code is invalid, already used, or expired |
-| 401 | `invalid_client` | Invalid client credentials |
-| 500 | `server_error` | Internal server error |
+| `errorCode` | Trigger | Description |
+| --- | --- | --- |
+| `invalid_request` | Malformed request body or field validation failure | Client should check request parameters |
+| `invalid_credentials` | Incorrect email or password | Login credentials are incorrect |
+| `invalid_grant` | refresh_token is invalid, revoked, or expired | User should be guided to re-login |
+| `unauthorized` | Missing/invalid/expired Authorization header | JWT authentication failed |
+| `user_not_found` | User with the given ID does not exist | Data consistency error |
+| `server_error` | Internal server error (key generation failure, database exception, etc.) | Retryable; investigate if persistent |
+
+> 💡 **Design Note**: Admin-server uses the Ant Design Pro unified response format. All responses (including errors) return HTTP 200. The frontend checks the `success` field and `errorCode` to determine whether the request succeeded and what type of error occurred, rather than relying on HTTP status codes.
 
 ### Authorization Code Semantics
 
