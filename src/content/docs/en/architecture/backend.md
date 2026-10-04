@@ -454,6 +454,46 @@ flowchart TD
 
 > 💡 **Parallel loading**: Multiple file attachments are loaded in parallel using goroutines, reducing latency in multi-file scenarios. WebP/GIF formats are rejected due to decoding library limitations—users should convert to JPEG/PNG.
 
+### Admin Dashboard
+
+The Admin Dashboard is a single-page application (SPA) built with **Ant Design Pro**, served as static assets by the admin-server. Administrators access the dashboard via browser, authenticate with email and password, and manage users and system state.
+
+```mermaid
+flowchart LR
+    subgraph ADMIN_UI["🖥️ Admin Dashboard"]
+        direction TB
+        LOGIN["🔐 Login<br/>Email + Password"]
+        DASH["📊 Dashboard<br/>User Mgmt · System Status"]
+        WIDGET["🫧 RTC Agent Widget<br/>Global Integration"]
+    end
+
+    subgraph BACKEND["⚙️ Admin-server"]
+        API["🔌 REST API<br/>/api/auth/*"]
+        STATIC["📦 Static Assets<br/>SPA Hosting"]
+    end
+
+    LOGIN -->|"① Email + Password"| API
+    API -->|"② Issue admin JWT"| LOGIN
+    LOGIN --> DASH
+    DASH --> WIDGET
+    WIDGET -->|"③ Token Exchange<br/>admin JWT → RTC JWT"| MAIN["Main Server"]
+    STATIC -->|"④ Serve SPA files"| DASH
+
+    style ADMIN_UI fill:#fff3e0,stroke:#e65100,stroke-width:2px
+    style BACKEND fill:#e3f2fd,stroke:#1565c0,stroke-width:2px
+    style WIDGET fill:#e8f5e9,stroke:#388e3c,stroke-width:2px
+```
+
+| Feature | Description |
+| --- | --- |
+| **Tech Stack** | React + Ant Design Pro + Umi routing |
+| **Authentication** | Email/password login, Access Token + Refresh Token dual-token mechanism with auto-refresh |
+| **Token Security** | Access Token stored in memory only (XSS prevention), Refresh Token via httpOnly cookie or secure storage |
+| **RTC Agent Integration** | After login, automatically mounts `<rtc-agent>` as a global floating widget using Token Exchange mode (admin JWT → RTC JWT) |
+| **Deployment** | SPA static assets are embedded into admin-server binary at compile time, accessible via `/admin/` path |
+
+> 💡 **RTC Agent Widget**: After admin login, RTC Agent floats above the dashboard as a global widget, allowing administrators to interact with AI directly from the admin interface. The widget uses Token Exchange mode to automatically exchange the admin-server JWT for a Main Server RTC JWT—no separate login required.
+
 ## Real-Time Communication Layer
 
 ```mermaid

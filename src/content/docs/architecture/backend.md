@@ -454,6 +454,46 @@ flowchart TD
 
 > 💡 **并行加载**：多个文件附件使用 goroutine 并行加载，降低多文件场景的延迟。WebP/GIF 格式因解码库限制被拒绝，建议用户转换为 JPEG/PNG。
 
+### Admin 管理后台
+
+Admin 管理后台是基于 **Ant Design Pro** 构建的单页应用（SPA），由 admin-server 以静态资源方式托管。管理员通过浏览器访问管理后台，使用邮箱密码登录后管理用户、查看系统状态。
+
+```mermaid
+flowchart LR
+    subgraph ADMIN_UI["🖥️ Admin 管理后台"]
+        direction TB
+        LOGIN["🔐 登录页<br/>邮箱 + 密码"]
+        DASH["📊 仪表盘<br/>用户管理 · 系统状态"]
+        WIDGET["🫧 RTC Agent 浮窗<br/>全局集成"]
+    end
+
+    subgraph BACKEND["⚙️ Admin-server"]
+        API["🔌 REST API<br/>/api/auth/*"]
+        STATIC["📦 静态资源<br/>SPA 托管"]
+    end
+
+    LOGIN -->|"① 邮箱 + 密码"| API
+    API -->|"② 签发 admin JWT"| LOGIN
+    LOGIN --> DASH
+    DASH --> WIDGET
+    WIDGET -->|"③ Token Exchange<br/>admin JWT → RTC JWT"| MAIN["主服务器"]
+    STATIC -->|"④ 提供 SPA 文件"| DASH
+
+    style ADMIN_UI fill:#fff3e0,stroke:#e65100,stroke-width:2px
+    style BACKEND fill:#e3f2fd,stroke:#1565c0,stroke-width:2px
+    style WIDGET fill:#e8f5e9,stroke:#388e3c,stroke-width:2px
+```
+
+| 特性 | 说明 |
+| --- | --- |
+| **技术栈** | React + Ant Design Pro + Umi 路由 |
+| **认证机制** | 邮箱密码登录，Access Token + Refresh Token 双令牌，自动刷新 |
+| **令牌安全** | Access Token 仅存内存（防 XSS），Refresh Token 通过 httpOnly cookie 或安全存储 |
+| **RTC Agent 集成** | 登录后自动挂载 `<rtc-agent>` 全局浮窗，使用 Token Exchange 模式（admin JWT 换取 RTC JWT） |
+| **部署方式** | admin-server 编译时嵌入 SPA 静态资源，通过 `/admin/` 路径访问 |
+
+> 💡 **RTC Agent 浮窗**：管理员登录后，RTC Agent 以全局浮窗形式悬浮在管理后台之上，可以直接在管理界面中与 AI 交互。浮窗使用 Token Exchange 模式，将 admin-server 签发的 JWT 自动换取主服务器的 RTC JWT，无需单独登录。
+
 ## 实时通信层
 
 ```mermaid
