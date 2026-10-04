@@ -70,7 +70,16 @@ Compose will automatically:
 
 1. Start PostgreSQL and Redis
 2. Run database migration (init container)
-3. Start 2 Server containers + Nginx load balancing + observability stack
+3. Start 2 Server containers + Admin-server management service + Nginx load balancing + observability stack
+
+> 💡 **Admin-server** admin panel is accessible at `http://localhost:28081`. A JWT key pair is automatically generated on first startup. Create an administrator account with:
+>
+> ```bash
+> docker compose exec admin-server ./rtc-agent admin account create \
+>   --email admin@example.com \
+>   --password your-password \
+>   --name "Admin"
+> ```
 
 ### 3. Verify
 
