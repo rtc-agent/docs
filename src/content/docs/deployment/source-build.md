@@ -101,8 +101,16 @@ cp etc/admin.yaml etc/admin.local.yaml
 编辑 `etc/admin.local.yaml`，至少修改以下字段：
 
 ```yaml
+server:
+  host: "0.0.0.0"
+  port: 8081
+  env: "development"  # 生产环境务必设为 "production"
+
 database:
   dsn: "postgres://rtc_agent:rtc_agent@localhost:25432/rtc_agent?sslmode=disable"
+
+cors:
+  allowed_origins: ["http://localhost:23001"]  # 管理后台地址，生产环境务必显式指定
 
 jwt:
   algorithm: "RS256"
@@ -110,6 +118,8 @@ jwt:
   audience: "http://localhost:8888"
   private_key_path: "./etc/keys/admin-private.pem"
   public_key_path: "./etc/keys/admin-public.pem"
+  access_token_ttl: 3600      # 1 小时
+  refresh_token_ttl: 604800   # 7 天
 ```
 
 ### 生成 JWT 密钥对

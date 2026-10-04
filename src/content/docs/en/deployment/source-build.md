@@ -101,8 +101,16 @@ cp etc/admin.yaml etc/admin.local.yaml
 Edit `etc/admin.local.yaml`, modifying at least the following fields:
 
 ```yaml
+server:
+  host: "0.0.0.0"
+  port: 8081
+  env: "development"  # Set to "production" in production deployments
+
 database:
   dsn: "postgres://rtc_agent:rtc_agent@localhost:25432/rtc_agent?sslmode=disable"
+
+cors:
+  allowed_origins: ["http://localhost:23001"]  # Admin dashboard URL; explicitly specify in production
 
 jwt:
   algorithm: "RS256"
@@ -110,6 +118,8 @@ jwt:
   audience: "http://localhost:8888"
   private_key_path: "./etc/keys/admin-private.pem"
   public_key_path: "./etc/keys/admin-public.pem"
+  access_token_ttl: 3600      # 1 hour
+  refresh_token_ttl: 604800   # 7 days
 ```
 
 ### Generate JWT Key Pair

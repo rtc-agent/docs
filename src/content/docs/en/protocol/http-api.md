@@ -528,6 +528,8 @@ Admin-server uses asymmetric keys to sign JWTs, supporting algorithms such as RS
 ### Admin-server Endpoint Details
 
 > 💡 Admin-server uses the Ant Design Pro unified response format: `{ "success": true, "data": {...} }` on success, `{ "success": false, "errorCode": "...", "errorMessage": "..." }` on failure (HTTP status code is always 200).
+>
+> 📌 **Exception**: The `/health` endpoint returns HTTP 503 (not 200) when the database is unavailable, so that load balancers and Kubernetes probes can correctly detect service status.
 
 #### POST /api/auth/login
 
@@ -574,9 +576,37 @@ Exchange a refresh_token for a new access_token. Each refresh returns a new refr
 }
 ```
 
+**Success Response** (200):
+
+```json
+{
+  "success": true,
+  "data": {
+    "access_token": "eyJhbGciOi...(new)",
+    "refresh_token": "rt_...(new)",
+    "expires_in": 3600,
+    "token_type": "Bearer"
+  }
+}
+```
+
 #### GET /api/auth/me
 
 Get current administrator information. Requires `Authorization: Bearer <admin-jwt>` header.
+
+**Success Response** (200):
+
+```json
+{
+  "success": true,
+  "data": {
+    "id": "uuid",
+    "email": "admin@example.com",
+    "name": "Admin",
+    "avatar_url": ""
+  }
+}
+```
 
 #### POST /api/auth/logout
 
@@ -587,6 +617,17 @@ Revoke a refresh_token. Requires JWT authentication.
 ```json
 {
   "refresh_token": "refresh-token-to-revoke"
+}
+```
+
+**Success Response** (200):
+
+```json
+{
+  "success": true,
+  "data": {
+    "status": "ok"
+  }
 }
 ```
 

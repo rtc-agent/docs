@@ -528,6 +528,8 @@ Admin-server 使用非对称密钥签名 JWT，支持 RS256 / ES256 / EdDSA 等�
 ### Admin-server 端点详情
 
 > 💡 Admin-server 使用 Ant Design Pro 统一响应格式：成功时 `{ "success": true, "data": {...} }`，失败时 `{ "success": false, "errorCode": "...", "errorMessage": "..." }`（HTTP 状态码始终为 200）。
+>
+> 📌 **例外**：`/health` 健康检查端点在数据库不可用时返回 HTTP 503（而非 200），以便负载均衡器和 Kubernetes 探针正确识别服务状态。
 
 #### POST /api/auth/login
 
@@ -574,9 +576,37 @@ Admin-server 使用非对称密钥签名 JWT，支持 RS256 / ES256 / EdDSA 等�
 }
 ```
 
+**成功响应**（200）：
+
+```json
+{
+  "success": true,
+  "data": {
+    "access_token": "eyJhbGciOi...(new)",
+    "refresh_token": "rt_...(new)",
+    "expires_in": 3600,
+    "token_type": "Bearer"
+  }
+}
+```
+
 #### GET /api/auth/me
 
 获取当前管理员信息。需要 `Authorization: Bearer <admin-jwt>` 请求头。
+
+**成功响应**（200）：
+
+```json
+{
+  "success": true,
+  "data": {
+    "id": "uuid",
+    "email": "admin@example.com",
+    "name": "Admin",
+    "avatar_url": ""
+  }
+}
+```
 
 #### POST /api/auth/logout
 
@@ -587,6 +617,17 @@ Admin-server 使用非对称密钥签名 JWT，支持 RS256 / ES256 / EdDSA 等�
 ```json
 {
   "refresh_token": "refresh-token-to-revoke"
+}
+```
+
+**成功响应**（200）：
+
+```json
+{
+  "success": true,
+  "data": {
+    "status": "ok"
+  }
 }
 ```
 
