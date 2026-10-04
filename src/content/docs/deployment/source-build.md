@@ -62,7 +62,7 @@ export LLM__API_KEY=your-api-key-here
 >
 > 💡 **环境变量命名规则**：大写字母 + 双下划线 `__` 分隔层级，对应 YAML 配置的层级结构。例如 `llm.api_key` → `LLM__API_KEY`。这种映射由 Viper 的 `SetEnvKeyReplacer(".", "__")` 实现。
 >
-> ⚠️ **敏感字段处理**：如果 YAML 配置文件中明确写了某个字段（如 `api_key`），环境变量**不会覆盖**它。因此敏感字段建议不在 YAML 中写明文，而是通过环境变量配置。
+> ⚠️ **敏感字段处理**：敏感字段（如 `api_key`、`password`）建议不在 YAML 中写明文，而是通过环境变量配置。环境变量优先级高于配置文件，可以安全地覆盖 YAML 中的值。
 
 ## 4. 构建 & 运行
 
@@ -114,7 +114,7 @@ jwt:
 
 ### 生成 JWT 密钥对
 
-Admin-server 使用非对称密钥签名 JWT。首次启动时会自动生成密钥对，也可以手动生成：
+Admin-server 使用非对称密钥签名 JWT。如果配置中未指定密钥路径，启动时会生成临时内存密钥（重启后丢失）。生产环境务必使用持久化密钥：
 
 ```bash
 # 手动生成密钥对（推荐 ES256）
@@ -122,9 +122,14 @@ Admin-server 使用非对称密钥签名 JWT。首次启动时会自动生成密
 
 # 或 RSA
 ./bin/rtc-agent admin keygen --algorithm RS256
+
+# 或 EdDSA (Ed25519)
+./bin/rtc-agent admin keygen --algorithm EdDSA
 ```
 
 密钥默认存储在 `etc/keys/` 目录（已在 `.gitignore` 中排除 `*.pem`）。
+
+> 💡 Docker 部署时，`docker-entrypoint.sh` 会自动在 named volume 中生成持久化密钥，无需手动操作。
 
 ### 创建管理员账号
 

@@ -113,11 +113,11 @@ LLM__API_KEY=your-api-key-here
 
 | Priority | Source | Description |
 |:--------:|--------|-------------|
-| 1 | Config file | `etc/config.yaml` or the file specified by `--config` |
-| 2 | Environment variables | e.g., `LLM__API_KEY` |
+| 1 | Environment variables | e.g., `LLM__API_KEY`, via Viper's `AutomaticEnv` |
+| 2 | Config file | `etc/config.yaml` or the file specified by `--config` |
 | 3 | Defaults | Values set by `SetDefault` in code |
 
-> ⚠️ **Sensitive field handling**: If a field (like `api_key`) is explicitly written in the YAML config file, environment variables **will not override** it. Therefore, sensitive fields should not be written in plaintext in YAML; instead, configure them via environment variables.
+> ⚠️ **Sensitive field handling**: Sensitive fields (like `api_key`, `password`) should not be written in plaintext in YAML; instead, configure them via environment variables. Environment variables have higher priority than config files and can safely override YAML values.
 
 ### YAML Configuration
 

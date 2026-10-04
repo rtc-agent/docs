@@ -221,6 +221,15 @@ sequenceDiagram
 
 ### 错误码
 
+Token Exchange 错误响应遵循标准 OAuth2 错误格式：
+
+```json
+{
+  "error": "invalid_grant",
+  "error_description": "Invalid subject_token"
+}
+```
+
 | HTTP 状态码 | `error` 值 | 含义 |
 | :---: | --- | --- |
 | 400 | `invalid_request` | 缺少必填字段或 grant_type 不正确 |
@@ -229,6 +238,8 @@ sequenceDiagram
 | 500 | `server_error` | 服务端内部错误 |
 | 503 | `temporarily_unavailable` | 身份提供方暂时不可用（JWKS 端点无法访问） |
 
+> 💡 **错误格式说明**：Token Exchange 端点使用标准 OAuth2 错误格式（`error` + `error_description`），与 `/oauth2/token` 的其他模式保持一致。这与 Admin-server 端点使用的统一响应格式（`success` + `errorCode` + `errorMessage`，始终返回 HTTP 200）不同。
+>
 > 📌 **前置条件**：主服务器需在 `config.yaml` 中配置 `token_exchange.external_issuers` 以信任对应的 JWT 签发方。详见 [Admin-server 认证](#admin-server-认证)。
 
 ---
@@ -487,20 +498,29 @@ token_exchange:
 
 ### JWT 密钥管理
 
-Admin-server 使用非对称密钥（RS256 / ES256）签名 JWT。主服务器通过 JWKS 端点获取公钥进行验证，无需共享密钥。
+Admin-server 使用非对称密钥签名 JWT，支持 RS256 / ES256 / EdDSA 等算法。主服务器通过 JWKS 端点获取公钥进行验证，无需共享密钥。
 
 ```bash
-# 生成密钥对
-./scripts/generate-keys.sh all     # RS256 + ES256
-./scripts/generate-keys.sh es256   # 仅 ES256（推荐）
+# 方式一：使用 admin keygen 子命令（推荐）
+./bin/rtc-agent admin keygen                        # 默认 RS256
+./bin/rtc-agent admin keygen --algorithm ES256      # ES256（推荐用于生产）
+./bin/rtc-agent admin keygen --algorithm EdDSA      # EdDSA（Ed25519）
+./bin/rtc-agent admin keygen --force                 # 强制覆盖已有密钥
 
-# 自动模式（admin-server 启动时无密钥自动生成）
+# 方式二：使用脚本（兼容旧版）
+./scripts/generate-keys.sh all     # RS256 + ES256
+./scripts/generate-keys.sh es256   # 仅 ES256
+
+# 自动模式（Docker 部署时自动生成）
+# Docker 容器首次启动时，docker-entrypoint.sh 会自动检测并生成 RS256 密钥对
+# 密钥存储在 Docker named volume（full-admin-server-keys）中，跨重启持久化
 # 生产环境建议使用持久化密钥，避免重启后所有 JWT 失效
 ```
 
 | 环境 | 密钥存储建议 |
 | --- | --- |
 | 开发 | 本地 `etc/keys/` 目录（已在 `.gitignore` 中排除 `*.pem`） |
+| Docker | Named volume `full-admin-server-keys`（自动生成，跨重启持久化） |
 | 生产 | KMS 服务（AWS KMS / 阿里云凭据管家 / HashiCorp Vault） |
 
 > 💡 建议每 90 天轮换密钥。轮换时保留旧公钥 24-48 小时以兼容已签发的 token，详见 `etc/keys/README.md`。

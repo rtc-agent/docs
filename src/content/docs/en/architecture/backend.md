@@ -40,7 +40,7 @@ flowchart TD
 | 📋 **Use Case Layer** | Business orchestration, RPC processing | Session / Message / Turn / RTC use cases |
 | 🤖 **Domain Layer** | AI reasoning, state management | Agent Engine, Context Management, Memory System |
 | 💾 **Infrastructure Layer** | Data persistence, message passing, object storage | PostgreSQL, Redis, Centrifuge, MinIO/S3 |
-| 🔐 **Admin-server** | Administrator authentication, user management | JWT signing (RS256/ES256), JWKS endpoint, Admin UI |
+| 🔐 **Admin-server** | Administrator authentication, user management | JWT signing (RS256/ES256/EdDSA), JWKS endpoint, Admin UI |
 
 > **Authentication System**: The Main Server uses OAuth2 authorization code flow for end users; Admin-server uses email/password login for service administrators. Administrators obtain JWTs from Admin-server, which can be recognized by the Main Server via RFC 8693 Token Exchange. See [Authentication Flow](/docs/en/integration/auth) and [HTTP API](/docs/en/protocol/http-api/#admin-server-authentication).
 

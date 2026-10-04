@@ -34,7 +34,7 @@ const config: RtcAgentConfig = {
   // 认证配置（AuthProvider，见下方"认证配置"章节）
   auth: {
     getToken: async () => localStorage.getItem('token') || '',
-    userId: 'user-123',
+    getUserId: () => 'user-123',
     deviceId: 'uuid-from-your-backend',  // 必填，与服务端 JWT 中的 Device ID 一致
   },
   

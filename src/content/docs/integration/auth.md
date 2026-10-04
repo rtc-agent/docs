@@ -456,29 +456,6 @@ client_id=<id>&client_secret=<secret>&code=<code>&redirect_uri=<uri>&code_verifi
 | `email` | 可选 | 邮箱 |
 | `avatar_url` | 可选 | 头像 URL |
 
-**错误响应**：
-
-Admin-server 的错误响应始终返回 HTTP 200，通过响应体中的 `success: false` 和 `errorCode` 字段区分错误类型：
-
-```json
-{
-  "success": false,
-  "errorCode": "invalid_credentials",
-  "errorMessage": "Invalid email or password"
-}
-```
-
-| `errorCode` | 触发场景 | 说明 |
-| --- | --- | --- |
-| `invalid_request` | 请求体格式错误、字段校验失败 | 客户端应检查请求参数 |
-| `invalid_credentials` | 邮箱或密码错误 | 登录凭证不正确 |
-| `invalid_grant` | refresh_token 无效、已撤销或已过期 | 应引导用户重新登录 |
-| `unauthorized` | 缺少/无效/过期的 Authorization 头 | JWT 认证失败 |
-| `user_not_found` | 用户 ID 对应的用户不存在 | 数据一致性异常 |
-| `server_error` | 服务器内部错误（密钥生成失败、数据库异常等） | 可重试，持续发生需排查 |
-
-> 💡 **设计要点**：Admin-server 使用 Ant Design Pro 统一响应格式，所有响应（包括错误）都返回 HTTP 200。前端通过检查 `success` 字段和 `errorCode` 来判断请求是否成功以及错误类型，而不是依赖 HTTP 状态码。
-
 ### 授权码语义
 
 | 约束 | 说明 |

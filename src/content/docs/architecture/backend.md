@@ -40,7 +40,7 @@ flowchart TD
 | 📋 **用例层** | 业务编排、RPC 处理 | Session / Message / Turn / RTC 用例 |
 | 🤖 **领域层** | AI 推理、状态管理 | Agent 引擎、上下文管理、记忆系统 |
 | 💾 **基础设施层** | 数据持久化、消息传递、对象存储 | PostgreSQL、Redis、Centrifuge、MinIO/S3 |
-| 🔐 **Admin-server** | 管理员认证、用户管理 | JWT 签发（RS256/ES256）、JWKS 端点、Admin UI |
+| 🔐 **Admin-server** | 管理员认证、用户管理 | JWT 签发（RS256/ES256/EdDSA）、JWKS 端点、Admin UI |
 
 > **认证体系**：主服务器采用 OAuth2 授权码流程服务终端用户；Admin-server 使用邮箱密码登录服务管理员。管理员通过 Admin-server 获得的 JWT 可通过 RFC 8693 Token Exchange 被主服务器识别。详见 [认证流程](/docs/integration/auth) 和 [HTTP API](/docs/protocol/http-api/#admin-server-认证)。
 

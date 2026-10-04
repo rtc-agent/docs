@@ -115,11 +115,11 @@ LLM__API_KEY=your-api-key-here
 
 | 优先级 | 来源 | 说明 |
 |:------:|------|------|
-| 1 | 配置文件 | `etc/config.yaml` 或 `--config` 指定的文件 |
-| 2 | 环境变量 | 如 `LLM__API_KEY` |
+| 1 | 环境变量 | 如 `LLM__API_KEY`，通过 Viper 的 `AutomaticEnv` 实现 |
+| 2 | 配置文件 | `etc/config.yaml` 或 `--config` 指定的文件 |
 | 3 | 默认值 | 代码中 `SetDefault` 设置 |
 
-> ⚠️ **敏感字段处理**：如果 YAML 配置文件中明确写了某个字段（如 `api_key`），环境变量**不会覆盖**它。因此敏感字段建议不在 YAML 中写明文，而是通过环境变量配置。
+> ⚠️ **敏感字段处理**：敏感字段（如 `api_key`、`password`）建议不在 YAML 中写明文，而是通过环境变量配置。环境变量优先级高于配置文件，可以安全地覆盖 YAML 中的值。
 
 ### YAML 配置
 

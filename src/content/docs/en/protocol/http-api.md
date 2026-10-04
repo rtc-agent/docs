@@ -177,6 +177,73 @@ sequenceDiagram
 
 ---
 
+## POST /oauth2/token (Token Exchange — RFC 8693)
+
+`POST /oauth2/token` supports both authorization code exchange and RFC 8693 Token Exchange, dispatched by the `grant_type` parameter. When `grant_type` is `urn:ietf:params:oauth:grant-type:token-exchange`, the endpoint enters Token Exchange mode — exchanging an external JWT (e.g., an admin JWT issued by admin-server) for an RTC main-server access_token.
+
+### Request Body
+
+```json
+{
+  "grant_type": "urn:ietf:params:oauth:grant-type:token-exchange",
+  "subject_token": "eyJhbGciOi...(external JWT)",
+  "subject_token_type": "urn:ietf:params:oauth:token-type:access_token",
+  "device_id": "uuid-generated-by-client"
+}
+```
+
+| Field | Required | Type | Description |
+|------|:----:|:----:|------|
+| `grant_type` | ✅ | string | Must be `urn:ietf:params:oauth:grant-type:token-exchange` |
+| `subject_token` | ✅ | string | External JWT (issued by a trusted issuer) |
+| `subject_token_type` | ✅ | string | Token type, typically `urn:ietf:params:oauth:token-type:access_token` |
+| `device_id` | ✅ | string | RTC Agent extension — client device UUID (embedded in the issued JWT) |
+
+> 💡 Both `application/json` and `application/x-www-form-urlencoded` Content-Types are supported.
+
+### Response
+
+```json
+{
+  "access_token": "eyJhbGciOi...(RTC JWT)",
+  "issued_token_type": "urn:ietf:params:oauth:token-type:access_token",
+  "token_type": "Bearer",
+  "expires_in": 3600
+}
+```
+
+| Field | Type | Description |
+|------|:----:|------|
+| `access_token` | string | JWT issued by the RTC main server, validity specified by `expires_in` |
+| `issued_token_type` | string | Fixed: `urn:ietf:params:oauth:token-type:access_token` |
+| `token_type` | string | Fixed: `Bearer` |
+| `expires_in` | integer | Access token expiration time (seconds), typically **3600** (1 hour) |
+
+### Error Codes
+
+Token Exchange error responses follow the standard OAuth2 error format:
+
+```json
+{
+  "error": "invalid_grant",
+  "error_description": "Invalid subject_token"
+}
+```
+
+| HTTP Status | `error` Value | Meaning |
+| :---: | --- | --- |
+| 400 | `invalid_request` | Missing required fields or incorrect grant_type |
+| 400 | `invalid_grant` | Invalid subject_token, JWT signature verification failed, or untrusted issuer |
+| 401 | `invalid_grant` | JWT verification failed and JWKS could not be refreshed |
+| 500 | `server_error` | Internal server error |
+| 503 | `temporarily_unavailable` | Identity provider temporarily unavailable (JWKS endpoint unreachable) |
+
+> 💡 **Error format note**: The Token Exchange endpoint uses the standard OAuth2 error format (`error` + `error_description`), consistent with other modes of `/oauth2/token`. This differs from the unified response format (`success` + `errorCode` + `errorMessage`, always returning HTTP 200) used by Admin-server endpoints.
+>
+> 📌 **Prerequisite**: The main server must configure `token_exchange.external_issuers` in `config.yaml` to trust the corresponding JWT issuer. See [Admin-server Authentication](#admin-server-authentication).
+
+---
+
 ## POST /oauth2/refresh
 
 Exchange a refresh_token for a new access_token. The refresh_token can be reused within its validity period.
@@ -206,62 +273,6 @@ Exchange a refresh_token for a new access_token. The refresh_token can be reused
 |------|:----:|------|
 | `access_token` | string | New JWT access token |
 | `expires_in` | integer | New access token expiration time (seconds) |
-
----
-
-## POST /oauth2/token (Token Exchange — RFC 8693)
-
-`POST /oauth2/token` supports both authorization code exchange and RFC 8693 Token Exchange, dispatched by the `grant_type` parameter. When `grant_type` is `urn:ietf:params:oauth:grant-type:token-exchange`, the endpoint enters Token Exchange mode — exchanging an external JWT (e.g., an admin JWT issued by admin-server) for an RTC main-server access_token.
-
-### Request Body
-
-```json
-{
-  "grant_type": "urn:ietf:params:oauth:grant-type:token-exchange",
-  "subject_token": "eyJhbGciOi...(external JWT)",
-  "subject_token_type": "urn:ietf:params:oauth:token-type:access_token",
-  "device_id": "uuid-generated-by-client"
-}
-```
-
-| Field | Required | Type | Description |
-|------|:----:|------|------|
-| `grant_type` | ✅ | string | Must be `urn:ietf:params:oauth:grant-type:token-exchange` |
-| `subject_token` | ✅ | string | External JWT (issued by a trusted issuer) |
-| `subject_token_type` | ✅ | string | Token type, typically `urn:ietf:params:oauth:token-type:access_token` |
-| `device_id` | ✅ | string | RTC Agent extension — client device UUID (embedded in the issued JWT) |
-
-> 💡 Both `application/json` and `application/x-www-form-urlencoded` Content-Types are supported.
-
-### Response
-
-```json
-{
-  "access_token": "eyJhbGciOi...(RTC JWT)",
-  "issued_token_type": "urn:ietf:params:oauth:token-type:access_token",
-  "token_type": "Bearer",
-  "expires_in": 3600
-}
-```
-
-| Field | Type | Description |
-|------|:----:|------|
-| `access_token` | string | JWT issued by the RTC main server, validity specified by `expires_in` |
-| `issued_token_type` | string | Fixed: `urn:ietf:params:oauth:token-type:access_token` |
-| `token_type` | string | Fixed: `Bearer` |
-| `expires_in` | integer | Access token expiration time (seconds), typically **3600** (1 hour) |
-
-### Error Codes
-
-| HTTP Status | `error` Value | Meaning |
-| :---: | --- | --- |
-| 400 | `invalid_request` | Missing required fields or incorrect grant_type |
-| 400 | `invalid_grant` | Invalid subject_token, JWT signature verification failed, or untrusted issuer |
-| 401 | `invalid_grant` | JWT verification failed and JWKS could not be refreshed |
-| 500 | `server_error` | Internal server error |
-| 503 | `temporarily_unavailable` | Identity provider temporarily unavailable (JWKS endpoint unreachable) |
-
-> 📌 **Prerequisite**: The main server must configure `token_exchange.external_issuers` in `config.yaml` to trust the corresponding JWT issuer. See [Admin-server Authentication](#admin-server-authentication).
 
 ---
 
@@ -487,20 +498,29 @@ token_exchange:
 
 ### JWT Key Management
 
-Admin-server uses asymmetric keys (RS256 / ES256) to sign JWTs. The Main Server obtains public keys via the JWKS endpoint for verification, with no shared secrets required.
+Admin-server uses asymmetric keys to sign JWTs, supporting algorithms such as RS256 / ES256 / EdDSA. The Main Server obtains public keys via the JWKS endpoint for verification, with no shared secrets required.
 
 ```bash
-# Generate key pairs
-./scripts/generate-keys.sh all     # RS256 + ES256
-./scripts/generate-keys.sh es256   # ES256 only (recommended)
+# Method 1: Using admin keygen subcommand (recommended)
+./bin/rtc-agent admin keygen                        # Default: RS256
+./bin/rtc-agent admin keygen --algorithm ES256      # ES256 (recommended for production)
+./bin/rtc-agent admin keygen --algorithm EdDSA      # EdDSA (Ed25519)
+./bin/rtc-agent admin keygen --force                 # Force overwrite existing keys
 
-# Auto mode (admin-server auto-generates keys on startup if none exist)
+# Method 2: Using script (legacy compatibility)
+./scripts/generate-keys.sh all     # RS256 + ES256
+./scripts/generate-keys.sh es256   # ES256 only
+
+# Auto mode (Docker deployments)
+# On first startup, docker-entrypoint.sh auto-detects and generates an RS256 key pair
+# Keys are stored in a Docker named volume (full-admin-server-keys), persisting across restarts
 # Production environments should use persistent keys to avoid invalidating all JWTs after restart
 ```
 
 | Environment | Key Storage Recommendation |
 | --- | --- |
 | Development | Local `etc/keys/` directory (already excluded `*.pem` in `.gitignore`) |
+| Docker | Named volume `full-admin-server-keys` (auto-generated, persists across restarts) |
 | Production | KMS service (AWS KMS / Alibaba Cloud KMS / HashiCorp Vault) |
 
 > 💡 Rotate keys every 90 days. When rotating, retain old public keys for 24-48 hours to maintain compatibility with already-issued tokens. See `etc/keys/README.md` for details.

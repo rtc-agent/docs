@@ -34,7 +34,7 @@ const config: RtcAgentConfig = {
   // Authentication (AuthProvider, see "Auth Configuration" below)
   auth: {
     getToken: async () => localStorage.getItem('token') || '',
-    userId: 'user-123',
+    getUserId: () => 'user-123',
     deviceId: 'uuid-from-your-backend',  // required — must match the Device ID in the server-issued JWT
   },
   

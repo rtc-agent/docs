@@ -62,7 +62,7 @@ export LLM__API_KEY=your-api-key-here
 >
 > 💡 **Environment variable naming**: Uppercase letters + double underscore `__` to separate hierarchy levels, matching YAML config structure. For example, `llm.api_key` → `LLM__API_KEY`. This mapping is implemented by Viper's `SetEnvKeyReplacer(".", "__")`.
 >
-> ⚠️ **Sensitive field handling**: If a field (like `api_key`) is explicitly written in the YAML config file, environment variables **will not override** it. Therefore, sensitive fields should not be written in plaintext in YAML; instead, configure them via environment variables.
+> ⚠️ **Sensitive field handling**: Sensitive fields (like `api_key`, `password`) should not be written in plaintext in YAML; instead, configure them via environment variables. Environment variables have higher priority than config files and can safely override YAML values.
 
 ## 4. Build & Run
 
@@ -114,7 +114,7 @@ jwt:
 
 ### Generate JWT Key Pair
 
-Admin-server uses asymmetric keys to sign JWTs. Keys are auto-generated on first startup, or you can generate them manually:
+Admin-server uses asymmetric keys to sign JWTs. If no key paths are configured, ephemeral in-memory keys are generated on startup (lost after restart). Production environments must use persistent keys:
 
 ```bash
 # Manually generate key pair (ES256 recommended)
@@ -122,9 +122,14 @@ Admin-server uses asymmetric keys to sign JWTs. Keys are auto-generated on first
 
 # Or RSA
 ./bin/rtc-agent admin keygen --algorithm RS256
+
+# Or EdDSA (Ed25519)
+./bin/rtc-agent admin keygen --algorithm EdDSA
 ```
 
 Keys are stored in the `etc/keys/` directory by default (already excluded from `.gitignore` as `*.pem`).
+
+> 💡 In Docker deployments, `docker-entrypoint.sh` automatically generates persistent keys in a named volume — no manual operation needed.
 
 ### Create Admin Account
 
