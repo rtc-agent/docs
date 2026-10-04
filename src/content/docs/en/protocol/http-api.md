@@ -304,6 +304,8 @@ Prometheus metrics endpoint exposing runtime metrics for monitoring systems (Pro
 
 **Authentication**: Optional Basic Auth. Enabled via the `metrics.user` and `metrics.password` configuration options. Production deployments should configure authentication; the server logs a warning when the endpoint is unprotected.
 
+> 💡 For a complete list of Prometheus metrics, Grafana dashboards, and alert rules, see [Monitoring](/docs/en/operations/monitoring/).
+
 ---
 
 ## Business Endpoints

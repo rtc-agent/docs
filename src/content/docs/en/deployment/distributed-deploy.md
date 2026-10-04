@@ -183,7 +183,15 @@ docker compose ps
 
 # Jaeger trace dashboard
 open http://localhost:26686
+
+# Grafana observability dashboards
+open http://localhost:23001
+
+# Prometheus metrics endpoint
+curl http://localhost:28080/metrics
 ```
+
+> 💡 The distributed deployment includes 8 preconfigured Grafana dashboards and 30+ alert rules covering the full stack: database, queue, WebSocket, authentication, circuit breaker, object storage, and more. See [Monitoring & Observability](/docs/en/operations/monitoring/) for details.
 
 ## 4. Validate Distributed Behavior
 

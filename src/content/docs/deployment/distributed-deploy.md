@@ -183,7 +183,15 @@ docker compose ps
 
 # Jaeger 追踪面板
 open http://localhost:26686
+
+# Grafana 可观测性仪表盘
+open http://localhost:23001
+
+# Prometheus 指标端点
+curl http://localhost:28080/metrics
 ```
+
+> 💡 分布式部署预配置了 8 个 Grafana 仪表盘和 30+ 条告警规则，覆盖数据库、队列、WebSocket、认证、熔断器、对象存储等全链路。详见 [可观测性监控](/docs/operations/monitoring/)。
 
 ## 4. 分布式行为验证
 

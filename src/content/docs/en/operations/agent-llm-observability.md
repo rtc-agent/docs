@@ -306,3 +306,5 @@ flowchart LR
 | High LLM error rate | LLM request error rate > 5% | LLM service is unstable |
 | Excessive token consumption | `rate(rtc_llm_tokens_total[5m])` abnormally high | Possible context leak |
 | Low cache hit rate | `cache hit rate below threshold` appears frequently | AutoCacheControl may have failed |
+
+> 💡 For a complete list of Prometheus metrics, Grafana dashboards, and alert rules, see [Monitoring & Observability](/docs/en/operations/monitoring/).

@@ -306,6 +306,8 @@ Prometheus 指标端点，暴露服务运行指标，供监控系统（Prometheu
 
 **认证**：可选 Basic Auth。通过 `metrics.user` 和 `metrics.password` 配置项启用。生产环境建议配置认证，未配置时服务端会输出告警日志。
 
+> 💡 完整的 Prometheus 指标列表、Grafana 仪表盘和告警规则参见 [可观测性监控](/docs/operations/monitoring/)。
+
 ---
 
 ## 业务端点

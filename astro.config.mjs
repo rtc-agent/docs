@@ -247,6 +247,7 @@ export default defineConfig({
 						{ label: 'Agent & LLM Observability', link: '/operations/agent-llm-observability/', translations: { 'zh-CN': 'Agent 与 LLM 可观测性' } },
 						{ label: 'Realtime Connection Logs', link: '/operations/realtime-connection-logs/', translations: { 'zh-CN': '实时通信日志' } },
 						{ label: 'Recovery & Workflow Logs', link: '/operations/recovery-workflow-logs/', translations: { 'zh-CN': '错误恢复与工作流日志' } },
+						{ label: 'Monitoring', link: '/operations/monitoring/', translations: { 'zh-CN': '可观测性监控' } },
 					],
 				},
 				{

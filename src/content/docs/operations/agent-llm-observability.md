@@ -306,3 +306,5 @@ flowchart LR
 | LLM 错误率过高 | LLM 请求错误率 > 5% | LLM 服务不稳定 |
 | Token 消耗过快 | `rate(rtc_llm_tokens_total[5m])` 异常升高 | 可能存在上下文泄漏 |
 | 缓存命中率低 | `cache hit rate below threshold` 频繁出现 | AutoCacheControl 可能失效 |
+
+> 💡 完整的 Prometheus 指标、Grafana 仪表盘和告警规则列表参见 [可观测性监控](/docs/operations/monitoring/)。
