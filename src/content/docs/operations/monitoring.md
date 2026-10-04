@@ -72,7 +72,7 @@ RTC Agent 内置了完整的可观测性基础设施：通过 Prometheus 采集�
 | 指标名 | 类型 | 标签 | 说明 |
 | --- | --- | --- | --- |
 | `rtc_session_created_total` | Counter | — | Session 创建总数 |
-| `rtc_session_closed_total` | Counter | `reason` (normal/error/stopped_by_parent) | Session 关闭总数（按原因分布） |
+| `rtc_session_closed_total` | Counter | `reason` (normal/timeout/error) | Session 关闭总数（按原因分布） |
 | `rtc_messages_sent_total` | Counter | `type` (user/assistant/system) | 消息发送总数（按类型分布） |
 
 ### OSS3 对象存储指标 (rtc_oss3_*)
@@ -81,9 +81,19 @@ RTC Agent 内置了完整的可观测性基础设施：通过 Prometheus 采集�
 | --- | --- | --- | --- |
 | `rtc_oss3_requests_total` | Counter | `operation` (PutObject/GetObject/...), `status` | S3 请求总数 |
 | `rtc_oss3_request_duration_seconds` | Histogram | `operation` | S3 请求耗时分布 |
-| `rtc_oss3_quota_usage_bytes` | Gauge | `user_id` | 用户配额使用量（字节） |
+| `rtc_oss3_quota_usage_bytes` | Gauge | — | 当前配额使用量（字节） |
 | `rtc_oss3_multipart_uploads_active` | Gauge | — | 活跃的分片上传数 |
-| `rtc_oss3_backend_errors_total` | Counter | — | 后端（MinIO）错误总数 |
+| `rtc_oss3_backend_errors_total` | Counter | `operation`, `error_type` | 后端（MinIO）错误总数 |
+| `rtc_oss3_upload_bytes_total` | Counter | `bucket` | 上传字节总数（按存储桶） |
+| `rtc_oss3_download_bytes_total` | Counter | `bucket` | 下载字节总数（按存储桶） |
+| `rtc_oss3_instant_upload_total` | Counter | `type` (db_hit/minio_repair/multipart) | 即时上传命中总数（按类型） |
+| `rtc_oss3_instant_upload_repair_error_total` | Counter | — | 即时上传 DB 修复失败总数 |
+| `rtc_oss3_consistency_violation_total` | Counter | `type` (db_has_minio_missing/minio_has_db_missing) | DB/MinIO 一致性违反总数 |
+| `rtc_oss3_orphaned_record_total` | Counter | `operation` (delete_failed/copy_failed) | 孤立记录总数（后端已删除但 DB 删除失败） |
+| `rtc_oss3_orphaned_quota_commits_total` | Counter | — | 孤立配额提交总数（上传成功但配额提交失败，需对账） |
+| `rtc_oss3_quota_commit_retry_total` | Counter | — | 配额提交重试总数（Redis 瞬时错误） |
+
+> 💡 OSS3 指标覆盖了对象存储的完整生命周期，包括请求统计、配额管理、即时上传优化、一致性检查和错误追踪。`instant_upload` 指标帮助评估去重优化效果，`consistency_violation` 指标用于监控 DB 和 MinIO 之间的数据一致性。
 
 ### HTTP 指标
 

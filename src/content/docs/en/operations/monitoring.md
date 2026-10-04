@@ -72,7 +72,7 @@ Track core business events (Session lifecycle and message sending).
 | Metric | Type | Labels | Description |
 | --- | --- | --- | --- |
 | `rtc_session_created_total` | Counter | — | Total sessions created |
-| `rtc_session_closed_total` | Counter | `reason` (normal/error/stopped_by_parent) | Total sessions closed (by reason) |
+| `rtc_session_closed_total` | Counter | `reason` (normal/timeout/error) | Total sessions closed (by reason) |
 | `rtc_messages_sent_total` | Counter | `type` (user/assistant/system) | Total messages sent (by type) |
 
 ### OSS3 Object Storage Metrics (rtc_oss3_*)
@@ -81,9 +81,19 @@ Track core business events (Session lifecycle and message sending).
 | --- | --- | --- | --- |
 | `rtc_oss3_requests_total` | Counter | `operation` (PutObject/GetObject/...), `status` | Total S3 requests |
 | `rtc_oss3_request_duration_seconds` | Histogram | `operation` | S3 request duration distribution |
-| `rtc_oss3_quota_usage_bytes` | Gauge | `user_id` | User quota usage (bytes) |
+| `rtc_oss3_quota_usage_bytes` | Gauge | — | Current quota usage (bytes) |
 | `rtc_oss3_multipart_uploads_active` | Gauge | — | Active multipart uploads |
-| `rtc_oss3_backend_errors_total` | Counter | — | Backend (MinIO) error count |
+| `rtc_oss3_backend_errors_total` | Counter | `operation`, `error_type` | Backend (MinIO) error count |
+| `rtc_oss3_upload_bytes_total` | Counter | `bucket` | Total bytes uploaded (by bucket) |
+| `rtc_oss3_download_bytes_total` | Counter | `bucket` | Total bytes downloaded (by bucket) |
+| `rtc_oss3_instant_upload_total` | Counter | `type` (db_hit/minio_repair/multipart) | Total instant upload hits (by type) |
+| `rtc_oss3_instant_upload_repair_error_total` | Counter | — | Total instant upload DB repair failures |
+| `rtc_oss3_consistency_violation_total` | Counter | `type` (db_has_minio_missing/minio_has_db_missing) | Total DB/MinIO consistency violations |
+| `rtc_oss3_orphaned_record_total` | Counter | `operation` (delete_failed/copy_failed) | Total orphaned records (backend deleted, DB delete failed) |
+| `rtc_oss3_orphaned_quota_commits_total` | Counter | — | Total orphaned quota commits (upload succeeded, quota commit failed, reconciliation needed) |
+| `rtc_oss3_quota_commit_retry_total` | Counter | — | Total quota commit retries (transient Redis errors) |
+
+> 💡 OSS3 metrics cover the complete object storage lifecycle, including request statistics, quota management, instant upload optimization, consistency checks, and error tracking. `instant_upload` metrics help evaluate deduplication optimization effectiveness, and `consistency_violation` metrics monitor data consistency between DB and MinIO.
 
 ### HTTP Metrics
 
