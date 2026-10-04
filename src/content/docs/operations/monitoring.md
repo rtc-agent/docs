@@ -15,7 +15,7 @@ RTC Agent 内置了完整的可观测性基础设施：通过 Prometheus 采集�
 
 | 指标名 | 类型 | 标签 | 说明 |
 | --- | --- | --- | --- |
-| `rtc_db_queries_total` | Counter | `operation` (select/insert/update/delete), `status` (success/error) | 数据库查询总次数 |
+| `rtc_db_queries_total` | Counter | `operation` (select/insert/update/delete/raw), `status` (success/error) | 数据库查询总次数 |
 | `rtc_db_query_duration_seconds` | Histogram | `operation` | 数据库查询耗时分布（桶：1ms ~ 4.096s） |
 
 > 💡 这些指标帮助识别慢查询和数据库瓶颈。`operation` 标签区分 CRUD 操作类型。
@@ -31,7 +31,7 @@ RTC Agent 内置了完整的可观测性基础设施：通过 Prometheus 采集�
 | `rtc_queue_complete_total` | Counter | `status` (success/error) | 完成的 work item 总数 |
 | `rtc_queue_cancel_total` | Counter | `reason` | 取消的 work item 总数 |
 | `rtc_queue_wait_duration_seconds` | Histogram | — | 等待时间（发布到领取） |
-| `rtc_queue_process_duration_seconds` | Histogram | — | 处理时间（领取到完成） |
+| `rtc_queue_processing_duration_seconds` | Histogram | — | 处理时间（领取到完成） |
 
 > 💡 队列指标是排查 Worker 负载和任务延迟的关键。`wait_duration` 反映调度效率，`process_duration` 反映处理能力。
 
@@ -46,27 +46,34 @@ RTC Agent 内置了完整的可观测性基础设施：通过 Prometheus 采集�
 
 ### WebSocket / Centrifuge 指标 (rtc_centrifuge_*)
 
-监控实时连接和 RPC 调用。
+监控实时连接、RPC 调用和频道订阅。
 
 | 指标名 | 类型 | 标签 | 说明 |
 | --- | --- | --- | --- |
-| `rtc_centrifuge_disconnect_reason_total` | Counter | `reason` (error/...) | 断连原因分布 |
-| `rtc_centrifuge_rpc_requests_total` | Counter | `status` (success/error) | RPC 调用总数 |
-| `rtc_centrifuge_rpc_duration_seconds` | Histogram | — | RPC 调用耗时分布 |
+| `rtc_centrifuge_connections_total` | Counter | `status` (connected/disconnected) | 连接事件总数 |
+| `rtc_centrifuge_disconnect_reason_total` | Counter | `reason` (slow/normal/error) | 断连原因分布 |
+| `rtc_centrifuge_rpc_requests_total` | Counter | `method`, `status` (success/error) | RPC 调用总数 |
+| `rtc_centrifuge_rpc_duration_seconds` | Histogram | `method` | RPC 调用耗时分布（桶：1ms ~ 4s） |
+| `rtc_centrifuge_subscriptions_total` | Counter | `channel_type` (user/topic/live) | 频道订阅总数 |
+| `rtc_centrifuge_connecting_duration_seconds` | Histogram | `status` (success/error) | JWT 验证耗时（OnConnecting 阶段） |
 
 ### 认证指标 (rtc_auth_*)
 
 | 指标名 | 类型 | 标签 | 说明 |
 | --- | --- | --- | --- |
-| `rtc_auth_failures_total` | Counter | — | 认证失败总次数 |
+| `rtc_auth_failures_total` | Counter | `type` (jwt/oauth/centrifuge), `reason` (expired/invalid/missing/signature/claims) | 认证失败总次数 |
 
 > 💡 认证失败速率突增可能表示暴力攻击或配置错误。
 
 ### 业务事件指标 (rtc_session_*, rtc_message_*)
 
+追踪核心业务事件（Session 生命周期和消息发送）。
+
 | 指标名 | 类型 | 标签 | 说明 |
 | --- | --- | --- | --- |
-| `rtc_session_closed_total` | Counter | `reason` (error/...) | Session 关闭原因分布 |
+| `rtc_session_created_total` | Counter | — | Session 创建总数 |
+| `rtc_session_closed_total` | Counter | `reason` (normal/error/stopped_by_parent) | Session 关闭总数（按原因分布） |
+| `rtc_messages_sent_total` | Counter | `type` (user/assistant/system) | 消息发送总数（按类型分布） |
 
 ### OSS3 对象存储指标 (rtc_oss3_*)
 
@@ -219,7 +226,7 @@ RTC Agent 内置了完整的可观测性基础设施：通过 Prometheus 采集�
 
 ### 启用指标认证
 
-生产环境中，`/metrics` 端点应配置 Basic Auth：
+生产环境中，`/metrics` 端点**必须**配置 Basic Auth，否则端点将被禁用：
 
 ```yaml
 metrics:
@@ -227,11 +234,11 @@ metrics:
   password: "${METRICS__PASSWORD}"  # 通过环境变量配置
 ```
 
-> ⚠️ 未配置认证时，Server 会输出告警日志但不会拒绝访问（兼容开发环境）。
+> ⚠️ **生产环境强制认证**：未配置认证时，开发环境仍可按原样访问（兼容本地调试）；但生产环境将直接禁用 `/metrics` 端点，不再提供指标数据。
 
 ### 启用 Debug 端点认证
 
-生产环境中，debug 端点（pprof、goroutines）应配置认证：
+生产环境中，debug 端点（pprof、goroutines）**必须**配置认证，否则端点将被禁用：
 
 ```yaml
 debug:
@@ -239,6 +246,18 @@ debug:
   user: "admin"
   password: "${DEBUG__PASSWORD}"
 ```
+
+> ⚠️ 与 `/metrics` 一致，生产环境未配置 debug 认证时将直接禁用 debug 端点。
+
+### 安全防护
+
+Server 在生产环境自动启用以下安全防护措施：
+
+| 防护机制 | 说明 |
+| --- | --- |
+| **OAuth2 IP 限流** | OAuth2 认证端点（`/oauth2/authorize`、`/oauth2/token`、`/oauth2/refresh`）实施每 IP 5 req/s 限流，突发上限 10，防止暴力攻击 |
+| **HSTS 头** | 强制 HTTPS 传输，防止协议降级攻击 |
+| **Permissions-Policy 头** | 限制浏览器 API 访问权限，缩小攻击面 |
 
 ### Alertmanager 集成
 

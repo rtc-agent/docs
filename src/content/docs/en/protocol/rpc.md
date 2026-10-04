@@ -151,7 +151,7 @@ Messages are the basic communication units within a session, supporting multiple
 | Method | Type | Function | Key Parameters |
 |------|:----:|------|----------|
 | `v1.message.send` | ⚡ Action | Send a message (automatically creates session and turn) | `content_data`, `client_session_id`, `client_id` (required), `server_session_id` (optional), `agent_prompt` (optional) |
-| `v1.message.list` | 🔍 Query | Get message list | `session_id`, `cursor` (global_offset, uint32), `limit` (default 50) |
+| `v1.message.list` | 🔍 Query | Get message list | `session_id`, `cursor` (global_offset as string), `limit` (default 50) |
 | `v1.message.get` | 🔍 Query | Get a single message | `message_id` |
 
 ### Message Sending Flow
@@ -409,7 +409,7 @@ The Message model contains two ordering fields:
 
 | Field | Type | Description |
 |------|:----:|------|
-| `global_offset` | uint32 | Global message order within a session, monotonically increasing; used as the pagination cursor for `v1.message.list` |
+| `global_offset` | uint32 | Global message order within a session, monotonically increasing; used as the pagination cursor for `v1.message.list` (transmitted as string) |
 | `turn_offset` | uint32 | Message order within a Turn |
 
 ## Next Steps

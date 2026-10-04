@@ -15,7 +15,7 @@ Automatically collected for all SQL operations via a GORM plugin.
 
 | Metric | Type | Labels | Description |
 | --- | --- | --- | --- |
-| `rtc_db_queries_total` | Counter | `operation` (select/insert/update/delete), `status` (success/error) | Total database queries |
+| `rtc_db_queries_total` | Counter | `operation` (select/insert/update/delete/raw), `status` (success/error) | Total database queries |
 | `rtc_db_query_duration_seconds` | Histogram | `operation` | Database query duration distribution (buckets: 1ms ~ 4.096s) |
 
 > 💡 These metrics help identify slow queries and database bottlenecks. The `operation` label distinguishes CRUD operation types.
@@ -31,7 +31,7 @@ Tracks work items from publish to completion.
 | `rtc_queue_complete_total` | Counter | `status` (success/error) | Total work items completed |
 | `rtc_queue_cancel_total` | Counter | `reason` | Total work items cancelled |
 | `rtc_queue_wait_duration_seconds` | Histogram | — | Wait time (publish to claim) |
-| `rtc_queue_process_duration_seconds` | Histogram | — | Processing time (claim to completion) |
+| `rtc_queue_processing_duration_seconds` | Histogram | — | Processing time (claim to completion) |
 
 > 💡 Queue metrics are essential for troubleshooting Worker load and task latency. `wait_duration` reflects scheduling efficiency; `process_duration` reflects processing capacity.
 
@@ -46,27 +46,34 @@ Monitor circuit breaker state for WebFetch and other modules.
 
 ### WebSocket / Centrifuge Metrics (rtc_centrifuge_*)
 
-Monitor real-time connections and RPC calls.
+Monitor real-time connections, RPC calls, and channel subscriptions.
 
 | Metric | Type | Labels | Description |
 | --- | --- | --- | --- |
-| `rtc_centrifuge_disconnect_reason_total` | Counter | `reason` (error/...) | Disconnect reason distribution |
-| `rtc_centrifuge_rpc_requests_total` | Counter | `status` (success/error) | Total RPC calls |
-| `rtc_centrifuge_rpc_duration_seconds` | Histogram | — | RPC call duration distribution |
+| `rtc_centrifuge_connections_total` | Counter | `status` (connected/disconnected) | Total connection events |
+| `rtc_centrifuge_disconnect_reason_total` | Counter | `reason` (slow/normal/error) | Disconnect reason distribution |
+| `rtc_centrifuge_rpc_requests_total` | Counter | `method`, `status` (success/error) | Total RPC calls |
+| `rtc_centrifuge_rpc_duration_seconds` | Histogram | `method` | RPC call duration distribution (buckets: 1ms ~ 4s) |
+| `rtc_centrifuge_subscriptions_total` | Counter | `channel_type` (user/topic/live) | Total channel subscriptions |
+| `rtc_centrifuge_connecting_duration_seconds` | Histogram | `status` (success/error) | JWT verification duration (OnConnecting phase) |
 
 ### Authentication Metrics (rtc_auth_*)
 
 | Metric | Type | Labels | Description |
 | --- | --- | --- | --- |
-| `rtc_auth_failures_total` | Counter | — | Total authentication failures |
+| `rtc_auth_failures_total` | Counter | `type` (jwt/oauth/centrifuge), `reason` (expired/invalid/missing/signature/claims) | Total authentication failures |
 
 > 💡 A sudden spike in auth failure rate may indicate a brute-force attack or misconfiguration.
 
 ### Business Event Metrics (rtc_session_*, rtc_message_*)
 
+Track core business events (Session lifecycle and message sending).
+
 | Metric | Type | Labels | Description |
 | --- | --- | --- | --- |
-| `rtc_session_closed_total` | Counter | `reason` (error/...) | Session close reason distribution |
+| `rtc_session_created_total` | Counter | — | Total sessions created |
+| `rtc_session_closed_total` | Counter | `reason` (normal/error/stopped_by_parent) | Total sessions closed (by reason) |
+| `rtc_messages_sent_total` | Counter | `type` (user/assistant/system) | Total messages sent (by type) |
 
 ### OSS3 Object Storage Metrics (rtc_oss3_*)
 
@@ -219,7 +226,7 @@ The distributed deployment includes pre-configured Alertmanager alert rules via 
 
 ### Enable Metrics Authentication
 
-In production, the `/metrics` endpoint should be configured with Basic Auth:
+In production, the `/metrics` endpoint **requires** Basic Auth — otherwise the endpoint is disabled:
 
 ```yaml
 metrics:
@@ -227,11 +234,11 @@ metrics:
   password: "${METRICS__PASSWORD}"  # Configure via environment variable
 ```
 
-> ⚠️ When authentication is not configured, the Server logs a warning but does not reject access (compatible with development environments).
+> ⚠️ **Production enforcement**: Without credentials configured, the endpoint remains accessible in development (for local debugging) but is **disabled** in production.
 
 ### Enable Debug Endpoint Authentication
 
-In production, debug endpoints (pprof, goroutines) should be configured with authentication:
+In production, debug endpoints (pprof, goroutines) **require** authentication — otherwise the endpoints are disabled:
 
 ```yaml
 debug:
@@ -239,6 +246,18 @@ debug:
   user: "admin"
   password: "${DEBUG__PASSWORD}"
 ```
+
+> ⚠️ Consistent with `/metrics`, debug endpoints are **disabled** in production when authentication is not configured.
+
+### Security Hardening
+
+The Server automatically enables the following security protections in production:
+
+| Mechanism | Description |
+| --- | --- |
+| **OAuth2 IP Rate Limiting** | OAuth2 endpoints (`/oauth2/authorize`, `/oauth2/token`, `/oauth2/refresh`) are rate-limited to 5 req/s per IP with a burst of 10, preventing brute-force attacks |
+| **HSTS Header** | Enforces HTTPS transport, preventing protocol downgrade attacks |
+| **Permissions-Policy Header** | Restricts browser API access, reducing the attack surface |
 
 ### Alertmanager Integration
 

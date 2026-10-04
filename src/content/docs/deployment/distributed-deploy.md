@@ -78,6 +78,19 @@ flowchart TB
 
 > **端口设计**：所有端口使用 2xxxx 段，避免与本地常用服务端口冲突。
 
+### Nginx 路由规则
+
+Nginx 根据请求路径将流量分发到不同后端服务：
+
+| 路径 | 上游 | 说明 |
+| --- | --- | --- |
+| `/admin/` | admin-server | 管理后台 SPA 静态资源 + API |
+| `/api/auth/` | admin-server | 管理员认证 API（登录、刷新、登出） |
+| `/.well-known/jwks.json` | admin-server | JWKS 公钥端点（供主服务器验证 JWT） |
+| 其余路径 | server 集群 | WebSocket + HTTP 反向代理（负载均衡到 Server-1 / Server-2） |
+
+> 💡 管理后台可通过 Nginx 统一入口访问：`http://localhost:28080/admin/`，也可直接访问 `http://localhost:28081`。
+
 ## 1. 准备配置
 
 ### 环境变量

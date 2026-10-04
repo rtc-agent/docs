@@ -353,8 +353,10 @@ Users can attach images and text files to messages. The Agent can recognize imag
 | --------- | ----------- |
 | Attach button | Click the attach icon in the input area toolbar to open the file picker (accepts `image/*`, `text/*`) |
 | Paste upload | Use Ctrl+V / Cmd+V to paste images or files from the clipboard |
+| File preview | Click on an attached file thumbnail to open a full-screen preview modal (images support zoom, text files show content) |
+| Upload retry | When file upload fails, click the retry icon to manually re-upload (files are kept in memory, no need to re-select) |
 
-Upload flow: Files are first cached locally (generating a File ID), with thumbnail previews displayed immediately, then uploaded to object storage in the background.
+Upload flow: Files are first cached locally (generating a File ID), with thumbnail previews displayed immediately, then uploaded to object storage in the background. If upload fails, an error state and retry button are shown; users can manually retry or continue sending the message (sending with failed attachments is allowed).
 
 ### Supported File Types
 
@@ -407,7 +409,7 @@ flowchart LR
 | All files uploaded | Send button is disabled when any file is still uploading (loading) or has failed (error) |
 | Upload failure handling | Failed files can be retried, or deleted and re-uploaded |
 
-> 💡 File attachments are submitted with the `user_message` when sending. The server loads all files in parallel to improve response speed in multi-file scenarios.
+> 💡 File attachments are submitted with the `user_message` when sending. The server loads all files in parallel to improve response speed in multi-file scenarios. When users send multiple consecutive messages with images, the server merges the `MultiContent` (image content parts) of adjacent same-role messages to ensure all images are recognized by the LLM.
 
 ## Token Usage Display
 

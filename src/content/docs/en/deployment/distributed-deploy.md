@@ -78,6 +78,19 @@ flowchart TB
 
 > **Port design**: All ports use the 2xxxx range to avoid conflicts with commonly used local service ports.
 
+### Nginx Routing Rules
+
+Nginx distributes traffic to different backend services based on request path:
+
+| Path | Upstream | Description |
+| --- | --- | --- |
+| `/admin/` | admin-server | Admin panel SPA static assets + API |
+| `/api/auth/` | admin-server | Admin authentication API (login, refresh, logout) |
+| `/.well-known/jwks.json` | admin-server | JWKS public key endpoint (for Main Server JWT verification) |
+| All other paths | Server cluster | WebSocket + HTTP reverse proxy (load balanced to Server-1 / Server-2) |
+
+> 💡 The admin panel can be accessed through the unified Nginx entry point at `http://localhost:28080/admin/`, or directly at `http://localhost:28081`.
+
 ## 1. Prepare Configuration
 
 ### Environment Variables

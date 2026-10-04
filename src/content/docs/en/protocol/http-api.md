@@ -9,12 +9,12 @@ RTC Agent's HTTP API includes three categories of endpoints: **OAuth2 Authentica
 
 ### OAuth2 Authentication Endpoints
 
-| Endpoint            | Method | Function                             | When Called                     |
-| ------------------- | ------ | ------------------------------------ | ------------------------------- |
-| `/oauth2/authorize` | GET    | Get authorization redirect URL       | User clicks login               |
-| `/oauth2/providers` | GET    | Get list of enabled OAuth Providers  | Frontend initializes login page |
-| `/oauth2/token`     | POST   | Exchange authorization code for tokens | After authorization callback  |
-| `/oauth2/refresh`   | POST   | Refresh access_token                 | When token is about to expire   |
+| Endpoint            | Method | Function                                             | When Called                              |
+| ------------------- | ------ | ---------------------------------------------------- | ---------------------------------------- |
+| `/oauth2/authorize` | GET    | Get authorization redirect URL                       | User clicks login                        |
+| `/oauth2/providers` | GET    | Get list of enabled OAuth Providers                  | Frontend initializes login page          |
+| `/oauth2/token`     | POST   | Exchange authorization code / RFC 8693 Token Exchange | After authorization callback / External JWT exchange |
+| `/oauth2/refresh`   | POST   | Refresh access_token                                 | When token is about to expire            |
 
 ### Admin-server Endpoints (Independent Service, Port 8081)
 
@@ -27,9 +27,11 @@ RTC Agent's HTTP API includes three categories of endpoints: **OAuth2 Authentica
 | `/.well-known/jwks.json`       | GET    | JWKS public key set (for Main Server JWT verification) | None  |
 | `/health`                      | GET    | Health check                                | None           |
 
+> 💡 Admin-server is an independent service that integrates with the Main Server via RFC 8693 Token Exchange. After an administrator logs in to admin-server, their JWT is recognized as a valid user identity by the Main Server. See [Admin-server Authentication](#admin-server-authentication) below.
+
 **Operational Endpoints** (no JWT required): `/healthz` (health check), `/readyz` (readiness check), `/metrics` (Prometheus metrics).
 
-> 📌 **Security change**: In production, `/metrics` and debug endpoints require authentication. Configure Basic Auth via `metrics.user` and `metrics.password`; the server will reject access when unconfigured.
+> 📌 **Security change**: In production, `/metrics` and debug endpoints **require** authentication — the endpoints are **disabled** without credentials. The Server also automatically enables OAuth2 IP rate limiting (5 req/s per IP, burst 10), HSTS headers, and Permissions-Policy headers.
 
 **Business Endpoints** (JWT required): `/api/sessions/{sessionID}/interrupts/{interruptID}/answer` (submit interrupt answer), `/api/memories/export` (export memory data), `/api/credentials/temporary` (get S3 temporary credentials), `/api/presigned-url` (generate presigned URL).
 
@@ -207,6 +209,62 @@ Exchange a refresh_token for a new access_token. The refresh_token can be reused
 
 ---
 
+## POST /oauth2/token (Token Exchange — RFC 8693)
+
+`POST /oauth2/token` supports both authorization code exchange and RFC 8693 Token Exchange, dispatched by the `grant_type` parameter. When `grant_type` is `urn:ietf:params:oauth:grant-type:token-exchange`, the endpoint enters Token Exchange mode — exchanging an external JWT (e.g., an admin JWT issued by admin-server) for an RTC main-server access_token.
+
+### Request Body
+
+```json
+{
+  "grant_type": "urn:ietf:params:oauth:grant-type:token-exchange",
+  "subject_token": "eyJhbGciOi...(external JWT)",
+  "subject_token_type": "urn:ietf:params:oauth:token-type:access_token",
+  "device_id": "uuid-generated-by-client"
+}
+```
+
+| Field | Required | Type | Description |
+|------|:----:|------|------|
+| `grant_type` | ✅ | string | Must be `urn:ietf:params:oauth:grant-type:token-exchange` |
+| `subject_token` | ✅ | string | External JWT (issued by a trusted issuer) |
+| `subject_token_type` | ✅ | string | Token type, typically `urn:ietf:params:oauth:token-type:access_token` |
+| `device_id` | ✅ | string | RTC Agent extension — client device UUID (embedded in the issued JWT) |
+
+> 💡 Both `application/json` and `application/x-www-form-urlencoded` Content-Types are supported.
+
+### Response
+
+```json
+{
+  "access_token": "eyJhbGciOi...(RTC JWT)",
+  "issued_token_type": "urn:ietf:params:oauth:token-type:access_token",
+  "token_type": "Bearer",
+  "expires_in": 3600
+}
+```
+
+| Field | Type | Description |
+|------|:----:|------|
+| `access_token` | string | JWT issued by the RTC main server, validity specified by `expires_in` |
+| `issued_token_type` | string | Fixed: `urn:ietf:params:oauth:token-type:access_token` |
+| `token_type` | string | Fixed: `Bearer` |
+| `expires_in` | integer | Access token expiration time (seconds), typically **3600** (1 hour) |
+
+### Error Codes
+
+| HTTP Status | `error` Value | Meaning |
+| :---: | --- | --- |
+| 400 | `invalid_request` | Missing required fields or incorrect grant_type |
+| 400 | `invalid_grant` | Invalid subject_token, JWT signature verification failed, or untrusted issuer |
+| 401 | `invalid_grant` | JWT verification failed and JWKS could not be refreshed |
+| 500 | `server_error` | Internal server error |
+| 503 | `temporarily_unavailable` | Identity provider temporarily unavailable (JWKS endpoint unreachable) |
+
+> 📌 **Prerequisite**: The main server must configure `token_exchange.external_issuers` in `config.yaml` to trust the corresponding JWT issuer. See [Admin-server Authentication](#admin-server-authentication).
+
+---
+
 ## Error Handling
 
 All endpoints return a unified error format when an error occurs:
@@ -302,7 +360,7 @@ Prometheus metrics endpoint exposing runtime metrics for monitoring systems (Pro
 
 **Response**: Prometheus metrics in `text/plain` format.
 
-**Authentication**: Optional Basic Auth. Enabled via the `metrics.user` and `metrics.password` configuration options. Production deployments should configure authentication; the server logs a warning when the endpoint is unprotected.
+**Authentication**: Basic Auth via `metrics.user` and `metrics.password` configuration. Production **requires** authentication — the `/metrics` endpoint is disabled without credentials. Development environments remain accessible without auth.
 
 > 💡 For a complete list of Prometheus metrics, Grafana dashboards, and alert rules, see [Monitoring](/docs/en/operations/monitoring/).
 

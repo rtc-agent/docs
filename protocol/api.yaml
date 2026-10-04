@@ -49,20 +49,39 @@ paths:
     post:
       operationId: oauth2TokenExchange
       summary: OAuth2 令牌交换
-      description: Authorization Code → access_token + refresh_token
+      description: |
+        支持两种模式，通过 `grant_type` 区分：
+        1. **Authorization Code**（默认）：`grant_type` 为 `authorization_code`，使用授权码换取 access_token + refresh_token
+        2. **Token Exchange**（RFC 8693）：`grant_type` 为 `urn:ietf:params:oauth:grant-type:token-exchange`，将外部 JWT 换取主服务器 access_token
+
+        同时支持 `application/json` 和 `application/x-www-form-urlencoded` 两种 Content-Type。
       requestBody:
         required: true
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/OAuth2TokenExchangeRequest'
+              oneOf:
+                - $ref: '#/components/schemas/OAuth2TokenExchangeRequest'
+                - $ref: '#/components/schemas/OAuth2TokenExchangeRFC8693Request'
+              discriminator:
+                propertyName: grant_type
+                mapping:
+                  authorization_code: '#/components/schemas/OAuth2TokenExchangeRequest'
+                  urn:ietf:params:oauth:grant-type:token-exchange: '#/components/schemas/OAuth2TokenExchangeRFC8693Request'
+          application/x-www-form-urlencoded:
+            schema:
+              oneOf:
+                - $ref: '#/components/schemas/OAuth2TokenExchangeRequest'
+                - $ref: '#/components/schemas/OAuth2TokenExchangeRFC8693Request'
       responses:
         "200":
           description: 成功
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/OAuth2TokenExchangeResponse'
+                oneOf:
+                  - $ref: '#/components/schemas/OAuth2TokenExchangeResponse'
+                  - $ref: '#/components/schemas/OAuth2TokenExchangeRFC8693Response'
 
   /oauth2/refresh:
     post:
@@ -100,11 +119,13 @@ paths:
               $ref: '#/components/schemas/AdminLoginRequest'
       responses:
         "200":
-          description: 登录成功
+          description: 登录成功或业务错误（HTTP 状态码始终为 200）
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/AdminLoginResponse'
+                oneOf:
+                  - $ref: '#/components/schemas/AdminLoginResponse'
+                  - $ref: '#/components/schemas/AdminErrorResponse'
 
   /api/auth/refresh:
     post:
@@ -119,11 +140,13 @@ paths:
               $ref: '#/components/schemas/AdminRefreshRequest'
       responses:
         "200":
-          description: 刷新成功
+          description: 刷新成功或业务错误（HTTP 状态码始终为 200）
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/AdminRefreshResponse'
+                oneOf:
+                  - $ref: '#/components/schemas/AdminRefreshResponse'
+                  - $ref: '#/components/schemas/AdminErrorResponse'
 
   /api/auth/me:
     get:
@@ -132,11 +155,21 @@ paths:
       description: 需要 admin-server JWT 认证
       responses:
         "200":
-          description: 成功
+          description: 成功或业务错误（HTTP 状态码始终为 200）
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/AdminUserResponse'
+                oneOf:
+                  - type: object
+                    description: 获取用户信息成功（Ant Design Pro 统一格式）
+                    properties:
+                      success:
+                        type: boolean
+                        enum: [ true ]
+                      data:
+                        $ref: '#/components/schemas/AdminUserResponse'
+                    required: [ success, data ]
+                  - $ref: '#/components/schemas/AdminErrorResponse'
 
   /api/auth/logout:
     post:
@@ -151,7 +184,26 @@ paths:
               $ref: '#/components/schemas/AdminLogoutRequest'
       responses:
         "200":
-          description: 登出成功
+          description: 登出成功或业务错误（HTTP 状态码始终为 200）
+          content:
+            application/json:
+              schema:
+                oneOf:
+                  - type: object
+                    description: 登出成功（Ant Design Pro 统一格式）
+                    properties:
+                      success:
+                        type: boolean
+                        enum: [ true ]
+                      data:
+                        type: object
+                        properties:
+                          status:
+                            type: string
+                            enum: [ ok ]
+                        required: [ status ]
+                    required: [ success, data ]
+                  - $ref: '#/components/schemas/AdminErrorResponse'
 
   /.well-known/jwks.json:
     get:
@@ -200,8 +252,9 @@ components:
             错误码：
             - `invalid_request`: 请求参数无效
             - `invalid_client`: 客户端认证失败
-            - `invalid_grant`: 授权码无效或已过期
+            - `invalid_grant`: 授权码无效或已过期（Token Exchange 模式下也表示 JWT 签名验证失败或签发方不受信任）
             - `server_error`: 服务器内部错误
+            - `temporarily_unavailable`: 身份提供方暂时不可用（RFC 8693 Token Exchange 模式下 JWKS 端点无法访问）
         error_description:
           type: string
           description: 人类可读的错误描述，用于调试
@@ -209,8 +262,13 @@ components:
 
     OAuth2TokenExchangeRequest:
       type: object
-      description: OAuth2 授权码交换请求，使用 Authorization Code 换取 access_token
+      description: OAuth2 授权码交换请求（Authorization Code 模式），使用授权码换取 access_token + refresh_token
       properties:
+        grant_type:
+          type: string
+          description: 固定为 "authorization_code"（可省略，默认值）
+          enum: [ authorization_code ]
+          default: authorization_code
         code:
           type: string
           description: OAuth2 授权码，由授权回调 URL 的 query 参数携带
@@ -233,6 +291,49 @@ components:
           type: string
           description: PKCE code_verifier (RFC 7636)，授权请求时传入 code_challenge，交换时传入原始 verifier
       required: [ code, redirect_uri, state, device_id ]
+
+    OAuth2TokenExchangeRFC8693Request:
+      type: object
+      description: |
+        RFC 8693 Token Exchange 请求，将外部 JWT（如 admin-server 签发的管理员 JWT）换取主服务器 access_token。
+        主服务器需在 config.yaml 中配置 token_exchange.external_issuers 以信任对应的 JWT 签发方。
+      properties:
+        grant_type:
+          type: string
+          description: 固定为 "urn:ietf:params:oauth:grant-type:token-exchange"
+          enum: [ 'urn:ietf:params:oauth:grant-type:token-exchange' ]
+        subject_token:
+          type: string
+          description: 外部 JWT（由受信任的签发方签发）
+        subject_token_type:
+          type: string
+          description: 令牌类型，通常为 "urn:ietf:params:oauth:token-type:access_token"
+          enum: [ 'urn:ietf:params:oauth:token-type:access_token' ]
+        device_id:
+          type: string
+          description: RTC Agent 扩展字段，客户端设备 UUID（嵌入到签发的 JWT 中）
+      required: [ grant_type, subject_token, subject_token_type, device_id ]
+
+    OAuth2TokenExchangeRFC8693Response:
+      type: object
+      description: RFC 8693 Token Exchange 成功响应
+      properties:
+        access_token:
+          type: string
+          description: RTC 主服务器签发的 JWT，有效期由 expires_in 指定
+        issued_token_type:
+          type: string
+          description: 固定为 "urn:ietf:params:oauth:token-type:access_token"
+          enum: [ 'urn:ietf:params:oauth:token-type:access_token' ]
+        token_type:
+          type: string
+          description: 固定为 "Bearer"
+          enum: [ Bearer ]
+        expires_in:
+          type: integer
+          format: int64
+          description: access token 过期时间（秒），通常为 3600（1 小时）
+      required: [ access_token, issued_token_type, token_type, expires_in ]
 
     OAuth2TokenExchangeResponse:
       type: object
@@ -295,23 +396,34 @@ components:
 
     AdminLoginResponse:
       type: object
-      description: Admin 登录成功响应
+      description: |
+        Admin 登录成功响应（Ant Design Pro 统一格式）。
+        成功时 `success` 为 `true`，业务数据在 `data` 字段内。
       properties:
-        access_token:
-          type: string
-          description: Admin JWT access token
-        refresh_token:
-          type: string
-          description: Admin JWT refresh token（支持轮换）
-        expires_in:
-          type: integer
-          description: access token 过期时间（秒）
-        token_type:
-          type: string
-          description: 固定为 "Bearer"
-        user:
-          $ref: '#/components/schemas/AdminUserResponse'
-      required: [ access_token, refresh_token, expires_in, token_type, user ]
+        success:
+          type: boolean
+          description: 固定为 true
+          enum: [ true ]
+        data:
+          type: object
+          description: 登录成功数据
+          properties:
+            access_token:
+              type: string
+              description: Admin JWT access token
+            refresh_token:
+              type: string
+              description: Admin JWT refresh token（支持轮换）
+            expires_in:
+              type: integer
+              description: access token 过期时间（秒）
+            token_type:
+              type: string
+              description: 固定为 "Bearer"
+            user:
+              $ref: '#/components/schemas/AdminUserResponse'
+          required: [ access_token, refresh_token, expires_in, token_type, user ]
+      required: [ success, data ]
 
     AdminRefreshRequest:
       type: object
@@ -324,25 +436,36 @@ components:
 
     AdminRefreshResponse:
       type: object
-      description: Admin 令牌刷新响应（refresh token 轮换）
+      description: |
+        Admin 令牌刷新成功响应（Ant Design Pro 统一格式）。
+        成功时 `success` 为 `true`，业务数据在 `data` 字段内。
       properties:
-        access_token:
-          type: string
-          description: 新的 JWT access token
-        refresh_token:
-          type: string
-          description: 新的 JWT refresh token（每次刷新都会轮换）
-        expires_in:
-          type: integer
-          description: 新 access token 过期时间（秒）
-        token_type:
-          type: string
-          description: 固定为 "Bearer"
-      required: [ access_token, refresh_token, expires_in, token_type ]
+        success:
+          type: boolean
+          description: 固定为 true
+          enum: [ true ]
+        data:
+          type: object
+          description: 刷新成功数据（refresh token 轮换）
+          properties:
+            access_token:
+              type: string
+              description: 新的 JWT access token
+            refresh_token:
+              type: string
+              description: 新的 JWT refresh token（每次刷新都会轮换）
+            expires_in:
+              type: integer
+              description: 新 access token 过期时间（秒）
+            token_type:
+              type: string
+              description: 固定为 "Bearer"
+          required: [ access_token, refresh_token, expires_in, token_type ]
+      required: [ success, data ]
 
     AdminUserResponse:
       type: object
-      description: Admin 用户信息
+      description: Admin 用户信息（作为 `data` 字段内嵌使用）
       properties:
         id:
           type: string

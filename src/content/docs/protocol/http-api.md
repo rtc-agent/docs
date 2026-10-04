@@ -9,12 +9,12 @@ RTC Agent 的 HTTP API 包含三类端点：**OAuth2 认证**处理用户登录�
 
 ### OAuth2 认证端点
 
-| 端点                                | 方法 | 功能                             | 调用时机         |
-| ----------------------------------- | ---- | -------------------------------- | ---------------- |
-| `/oauth2/authorize`                 | GET  | 获取授权重定向 URL               | 用户点击登录     |
-| `/oauth2/providers`                 | GET  | 获取已启用的 OAuth Provider 列表 | 前端初始化登录页 |
-| `/oauth2/token`                     | POST | 授权码换取令牌                   | 授权回调后       |
-| `/oauth2/refresh`                   | POST | 刷新 access_token                | 令牌即将过期     |
+| 端点                                | 方法 | 功能                                     | 调用时机               |
+| ----------------------------------- | ---- | ---------------------------------------- | ---------------------- |
+| `/oauth2/authorize`                 | GET  | 获取授权重定向 URL                       | 用户点击登录           |
+| `/oauth2/providers`                 | GET  | 获取已启用的 OAuth Provider 列表         | 前端初始化登录页       |
+| `/oauth2/token`                     | POST | 授权码换取令牌 / RFC 8693 Token Exchange | 授权回调后 / 外部 JWT 换取 |
+| `/oauth2/refresh`                   | POST | 刷新 access_token                        | 令牌即将过期           |
 
 ### Admin-server 端点（独立服务，端口 8081）
 
@@ -31,7 +31,7 @@ RTC Agent 的 HTTP API 包含三类端点：**OAuth2 认证**处理用户登录�
 
 **运维端点**（无需 JWT 认证）：`/healthz`（健康检查）、`/readyz`（就绪检查）、`/metrics`（Prometheus 指标）。
 
-> 📌 **安全变更**：生产环境中 `/metrics` 和 debug 端点强制要求认证。通过 `metrics.user` 和 `metrics.password` 配置 Basic Auth，未配置时将拒绝访问。
+> 📌 **安全变更**：生产环境中 `/metrics` 和 debug 端点**强制**要求认证，未配置时将直接禁用。Server 还自动为 OAuth2 端点启用 IP 限流（5 req/s，突发 10），并添加 HSTS 和 Permissions-Policy 安全头。
 
 **业务端点**（需要 JWT 认证）：`/api/sessions/{sessionID}/interrupts/{interruptID}/answer`（提交中断应答）、`/api/memories/export`（导出记忆数据）、`/api/credentials/temporary`（获取 S3 临时凭证）、`/api/presigned-url`（生成预签名 URL）。
 
@@ -177,6 +177,62 @@ sequenceDiagram
 
 ---
 
+## POST /oauth2/token（Token Exchange — RFC 8693）
+
+`POST /oauth2/token` 同时支持授权码换取令牌和 RFC 8693 Token Exchange 两种模式，通过 `grant_type` 区分。当 `grant_type` 为 `urn:ietf:params:oauth:grant-type:token-exchange` 时，进入 Token Exchange 模式——将外部 JWT（如 admin-server 签发的管理员 JWT）换取 RTC 主服务器的 access_token。
+
+### 请求体
+
+```json
+{
+  "grant_type": "urn:ietf:params:oauth:grant-type:token-exchange",
+  "subject_token": "eyJhbGciOi...(外部 JWT)",
+  "subject_token_type": "urn:ietf:params:oauth:token-type:access_token",
+  "device_id": "uuid-generated-by-client"
+}
+```
+
+| 字段 | 必填 | 类型 | 说明 |
+|------|:----:|:----:|------|
+| `grant_type` | ✅ | string | 必须为 `urn:ietf:params:oauth:grant-type:token-exchange` |
+| `subject_token` | ✅ | string | 外部 JWT（由受信任的签发方签发） |
+| `subject_token_type` | ✅ | string | 令牌类型，通常为 `urn:ietf:params:oauth:token-type:access_token` |
+| `device_id` | ✅ | string | RTC Agent 扩展字段，客户端设备 UUID（嵌入到签发的 JWT 中） |
+
+> 💡 同时支持 `application/json` 和 `application/x-www-form-urlencoded` 两种 Content-Type。
+
+### 响应
+
+```json
+{
+  "access_token": "eyJhbGciOi...(RTC JWT)",
+  "issued_token_type": "urn:ietf:params:oauth:token-type:access_token",
+  "token_type": "Bearer",
+  "expires_in": 3600
+}
+```
+
+| 字段 | 类型 | 说明 |
+|------|:----:|------|
+| `access_token` | string | RTC 主服务器签发的 JWT，有效期由 `expires_in` 指定 |
+| `issued_token_type` | string | 固定为 `urn:ietf:params:oauth:token-type:access_token` |
+| `token_type` | string | 固定为 `Bearer` |
+| `expires_in` | integer | access token 过期时间（秒），通常为 **3600**（1 小时） |
+
+### 错误码
+
+| HTTP 状态码 | `error` 值 | 含义 |
+| :---: | --- | --- |
+| 400 | `invalid_request` | 缺少必填字段或 grant_type 不正确 |
+| 400 | `invalid_grant` | subject_token 无效、JWT 签名验证失败或签发方不受信任 |
+| 401 | `invalid_grant` | JWT 验证失败且无法刷新 JWKS |
+| 500 | `server_error` | 服务端内部错误 |
+| 503 | `temporarily_unavailable` | 身份提供方暂时不可用（JWKS 端点无法访问） |
+
+> 📌 **前置条件**：主服务器需在 `config.yaml` 中配置 `token_exchange.external_issuers` 以信任对应的 JWT 签发方。详见 [Admin-server 认证](#admin-server-认证)。
+
+---
+
 ## POST /oauth2/refresh
 
 使用 refresh_token 换取新的 access_token。refresh_token 在有效期内可重复使用。
@@ -304,7 +360,7 @@ Prometheus 指标端点，暴露服务运行指标，供监控系统（Prometheu
 
 **响应**：`text/plain` 格式的 Prometheus 指标。
 
-**认证**：可选 Basic Auth。通过 `metrics.user` 和 `metrics.password` 配置项启用。生产环境建议配置认证，未配置时服务端会输出告警日志。
+**认证**：Basic Auth，通过 `metrics.user` 和 `metrics.password` 配置。生产环境**必须**配置认证，否则 `/metrics` 端点将被直接禁用；开发环境未配置时仍可访问。
 
 > 💡 完整的 Prometheus 指标列表、Grafana 仪表盘和告警规则参见 [可观测性监控](/docs/operations/monitoring/)。
 

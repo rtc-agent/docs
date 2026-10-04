@@ -11,6 +11,7 @@ Cache Analyzer is a built-in web tool for analyzing LLM request cache hit rates,
 - **Request Comparison**: Automatic diff analysis between consecutive requests (added/removed/modified)
 - **Message-Level Diff**: Precise display of changes in each message
 - **System Prompt Diff**: Track changes to system prompts
+- **Streaming Response Parsing**: Supports parsing SSE streaming responses (accumulates chunks and extracts cache stats)
 - **Markdown Export**: One-click export of analysis reports for sharing and archiving
 
 ## Starting the Tool
@@ -79,10 +80,11 @@ Optimize your prompts based on analysis results:
 
 Log events parsed by the tool:
 
-| Event               | Description                              |
-| ------------------- | ---------------------------------------- |
-| `llm.http.request`  | LLM request with complete request body   |
+| Event | Description |
+| --- | --- |
+| `llm.http.request` | LLM request with complete request body |
 | `llm.http.response` | LLM response with token usage statistics |
+| `llm.http.response (streaming)` | SSE streaming response — chunks are accumulated and cache stats extracted |
 
 Key fields:
 

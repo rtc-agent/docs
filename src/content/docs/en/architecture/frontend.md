@@ -1,9 +1,9 @@
 ---
 title: Frontend Architecture
-description: RTC Agent frontend architecture — a Lit-based Web Components library with 54 sub-components, 23 Controllers, and @lit/context state distribution.
+description: RTC Agent frontend architecture — a Lit-based Web Components library with 57 sub-components, 23 Controllers, and @lit/context state distribution.
 ---
 
-The RTC Agent frontend is a component library built on **Lit Web Components**. It exposes only a single `<rtc-agent>` component to the outside world, containing **54 sub-components** internally, managed by **23 Controllers**, with data distributed to child components via `@lit/context`.
+The RTC Agent frontend is a component library built on **Lit Web Components**. It exposes only a single `<rtc-agent>` component to the outside world, containing **57 sub-components** internally, managed by **23 Controllers**, with data distributed to child components via `@lit/context`.
 
 ## Component Architecture
 

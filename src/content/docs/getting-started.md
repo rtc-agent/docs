@@ -194,6 +194,17 @@ agent.destroy();
 | `worker.cache_hit_rate_warn_threshold` | 缓存命中率告警阈值（0.0-1.0）。Session 累计缓存命中率低于此值时输出 warn 日志。负数表示禁用告警 | `0.88` |
 | `llm.retry_max_attempts` | 模型调用失败时的最大重试次数。0 表示不重试 | `0` |
 | `llm.retry_base_delay` | 重试的基础退避时间（指数退避：`base_delay * 2^(attempt-1)`） | `1s` |
+| `server.client_queue_max_size` | Centrifuge 客户端消息队列最大字节数 | `52428800`（50MB） |
+| `server.shutdown_timeout` | 优雅关闭超时时间 | `10s` |
+| `server.rpc_timeout` | RPC 处理器上下文超时时间 | `10s` |
+| `debug.enabled` | 是否启用 debug 端点（pprof、goroutines）。生产环境默认禁用 | `false` |
+| `debug.show_raw_errors` | 在日志中显示原始错误详情（含堆栈） | `false` |
+| `debug.goroutine_leak_threshold` | Goroutine 泄漏检测阈值（goroutine 数量） | `1000` |
+| `token_exchange.external_issuers` | 受信任的外部 JWT 签发方列表（用于 RFC 8693 Token Exchange）。详见 [Admin-server 认证](/docs/protocol/http-api/#admin-server-认证) | 空 |
+
+> 💡 **完整配置参考**：`etc/config.yaml.example` 包含所有可配置项及注释说明，是配置的最权威参考。
+>
+> 📌 **生产环境校验**：Server 在生产模式下会自动校验：拒绝 Mock OAuth2 Provider、拒绝弱 JWT 密钥（长度不足）、要求配置 `allowed_redirect_uris`。
 
 ### 模型定价配置
 

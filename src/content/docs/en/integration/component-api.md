@@ -319,6 +319,8 @@ const config: RtcAgentConfig = {
 };
 ```
 
+> 💡 **PKCE handled automatically**: In OAuth2 redirect mode, the component's built-in login dialog automatically generates PKCE `code_verifier` / `code_challenge` (RFC 7636) — sending `code_challenge` in the authorization request and `code_verifier` during token exchange. Developers do not need to handle PKCE parameters manually — PKCE is enabled by default when using the built-in login flow. If the host application manages the OAuth2 flow independently (without the built-in login dialog), it must implement PKCE on its own.
+
 #### Mode 2: Token Exchange (RFC 8693)
 
 When the host application holds an external JWT (e.g., an admin JWT issued by admin-server), the component can exchange it for an RTC main-server JWT via Token Exchange. This is suitable for Admin UI integration scenarios.
@@ -1309,6 +1311,39 @@ File preview components obtain the `FileStorage` instance via `FileStorageContex
 - Loading thumbnails: `fileStorage.getThumbnailUrl({md5, ext})`
 - Downloading files: `fileStorage.download(md5, ext, {signal})`
 - Getting presigned URLs: `fileStorage.getPresignedUrl({md5, ext}, expires)` (fallback approach)
+
+### FileStorage Public API
+
+`FileStorage` is the high-level file storage abstraction exposed by the component, obtained via `FileStorageContext`. It supports an offline-first upload/download lifecycle, batch operations, and cache management.
+
+#### Core Methods
+
+| Method | Signature | Description |
+| --- | --- | --- |
+| `cacheFileForUpload` | `(file: File) => Promise<FileInfo>` | Offline-first: immediately writes the file to local IndexedDB cache (calculates MD5), returns `FileInfo` (`syncStatus: 'pending'`). Thumbnails display immediately; actual S3 upload is performed by a subsequent `upload()` call |
+| `upload` | `(opts: UploadOptions) => Promise<FileInfo>` | Uploads the file to S3. Supports `onProgress` callback and `signal` for abort. After upload, `syncStatus` changes to `'synced'` |
+| `download` | `(md5: string, ext: string, opts?: DownloadOptions) => Promise<Blob>` | Downloads a file. Reads from local cache first; falls back to S3 when cache misses. Supports `forceRefresh` to bypass cache |
+| `getThumbnailUrl` | `(opts: {md5, ext}) => Promise<string>` | Gets a thumbnail Blob URL. Uses shared cache with reference counting to avoid duplicates |
+| `releaseThumbnailUrl` | `(url: string) => void` | Releases a thumbnail Blob URL reference. Revokes the blob when refcount reaches zero |
+| `getPresignedUrl` | `(opts: {md5, ext}, expires?: number) => Promise<string>` | Gets an S3 presigned URL (fallback approach) |
+
+#### Batch Operations
+
+| Method | Signature | Description |
+| --- | --- | --- |
+| `uploadBatch` | `(files: File[], opts?: BatchOptions) => Promise<FileInfo[]>` | Batch upload files with concurrency control and error handling strategy (`'continue'` skips failures / `'cancel'` aborts all) |
+| `downloadBatch` | `(items: {md5, ext}[], opts?: BatchOptions) => Promise<Blob[]>` | Batch download files |
+| `deleteBatch` | `(items: {md5, ext}[]) => Promise<void>` | Batch delete files (local cache + S3) |
+
+#### Cache Management
+
+| Method | Signature | Description |
+| --- | --- | --- |
+| `getCacheStats` | `() => Promise<CacheStats>` | Returns cache statistics (total files, total size, etc.) |
+| `evictCache` | `(opts?: {maxAge?: number}) => Promise<number>` | Evicts expired cache files, returns the number evicted |
+| `resumeInterruptedUploads` | `() => Promise<void>` | Resumes interrupted uploads (call after network recovery) |
+
+> 💡 **Offline-First**: `cacheFileForUpload()` writes the file to IndexedDB immediately, so thumbnails display even without network. A subsequent `upload()` syncs the file to S3 — `syncStatus` transitions from `'pending'` to `'syncing'` to `'synced'` (or `'failed'`). `UploadOptions.cacheTtlMs` controls local cache expiration (default: 7 days).
 
 ## Next Steps
 

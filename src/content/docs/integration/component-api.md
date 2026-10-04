@@ -319,6 +319,8 @@ const config: RtcAgentConfig = {
 };
 ```
 
+> 💡 **PKCE 自动处理**：OAuth2 重定向模式下，组件内置的登录对话框会自动生成 PKCE `code_verifier` / `code_challenge`（RFC 7636），在授权请求中发送 `code_challenge`，在令牌交换时发送 `code_verifier`。开发者无需手动处理 PKCE 参数——如果使用内置登录流程，PKCE 默认启用。如果宿主应用自行管理 OAuth2 流程（不通过内置登录对话框），则需要自行实现 PKCE。
+
 #### 模式二：Token Exchange（RFC 8693）
 
 当宿主应用持有外部 JWT（如 admin-server 签发的管理员 JWT），组件可以通过 Token Exchange 将其换取 RTC 主服务器的 JWT。适用于 Admin UI 集成等场景。
@@ -1309,6 +1311,39 @@ get _canSubmit(): boolean {
 - 加载缩略图：`fileStorage.getThumbnailUrl({md5, ext})`
 - 下载文件：`fileStorage.download(md5, ext, {signal})`
 - 获取预签名 URL：`fileStorage.getPresignedUrl({md5, ext}, expires)`（降级方案）
+
+### FileStorage 公共 API
+
+`FileStorage` 是组件暴露的高级文件存储抽象，通过 `FileStorageContext` 获取实例。支持离线优先的上传/下载生命周期、批量操作和缓存管理。
+
+#### 核心方法
+
+| 方法 | 签名 | 说明 |
+| --- | --- | --- |
+| `cacheFileForUpload` | `(file: File) => Promise<FileInfo>` | 离线优先：立即将文件写入本地 IndexedDB 缓存（计算 MD5），返回 `FileInfo`（`syncStatus: 'pending'`）。缩略图可立即显示，实际 S3 上传由后续 `upload()` 完成 |
+| `upload` | `(opts: UploadOptions) => Promise<FileInfo>` | 将文件上传到 S3。支持 `onProgress` 回调和 `signal` 中止。上传完成后 `syncStatus` 变为 `'synced'` |
+| `download` | `(md5: string, ext: string, opts?: DownloadOptions) => Promise<Blob>` | 下载文件。优先从本地缓存读取，缓存未命中时从 S3 下载。支持 `forceRefresh` 强制刷新缓存 |
+| `getThumbnailUrl` | `(opts: {md5, ext}) => Promise<string>` | 获取缩略图的 Blob URL。内置共享缓存和引用计数，避免重复创建 |
+| `releaseThumbnailUrl` | `(url: string) => void` | 释放缩略图 Blob URL 引用。引用计数归零时自动 revoke |
+| `getPresignedUrl` | `(opts: {md5, ext}, expires?: number) => Promise<string>` | 获取 S3 预签名 URL（降级方案） |
+
+#### 批量操作
+
+| 方法 | 签名 | 说明 |
+| --- | --- | --- |
+| `uploadBatch` | `(files: File[], opts?: BatchOptions) => Promise<FileInfo[]>` | 批量上传文件，支持并发控制和错误处理策略（`'continue'` 跳过失败 / `'cancel'` 全部取消） |
+| `downloadBatch` | `(items: {md5, ext}[], opts?: BatchOptions) => Promise<Blob[]>` | 批量下载文件 |
+| `deleteBatch` | `(items: {md5, ext}[]) => Promise<void>` | 批量删除文件（本地缓存 + S3） |
+
+#### 缓存管理
+
+| 方法 | 签名 | 说明 |
+| --- | --- | --- |
+| `getCacheStats` | `() => Promise<CacheStats>` | 获取缓存统计信息（总文件数、总大小等） |
+| `evictCache` | `(opts?: {maxAge?: number}) => Promise<number>` | 清理过期缓存文件，返回清理数量 |
+| `resumeInterruptedUploads` | `() => Promise<void>` | 恢复中断的上传（网络恢复后调用） |
+
+> 💡 **离线优先**：`cacheFileForUpload()` 将文件立即写入 IndexedDB，即使无网络也能显示缩略图。后续 `upload()` 负责将文件同步到 S3，`syncStatus` 从 `'pending'` 变为 `'syncing'` 再到 `'synced'`（或 `'failed'`）。`UploadOptions.cacheTtlMs` 控制本地缓存过期时间（默认 7 天）。
 
 ## 下一步
 

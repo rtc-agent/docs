@@ -194,6 +194,17 @@ For the full configuration options, see [etc/config.docker.yaml](https://github.
 | `worker.cache_hit_rate_warn_threshold` | Cache hit rate warning threshold (0.0-1.0). A warn log is emitted when the session's cumulative cache hit rate drops below this value. Negative values disable the warning | `0.88` |
 | `llm.retry_max_attempts` | Maximum retry attempts on model call failure. 0 means no retry | `0` |
 | `llm.retry_base_delay` | Base delay for retry backoff (exponential: `base_delay * 2^(attempt-1)`) | `1s` |
+| `server.client_queue_max_size` | Maximum Centrifuge client message queue size in bytes | `52428800` (50MB) |
+| `server.shutdown_timeout` | Graceful shutdown timeout | `10s` |
+| `server.rpc_timeout` | RPC handler context timeout | `10s` |
+| `debug.enabled` | Whether to enable debug endpoints (pprof, goroutines). Disabled by default in production | `false` |
+| `debug.show_raw_errors` | Show raw error details (with stack traces) in logs | `false` |
+| `debug.goroutine_leak_threshold` | Goroutine leak detection threshold (number of goroutines) | `1000` |
+| `token_exchange.external_issuers` | List of trusted external JWT issuers (for RFC 8693 Token Exchange). See [Admin-server Authentication](/docs/en/protocol/http-api/#admin-server-authentication) | empty |
+
+> 💡 **Full Configuration Reference**: `etc/config.yaml.example` contains all configurable options with comments — it is the authoritative configuration reference.
+>
+> 📌 **Production Validation**: In production mode, the Server automatically validates: rejects Mock OAuth2 Provider, rejects weak JWT secrets (insufficient length), requires `allowed_redirect_uris` to be configured.
 
 ### Model Pricing Configuration
 

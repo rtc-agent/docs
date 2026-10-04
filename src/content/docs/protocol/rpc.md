@@ -151,7 +151,7 @@ flowchart LR
 | 方法 | 类型 | 功能 | 关键参数 |
 |------|:----:|------|----------|
 | `v1.message.send` | ⚡ Action | 发送消息（自动创建 session 和 turn） | `content_data`，`client_session_id`，`client_id`（必填），`server_session_id`（可选），`agent_prompt`（可选） |
-| `v1.message.list` | 🔍 Query | 获取消息列表 | `session_id`，`cursor`（global_offset，uint32），`limit`（默认 50） |
+| `v1.message.list` | 🔍 Query | 获取消息列表 | `session_id`，`cursor`（global_offset 字符串形式），`limit`（默认 50） |
 | `v1.message.get` | 🔍 Query | 获取单条消息 | `message_id` |
 
 ### 消息发送流程
@@ -408,8 +408,8 @@ RPC 错误使用与 HTTP 不同的结构化格式：
 消息模型包含两个排序字段：
 
 | 字段 | 类型 | 说明 |
-|------|:----:|------|
-| `global_offset` | uint32 | Session 内全局消息顺序，单调递增，用作 `v1.message.list` 的分页 cursor |
+| --- | --- | --- |
+| `global_offset` | uint32 | Session 内全局消息顺序，单调递增，用作 `v1.message.list` 的分页 cursor（以字符串形式传输） |
 | `turn_offset` | uint32 | Turn 内消息顺序 |
 
 ## 下一步

@@ -108,7 +108,7 @@ flowchart LR
 
     subgraph STORAGE["💾 Storage Strategy"]
         direction TB
-        C["Access Token<br/>In-memory only (XSS-proof)"]
+        C["Access Token<br/>OAuth2: memory only<br/>Token Exchange: localStorage"]
         D["Refresh Token<br/>Hash only"]
     end
 
@@ -118,7 +118,7 @@ flowchart LR
 
 | Token | Validity | Purpose | Storage |
 | --- | --- | --- | --- |
-| 🔑 Access Token | 1 hour | Access API and WebSocket | In-memory only, never persisted (XSS-proof) |
+| 🔑 Access Token | 1 hour | Access API and WebSocket | In-memory only (XSS-proof). In Token Exchange mode, stored in localStorage (cross-tab sharing) |
 | 🔄 Refresh Token | 30 days | Refresh Access Token | Hash only (plaintext returned once, then discarded) |
 
 > 📌 **Security Key Point**: The Refresh Token's plaintext is only returned once at issuance; afterward, the server stores only the hash. Even if browser storage is compromised, attackers cannot impersonate the user long-term.
@@ -217,7 +217,7 @@ flowchart TD
         direction TB
         A["🔒 CSRF Protection<br/>OAuth2 state parameter"]
         B["🏷️ Channel Isolation<br/>Users can only receive their own messages"]
-        C["🧠 Token Storage<br/>Access Token in memory only<br/>Never persisted to disk"]
+        C["🧠 Token Storage<br/>OAuth2: memory only<br/>Token Exchange: localStorage"]
         D["🔑 Refresh Token<br/>Hash only, plaintext returned once"]
     end
 
@@ -228,7 +228,7 @@ flowchart TD
 | --- | --- | --- |
 | 🛡️ CSRF Protection | Use `state` parameter during OAuth2 authorization | Prevent cross-site request forgery attacks |
 | 🏷️ Channel Isolation | Users can only subscribe to their own dedicated channel | Prevent data leaks and unauthorized access |
-| 🧠 Token Storage | Access Token stored in memory only, not in localStorage | Prevent XSS attacks from stealing tokens |
+| 🧠 Token Storage | OAuth2 mode: Access Token in memory only, never persisted; Token Exchange mode: RTC JWT in localStorage (cross-tab sharing) | Prevent XSS attacks from stealing tokens |
 | 🔑 Refresh Token | Plaintext returned once; server stores hash only | Cannot be used long-term even if storage is compromised |
 
 ## Error Handling
@@ -327,6 +327,8 @@ const agent = createRtcAgent({
 ```
 
 > 💡 Token Exchange mode does not require `getToken()` or `refreshToken()` — the component handles JWT exchange and refresh internally. The main server must configure `token_exchange.external_issuers` in `config.yaml` to trust the corresponding JWT issuer. See [HTTP API - Admin-server Authentication](/docs/protocol/http-api/#admin-server-认证).
+>
+> 🔄 **Automatic Retry**: Token Exchange requests automatically retry once (1-second delay) on network errors or server responses 502/503/504/429. If the retry fails, the component automatically logs out and prompts the user to re-authenticate.
 
 #### AuthProvider Method Reference
 

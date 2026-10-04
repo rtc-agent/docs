@@ -108,7 +108,7 @@ flowchart LR
 
     subgraph STORAGE["💾 存储策略"]
         direction TB
-        C["Access Token<br/>内存存储（防 XSS）"]
+        C["Access Token<br/>OAuth2：仅存内存<br/>Token Exchange：localStorage"]
         D["Refresh Token<br/>仅存哈希值"]
     end
 
@@ -118,7 +118,7 @@ flowchart LR
 
 | 令牌 | 有效期 | 用途 | 存储方式 |
 | --- | --- | --- | --- |
-| 🔑 Access Token | 1 小时 | 访问 API 和 WebSocket | 内存存储（不落盘，防 XSS 窃取） |
+| 🔑 Access Token | 1 小时 | 访问 API 和 WebSocket | 内存存储（不落盘，防 XSS 窃取）。Token Exchange 模式下存 localStorage（跨 Tab 共享） |
 | 🔄 Refresh Token | 30 天 | 刷新 Access Token | 仅存哈希值（明文一次性返回后丢弃） |
 
 > 📌 **安全要点**：Refresh Token 的明文只在签发时返回一次，之后服务端仅保存哈希。即使浏览器存储被泄露，攻击者也无法长期冒充用户。
@@ -217,7 +217,7 @@ flowchart TD
         direction TB
         A["🔒 CSRF 防护<br/>OAuth2 state 参数"]
         B["🏷️ 频道隔离<br/>用户只能接收自己的消息"]
-        C["🧠 令牌存储<br/>Access Token 仅存内存<br/>不落盘防 XSS"]
+        C["🧠 令牌存储<br/>OAuth2：仅存内存<br/>Token Exchange：存 localStorage"]
         D["🔑 刷新令牌<br/>只存哈希值，明文一次性返回"]
     end
 
@@ -228,7 +228,7 @@ flowchart TD
 | --- | --- | --- |
 | 🛡️ CSRF 防护 | OAuth2 授权时使用 `state` 参数 | 防止跨站请求伪造攻击 |
 | 🏷️ 频道隔离 | 用户只能订阅自己的专属频道 | 防止数据泄露和越权访问 |
-| 🧠 令牌存储 | Access Token 存内存，不写入 localStorage | 防止 XSS 攻击窃取令牌 |
+| 🧠 令牌存储 | OAuth2 模式：Access Token 存内存，不写入 localStorage；Token Exchange 模式：RTC JWT 存 localStorage（用于跨 Tab 共享） | 防止 XSS 攻击窃取令牌 |
 | 🔑 刷新令牌 | 明文一次性返回，服务端仅存哈希 | 即使存储泄露也无法长期使用 |
 
 ## 错误处理
@@ -327,6 +327,8 @@ const agent = createRtcAgent({
 ```
 
 > 💡 Token Exchange 模式下不需要 `getToken()` 和 `refreshToken()`——组件内部自动完成 JWT 交换和刷新。主服务器需要在 `config.yaml` 中配置 `token_exchange.external_issuers` 以信任对应的 JWT 签发方。详见 [HTTP API - Admin-server 认证](/docs/protocol/http-api/#admin-server-认证)。
+>
+> 🔄 **自动重试**：Token Exchange 请求在网络错误或服务端返回 502/503/504/429 时会自动重试一次（间隔 1 秒）。重试失败后，组件将自动退出登录，引导用户重新认证。
 
 #### AuthProvider 方法参考
 

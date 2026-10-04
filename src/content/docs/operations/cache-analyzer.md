@@ -11,6 +11,7 @@ Cache Analyzer 是一个内置的 Web 工具，用于分析 LLM 请求的缓存�
 - **请求对比分析**：自动对比相邻请求的差异（新增/删除/修改）
 - **Message 级别 Diff**：精确展示每条消息的变化内容
 - **System Prompt Diff**：追踪系统提示词的变更
+- **流式响应解析**：支持解析 SSE 流式响应（自动累积 chunk 并提取缓存统计）
 - **Markdown 导出**：一键导出分析报告，方便分享和存档
 
 ## 启动工具
@@ -79,10 +80,11 @@ cache-analyzer -p 1000
 
 工具解析的日志事件：
 
-| 事件                | 说明                             |
-| ------------------- | -------------------------------- |
-| `llm.http.request`  | LLM 请求，包含完整的 request body |
-| `llm.http.response` | LLM 响应，包含 token 使用统计    |
+| 事件 | 说明 |
+| --- | --- |
+| `llm.http.request` | LLM 请求，包含完整的 request body |
+| `llm.http.response` | LLM 响应，包含 token 使用统计 |
+| `llm.http.response (streaming)` | SSE 流式响应，自动累积 chunk 并提取缓存统计 |
 
 关键字段：
 
