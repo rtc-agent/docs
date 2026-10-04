@@ -36,7 +36,6 @@ cd server
 ```yaml
 database:
   dsn: "postgres://rtc_agent:rtc_agent@postgres:5432/rtc_agent?sslmode=disable"
-  auto_migrate: true
 
 redis:
   addr: "redis:6379"
@@ -71,7 +70,16 @@ Compose 会自动：
 
 1. 启动 PostgreSQL 和 Redis
 2. 运行数据库迁移（init 容器）
-3. 启动 2 个 Server 容器 + Nginx 负载均衡 + 可观测性栈
+3. 启动 2 个 Server 容器 + Admin-server 管理服务 + Nginx 负载均衡 + 可观测性栈
+
+> 💡 **Admin-server** 管理后台可通过 `http://localhost:28081` 访问。首次启动时自动生成 JWT 密钥对，使用以下命令创建管理员账号：
+>
+> ```bash
+> docker compose exec admin-server ./rtc-agent admin account create \
+>   --email admin@example.com \
+>   --password your-password \
+>   --name "Admin"
+> ```
 
 ### 3. 验证
 

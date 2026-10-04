@@ -36,7 +36,6 @@ Edit `etc/config.docker.yaml` and verify the following configuration:
 ```yaml
 database:
   dsn: "postgres://rtc_agent:rtc_agent@postgres:5432/rtc_agent?sslmode=disable"
-  auto_migrate: true
 
 redis:
   addr: "redis:6379"
