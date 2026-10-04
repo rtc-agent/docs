@@ -326,7 +326,7 @@ const agent = createRtcAgent({
 });
 ```
 
-> 💡 Token Exchange mode does not require `getToken()` or `refreshToken()` — the component handles JWT exchange and refresh internally. The main server must configure `token_exchange.external_issuers` in `config.yaml` to trust the corresponding JWT issuer. See [HTTP API - Admin-server Authentication](/docs/protocol/http-api/#admin-server-认证).
+> 💡 Token Exchange mode does not require `getToken()` or `refreshToken()` — the component handles JWT exchange and refresh internally. The main server must configure `token_exchange.external_issuers` in `config.yaml` to trust the corresponding JWT issuer. See [HTTP API - Admin-server Authentication](/docs/en/protocol/http-api/#admin-server-authentication).
 >
 > 🔄 **Automatic Retry**: Token Exchange requests automatically retry once (1-second delay) on network errors or server responses 502/503/504/429. If the retry fails, the component automatically logs out and prompts the user to re-authenticate.
 

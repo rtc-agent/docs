@@ -339,7 +339,7 @@ const config: RtcAgentConfig = {
 };
 ```
 
-> 💡 Token Exchange mode does not require `getToken()` or `refreshToken()` — the component handles JWT exchange and refresh internally. The main server must configure `token_exchange.external_issuers` in `config.yaml` to trust the corresponding JWT issuer. See [HTTP API - Admin-server Authentication](/docs/protocol/http-api/#admin-server-认证).
+> 💡 Token Exchange mode does not require `getToken()` or `refreshToken()` — the component handles JWT exchange and refresh internally. The main server must configure `token_exchange.external_issuers` in `config.yaml` to trust the corresponding JWT issuer. See [HTTP API - Admin-server Authentication](/docs/en/protocol/http-api/#admin-server-authentication).
 
 #### AuthProvider Method Reference
 

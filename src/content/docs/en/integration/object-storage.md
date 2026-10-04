@@ -552,6 +552,6 @@ const key = `user-${userId}/${md5Hash}.toolongextension`;
 
 ## Next Steps
 
-- [HTTP API](/docs/protocol/http-api/) — Learn about the complete HTTP interface, including OAuth2 authentication
-- [WebSocket RPC](/docs/protocol/rpc/) — Perform business operations via WebSocket
-- [Virtual File System](/docs/concepts/virtual-fs/) — Understand how clients manage files using IndexedDB
+- [HTTP API](/docs/en/protocol/http-api/) — Learn about the complete HTTP interface, including OAuth2 authentication
+- [WebSocket RPC](/docs/en/protocol/rpc/) — Perform business operations via WebSocket
+- [Virtual File System](/docs/en/concepts/virtual-fs/) — Understand how clients manage files using IndexedDB
