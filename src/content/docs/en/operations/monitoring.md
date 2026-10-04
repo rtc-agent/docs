@@ -75,6 +75,93 @@ Track core business events (Session lifecycle and message sending).
 | `rtc_session_closed_total` | Counter | `reason` (normal/error/stopped_by_parent) | Total sessions closed (by reason) |
 | `rtc_messages_sent_total` | Counter | `type` (user/assistant/system) | Total messages sent (by type) |
 
+### Turn Execution Metrics (rtc_turn_*)
+
+Track Turn (AI reasoning round) execution.
+
+| Metric | Type | Labels | Description |
+| --- | --- | --- | --- |
+| `rtc_turn_total` | Counter | `work_kind`, `status` | Total turns executed (by work kind and status) |
+| `rtc_turn_duration_seconds` | Histogram | — | Turn execution duration distribution (buckets: 0.1s ~ 204.8s) |
+
+> 💡 A Turn is a complete AI reasoning round (from LLM call to tool execution completion). `work_kind` distinguishes different work types, `status` distinguishes success/failure.
+
+### LLM Call Metrics (rtc_llm_*)
+
+Track LLM API calls and token consumption.
+
+| Metric | Type | Labels | Description |
+| --- | --- | --- | --- |
+| `rtc_llm_tokens_total` | Counter | `model`, `type` (input/output) | Total LLM tokens consumed |
+| `rtc_llm_request_duration_seconds` | Histogram | — | LLM API request duration distribution (buckets: 0.5s ~ 256s) |
+| `rtc_llm_http_requests_total` | Counter | — | Total LLM HTTP requests |
+| `rtc_llm_http_request_duration_seconds` | Histogram | — | LLM HTTP request duration distribution |
+| `rtc_llm_http_tokens_total` | Counter | — | Total LLM HTTP transferred tokens |
+
+> 💡 `rtc_llm_tokens_total` is the core metric for cost accounting. The `type` label distinguishes input vs output tokens; combined with the `model` label, you can calculate per-model consumption ratios.
+
+### Interrupt Metrics (rtc_interrupt_*)
+
+| Metric | Type | Labels | Description |
+| --- | --- | --- | --- |
+| `rtc_interrupt_total` | Counter | `reason` | Total interrupts (by reason) |
+
+### Checkpoint Metrics (rtc_checkpoint_*)
+
+Track RTC Checkpoint save/restore operations.
+
+| Metric | Type | Labels | Description |
+| --- | --- | --- | --- |
+| `rtc_checkpoint_operations_total` | Counter | — | Total checkpoint operations (save/restore) |
+| `rtc_checkpoint_data_bytes` | Counter | — | Total checkpoint data size (bytes) |
+
+### Attachment Processing Metrics (rtc_attachment_*)
+
+Track multimodal attachment (images, text files) processing.
+
+| Metric | Type | Labels | Description |
+| --- | --- | --- | --- |
+| `rtc_attachment_tokens_total` | Counter | — | Total attachment tokens consumed (tokens injected into LLM after image base64 encoding) |
+| `rtc_attachment_build_duration_seconds` | Histogram | — | Attachment build duration distribution |
+| `rtc_attachment_operations_total` | Counter | — | Total attachment operations |
+| `rtc_attachment_budget_truncated_total` | Counter | — | Total attachment budget truncations (attachments truncated due to budget overflow) |
+
+### Script Execution Metrics (rtc_script_*)
+
+Track script execution.
+
+| Metric | Type | Labels | Description |
+| --- | --- | --- | --- |
+| `rtc_script_executions_total` | Counter | — | Total script executions |
+| `rtc_script_execution_duration_seconds` | Histogram | — | Script execution duration distribution |
+| `rtc_script_result_size_bytes` | Histogram | — | Script result size distribution |
+| `rtc_script_code_size_bytes` | Histogram | — | Script code size distribution |
+
+> 💡 Script metrics complement [Script Observability](/docs/en/operations/script-observability/) logs — metrics are for trend monitoring, logs are for detailed investigation.
+
+### Recovery Metrics (rtc_recovery_*)
+
+| Metric | Type | Labels | Description |
+| --- | --- | --- | --- |
+| `rtc_recovery_stale_turns_recovered_total` | Counter | — | Total stale turns recovered (stuck turns automatically recovered after server restart) |
+
+### Rate Limiting Metrics (rtc_ratelimit_*, rtc_ip_ratelimit_*)
+
+| Metric | Type | Labels | Description |
+| --- | --- | --- | --- |
+| `rtc_ratelimit_rejected_total` | Counter | — | Total OAuth2 rate limit rejections |
+| `rtc_ip_ratelimit_rejected_total` | Counter | — | Total IP rate limit rejections |
+
+> 💡 A spike in rate limit metrics may indicate a brute-force attack or abnormal client behavior.
+
+### Goroutine State Metrics
+
+| Metric | Type | Labels | Description |
+| --- | --- | --- | --- |
+| `rtc_goroutines_by_state` | Gauge | `state` (running/runnable/syscall/waiting, etc.) | Number of goroutines by state (sampled every 10 seconds) |
+
+> 💡 Complementary to `go_goroutines` (total count), this metric helps pinpoint the specific state of goroutine leaks — e.g., a large number of `waiting` goroutines typically indicates lock contention or IO blocking.
+
 ### OSS3 Object Storage Metrics (rtc_oss3_*)
 
 | Metric | Type | Labels | Description |
@@ -101,6 +188,21 @@ Track core business events (Session lifecycle and message sending).
 | --- | --- | --- | --- |
 | `http_requests_total` | Counter | `code`, `method` | Total HTTP requests (with status codes) |
 | `http_request_duration_seconds` | Histogram | — | HTTP request duration distribution |
+| `http_request_size_bytes` | Histogram | — | HTTP request body size distribution |
+| `http_response_size_bytes` | Histogram | — | HTTP response body size distribution |
+| `http_in_flight_requests` | Gauge | — | Current number of in-flight HTTP requests |
+
+### WebFetch Metrics (rtc_agent_webfetch_*)
+
+Track built-in WebFetch tool (web scraping) requests.
+
+| Metric | Type | Labels | Description |
+| --- | --- | --- | --- |
+| `rtc_agent_webfetch_requests_total` | Counter | `status` | Total WebFetch requests |
+| `rtc_agent_webfetch_errors_total` | Counter | `error_type` | Total WebFetch errors |
+| `rtc_agent_webfetch_duration_seconds` | Histogram | `domain_type` | WebFetch request duration distribution |
+| `rtc_agent_webfetch_cache_hits_total` | Counter | — | Total WebFetch cache hits |
+| `rtc_agent_webfetch_cache_misses_total` | Counter | — | Total WebFetch cache misses |
 
 ### Go Runtime Metrics
 
@@ -116,7 +218,7 @@ The distributed deployment includes pre-configured Grafana (port 23001, default 
 
 | Dashboard | Description | Key Panels |
 | --- | --- | --- |
-| **RTC Agent** | Core business dashboard | Active sessions, Turn execution, LLM calls, Token consumption, Cache hit rate; WebSocket/Centrifuge connections & RPC, Queue lifecycle, Auth & Security, Circuit breaker state, Database queries, Business events (Session/messages) |
+| **RTC Agent** | Core business dashboard | Active sessions, Turn execution (duration/success rate), LLM calls (token consumption/request duration/HTTP transfer), Script execution (count/duration/result size), Interrupt/Checkpoint/Attachment metrics, Recovery stats; WebSocket/Centrifuge connections & RPC, Queue lifecycle, Auth & Security, Rate limiting, Circuit breaker state, Goroutine state distribution, Database queries, Business events (Session/messages) |
 | **OSS3 Overview** | Object storage overview | Upload/download throughput, Quota usage, Multipart upload status, Backend health |
 | **MinIO Overview** | MinIO backend details | Disk usage, S3 request rate, Node status |
 | **HTTP Server** | HTTP layer monitoring | Request rate, Latency distribution, Status code distribution |

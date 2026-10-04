@@ -75,6 +75,93 @@ RTC Agent 内置了完整的可观测性基础设施：通过 Prometheus 采集�
 | `rtc_session_closed_total` | Counter | `reason` (normal/error/stopped_by_parent) | Session 关闭总数（按原因分布） |
 | `rtc_messages_sent_total` | Counter | `type` (user/assistant/system) | 消息发送总数（按类型分布） |
 
+### Turn 执行指标 (rtc_turn_*)
+
+追踪 Turn（AI 推理轮次）的执行情况。
+
+| 指标名 | 类型 | 标签 | 说明 |
+| --- | --- | --- | --- |
+| `rtc_turn_total` | Counter | `work_kind`, `status` | Turn 执行总数（按工作类型和状态分布） |
+| `rtc_turn_duration_seconds` | Histogram | — | Turn 执行耗时分布（桶：0.1s ~ 204.8s） |
+
+> 💡 Turn 是 AI 推理的一个完整轮次（从 LLM 调用到工具执行完成）。`work_kind` 区分不同的工作类型，`status` 区分成功/失败。
+
+### LLM 调用指标 (rtc_llm_*)
+
+追踪 LLM API 调用和 Token 消耗。
+
+| 指标名 | 类型 | 标签 | 说明 |
+| --- | --- | --- | --- |
+| `rtc_llm_tokens_total` | Counter | `model`, `type` (input/output) | LLM Token 消耗总数 |
+| `rtc_llm_request_duration_seconds` | Histogram | — | LLM API 请求耗时分布（桶：0.5s ~ 256s） |
+| `rtc_llm_http_requests_total` | Counter | — | LLM HTTP 请求总数 |
+| `rtc_llm_http_request_duration_seconds` | Histogram | — | LLM HTTP 请求耗时分布 |
+| `rtc_llm_http_tokens_total` | Counter | — | LLM HTTP 传输 Token 总数 |
+
+> 💡 `rtc_llm_tokens_total` 是成本核算的核心指标。`type` 标签区分 input token 和 output token，结合 `model` 标签可计算各模型的消耗占比。
+
+### 中断指标 (rtc_interrupt_*)
+
+| 指标名 | 类型 | 标签 | 说明 |
+| --- | --- | --- | --- |
+| `rtc_interrupt_total` | Counter | `reason` | 中断总数（按原因分布） |
+
+### Checkpoint 指标 (rtc_checkpoint_*)
+
+追踪 RTC Checkpoint 的存取操作。
+
+| 指标名 | 类型 | 标签 | 说明 |
+| --- | --- | --- | --- |
+| `rtc_checkpoint_operations_total` | Counter | — | Checkpoint 操作总数（保存/恢复） |
+| `rtc_checkpoint_data_bytes` | Counter | — | Checkpoint 数据量（字节） |
+
+### 附件处理指标 (rtc_attachment_*)
+
+追踪多模态附件（图片、文本文件）的处理情况。
+
+| 指标名 | 类型 | 标签 | 说明 |
+| --- | --- | --- | --- |
+| `rtc_attachment_tokens_total` | Counter | — | 附件 Token 消耗总数（图片 base64 编码后注入 LLM 的 token） |
+| `rtc_attachment_build_duration_seconds` | Histogram | — | 附件构建耗时分布 |
+| `rtc_attachment_operations_total` | Counter | — | 附件操作总数 |
+| `rtc_attachment_budget_truncated_total` | Counter | — | 附件 Token 预算截断总数（超出预算时被裁剪的附件） |
+
+### Script 执行指标 (rtc_script_*)
+
+追踪脚本执行的情况。
+
+| 指标名 | 类型 | 标签 | 说明 |
+| --- | --- | --- | --- |
+| `rtc_script_executions_total` | Counter | — | 脚本执行总数 |
+| `rtc_script_execution_duration_seconds` | Histogram | — | 脚本执行耗时分布 |
+| `rtc_script_result_size_bytes` | Histogram | — | 脚本执行结果大小分布 |
+| `rtc_script_code_size_bytes` | Histogram | — | 脚本代码大小分布 |
+
+> 💡 Script 指标与 [Script 可观测性](/docs/operations/script-observability/) 日志互补——指标用于趋势监控，日志用于详细排查。
+
+### 恢复指标 (rtc_recovery_*)
+
+| 指标名 | 类型 | 标签 | 说明 |
+| --- | --- | --- | --- |
+| `rtc_recovery_stale_turns_recovered_total` | Counter | — | 过时 Turn 恢复总数（服务端重启后自动恢复的卡死 Turn） |
+
+### 限流指标 (rtc_ratelimit_*, rtc_ip_ratelimit_*)
+
+| 指标名 | 类型 | 标签 | 说明 |
+| --- | --- | --- | --- |
+| `rtc_ratelimit_rejected_total` | Counter | — | OAuth2 限流拒绝总数 |
+| `rtc_ip_ratelimit_rejected_total` | Counter | — | IP 限流拒绝总数 |
+
+> 💡 限流指标突增可能表示遭受暴力攻击或客户端行为异常。
+
+### Goroutine 状态指标
+
+| 指标名 | 类型 | 标签 | 说明 |
+| --- | --- | --- | --- |
+| `rtc_goroutines_by_state` | Gauge | `state` (running/runnable/syscall/waiting 等) | 按状态分布的 Goroutine 数量（每 10 秒采样） |
+
+> 💡 与 `go_goroutines`（总数）互补，此指标帮助定位 Goroutine 泄漏的具体状态——例如大量 `waiting` 通常表示锁竞争或 IO 阻塞。
+
 ### OSS3 对象存储指标 (rtc_oss3_*)
 
 | 指标名 | 类型 | 标签 | 说明 |
@@ -101,6 +188,21 @@ RTC Agent 内置了完整的可观测性基础设施：通过 Prometheus 采集�
 | --- | --- | --- | --- |
 | `http_requests_total` | Counter | `code`, `method` | HTTP 请求总数（含状态码） |
 | `http_request_duration_seconds` | Histogram | — | HTTP 请求耗时分布 |
+| `http_request_size_bytes` | Histogram | — | HTTP 请求体大小分布 |
+| `http_response_size_bytes` | Histogram | — | HTTP 响应体大小分布 |
+| `http_in_flight_requests` | Gauge | — | 当前正在处理的 HTTP 请求数 |
+
+### WebFetch 指标 (rtc_agent_webfetch_*)
+
+追踪内置 WebFetch 工具（网页抓取）的请求情况。
+
+| 指标名 | 类型 | 标签 | 说明 |
+| --- | --- | --- | --- |
+| `rtc_agent_webfetch_requests_total` | Counter | `status` | WebFetch 请求总数 |
+| `rtc_agent_webfetch_errors_total` | Counter | `error_type` | WebFetch 错误总数 |
+| `rtc_agent_webfetch_duration_seconds` | Histogram | `domain_type` | WebFetch 请求耗时分布 |
+| `rtc_agent_webfetch_cache_hits_total` | Counter | — | WebFetch 缓存命中总数 |
+| `rtc_agent_webfetch_cache_misses_total` | Counter | — | WebFetch 缓存未命中总数 |
 
 ### Go 运行时指标
 
@@ -116,7 +218,7 @@ RTC Agent 内置了完整的可观测性基础设施：通过 Prometheus 采集�
 
 | 仪表盘 | 说明 | 关键面板 |
 | --- | --- | --- |
-| **RTC Agent** | 核心业务仪表盘 | Session 活跃数、Turn 执行、LLM 调用、Token 消耗、缓存命中率；WebSocket/Centrifuge 连接与 RPC 监控、Queue 生命周期、认证与安全、熔断器状态、数据库查询、业务事件（Session/消息） |
+| **RTC Agent** | 核心业务仪表盘 | Session 活跃数、Turn 执行（耗时/成功率）、LLM 调用（Token 消耗/请求耗时/HTTP 传输）、Script 执行（次数/耗时/结果大小）、Interrupt/Checkpoint/Attachment 指标、恢复统计；WebSocket/Centrifuge 连接与 RPC 监控、Queue 生命周期、认证与安全、限流统计、熔断器状态、Goroutine 状态分布、数据库查询、业务事件（Session/消息） |
 | **OSS3 Overview** | 对象存储概览 | 上传/下载吞吐量、配额使用、分片上传状态、后端健康 |
 | **MinIO Overview** | MinIO 后端详情 | 磁盘使用率、S3 请求率、节点状态 |
 | **HTTP Server** | HTTP 层监控 | 请求率、延迟分布、状态码分布 |

@@ -109,6 +109,10 @@ server:
 database:
   dsn: "postgres://rtc_agent:rtc_agent@localhost:25432/rtc_agent?sslmode=disable"
 
+# Redis config (optional in development; required for production multi-instance deployments — JWKS caching and rate limiting)
+# redis:
+#   addr: "localhost:6379"
+
 cors:
   allowed_origins: ["http://localhost:23001"]  # Admin dashboard URL; explicitly specify in production
 
@@ -124,7 +128,7 @@ jwt:
 
 ### Generate JWT Key Pair
 
-Admin-server uses asymmetric keys to sign JWTs. If no key paths are configured, ephemeral in-memory keys are generated on startup (lost after restart). Production environments must use persistent keys:
+Admin-server uses asymmetric keys to sign JWTs. On first startup, if the key files at the configured paths do not exist, admin-server automatically generates a key pair and saves it to disk (persists across restarts). You can also generate keys manually:
 
 ```bash
 # Manually generate key pair (ES256 recommended)
@@ -135,6 +139,9 @@ Admin-server uses asymmetric keys to sign JWTs. If no key paths are configured, 
 
 # Or EdDSA (Ed25519)
 ./bin/rtc-agent admin keygen --algorithm EdDSA
+
+# Force overwrite existing keys
+./bin/rtc-agent admin keygen --force
 ```
 
 Keys are stored in the `etc/keys/` directory by default (already excluded from `.gitignore` as `*.pem`).

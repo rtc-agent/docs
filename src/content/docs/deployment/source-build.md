@@ -109,6 +109,10 @@ server:
 database:
   dsn: "postgres://rtc_agent:rtc_agent@localhost:25432/rtc_agent?sslmode=disable"
 
+# Redis 配置（开发环境可选，生产多实例部署必填，用于 JWKS 缓存和限流）
+# redis:
+#   addr: "localhost:6379"
+
 cors:
   allowed_origins: ["http://localhost:23001"]  # 管理后台地址，生产环境务必显式指定
 
@@ -124,7 +128,7 @@ jwt:
 
 ### 生成 JWT 密钥对
 
-Admin-server 使用非对称密钥签名 JWT。如果配置中未指定密钥路径，启动时会生成临时内存密钥（重启后丢失）。生产环境务必使用持久化密钥：
+Admin-server 使用非对称密钥签名 JWT。首次启动时，如果配置中的密钥路径对应的文件不存在，admin-server 会自动生成密钥对并保存到磁盘（跨重启持久化）。你也可以手动生成：
 
 ```bash
 # 手动生成密钥对（推荐 ES256）
@@ -135,6 +139,9 @@ Admin-server 使用非对称密钥签名 JWT。如果配置中未指定密钥路
 
 # 或 EdDSA (Ed25519)
 ./bin/rtc-agent admin keygen --algorithm EdDSA
+
+# 强制覆盖已有密钥
+./bin/rtc-agent admin keygen --force
 ```
 
 密钥默认存储在 `etc/keys/` 目录（已在 `.gitignore` 中排除 `*.pem`）。
