@@ -133,6 +133,140 @@ export default defineConfig({
 - ✅ No need to wait for `rtc-agent-ready` event
 - ✅ Function registration uses `zodSchema` with `withMeta` examples
 
+### Create the OAuth Callback Page
+
+If you need GitHub login (or other OAuth providers), create a callback page to handle the OAuth redirect.
+
+**File**: `public/auth/callback.html`
+
+```html
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Authorization Complete</title>
+  <style>
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 100vh;
+      margin: 0;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    }
+    .container {
+      background: white;
+      border-radius: 16px;
+      padding: 48px;
+      text-align: center;
+      max-width: 400px;
+    }
+    .icon { font-size: 48px; margin-bottom: 16px; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="icon" id="icon">⏳</div>
+    <h1 id="title">Processing...</h1>
+    <p id="message">Please wait, completing authorization</p>
+  </div>
+
+  <script>
+    (function() {
+      var params = new URLSearchParams(window.location.search);
+      var code = params.get('code');
+      var state = params.get('state');
+      var error = params.get('error');
+
+      var icon = document.getElementById('icon');
+      var title = document.getElementById('title');
+      var message = document.getElementById('message');
+
+      if (error) {
+        icon.textContent = '✕';
+        title.textContent = 'Authorization Failed';
+        message.textContent = error;
+        return;
+      }
+
+      if (code && state) {
+        var target = window.opener || window.parent;
+        if (target) {
+          target.postMessage({
+            type: 'oauth-callback',
+            code: code,
+            state: state,
+          }, window.location.origin);
+          icon.textContent = '✓';
+          title.textContent = 'Authorization Successful';
+          message.textContent = 'Returning to app...';
+          setTimeout(function() { window.close(); }, 2000);
+        }
+      }
+    })();
+  </script>
+</body>
+</html>
+```
+
+### Configure the OAuth Callback URL
+
+In your GitHub OAuth App (or other provider), set the callback URL:
+
+- **Development**: `http://localhost:4321/docs/auth/callback.html`
+- **Production**: `https://your-site.github.io/docs/auth/callback.html`
+
+:::note[Important]
+The callback URL must match the `redirectUri` configured in `astro.config.mjs`.
+:::
+
+### Verify the Integration
+
+Start the development server:
+
+```bash
+pnpm dev
+```
+
+Visit `http://localhost:4321/docs/` — you should see the RTC Agent floating widget in the bottom-right corner.
+
+### Key Points
+
+#### 1. Use CDN instead of npm install
+
+CDN loading ensures SharedWorker file paths resolve correctly without additional build tool configuration.
+
+#### 2. Use the `createRtcAgent()` factory function
+
+The factory function consolidates all configuration in a single declarative object — no manual element creation or waiting for `rtc-agent-ready` events:
+
+```javascript
+const agent = createRtcAgent({
+  appLabel: 'My AI Assistant',
+  server: { url: 'https://rtc-agent.cherish.chat' },
+  window: { defaultMode: 'minimized', draggable: true },
+});
+```
+
+#### 3. Using `client:only` in Astro
+
+```astro
+<!-- Skip SSR, render client-side only -->
+<rtc-agent client:only="astro"></rtc-agent>
+```
+
+#### 4. Style Isolation
+
+The component uses Shadow DOM for style isolation — no conflicts with your Starlight theme.
+
+### Complete Example Project
+
+This project's docs site has already completed the integration. Refer to these files:
+
+- [astro.config.mjs](https://github.com/rtc-agent/rtc-agent/blob/main/docs/astro.config.mjs) — CDN injection configuration
+- [public/auth/callback.html](https://github.com/rtc-agent/rtc-agent/blob/main/docs/public/auth/callback.html) — OAuth callback page
+
 ## Production Integration: NPM + createRtcAgent()
 
 For production applications, use the `createRtcAgent()` factory function with full type safety and SharedWorker support for multi-tab synchronization.
