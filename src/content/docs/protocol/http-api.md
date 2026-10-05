@@ -484,11 +484,8 @@ token_exchange:
       jwks_uri: "http://admin-server:8081/.well-known/jwks.json"
       allowed_algorithms: ["RS256", "ES256"]
       cache_ttl: 3600
-      claims_mapping:
-        sub: "sub"
-        email: "email"
-        name: "name"
-        avatar_url: "picture"
+      # admin-server 使用标准 JWT claim 名称（email, name, picture），
+      # 默认映射即可覆盖，无需显式配置 claims_mapping
 ```
 
 | 字段 | 说明 |

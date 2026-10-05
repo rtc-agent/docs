@@ -484,11 +484,8 @@ token_exchange:
       jwks_uri: "http://admin-server:8081/.well-known/jwks.json"
       allowed_algorithms: ["RS256", "ES256"]
       cache_ttl: 3600
-      claims_mapping:
-        sub: "sub"
-        email: "email"
-        name: "name"
-        avatar_url: "picture"
+      # admin-server uses standard JWT claim names (email, name, picture),
+      # which are covered by the default mapping — no explicit claims_mapping needed
 ```
 
 | Field | Description |

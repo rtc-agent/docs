@@ -207,6 +207,7 @@ export default defineConfig({
 					translations: { 'zh-CN': '集成指南' },
 					items: [
 						{ label: 'Authentication', link: '/integration/auth/', translations: { 'zh-CN': '认证与授权' } },
+						{ label: 'Token Exchange Example', link: '/integration/token-exchange-example/', translations: { 'zh-CN': 'Token Exchange 完整示例' } },
 						{ label: 'Object Storage', link: '/integration/object-storage/', translations: { 'zh-CN': '对象存储 (OSS/S3)' } },
 						{ label: 'Web Component API', link: '/integration/component-api/', translations: { 'zh-CN': 'Web Component API' } },
 						{ label: 'Function Registration', link: '/integration/function-registration/', translations: { 'zh-CN': 'Function 注册指南' } },

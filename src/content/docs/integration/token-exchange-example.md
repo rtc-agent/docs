@@ -32,7 +32,7 @@ openssl rsa -pubout -in private.pem -out public.pem
 
 ```typescript
 // src/services/jwt-service.ts
-import { SignJWT, importPKCS8, exportJWK } from 'jose';
+import { SignJWT, importPKCS8, importSPKI, exportJWK } from 'jose';
 import { readFileSync } from 'fs';
 import { v4 as uuidv4 } from 'uuid';
 
@@ -100,7 +100,6 @@ export async function getJWKS() {
 import express from 'express';
 import { signJWT, getJWKS } from '../services/jwt-service';
 import { verifyPassword } from '../services/auth-service';
-import { getJWKS } from '../services/jwt-service';
 
 const router = express.Router();
 
@@ -224,11 +223,12 @@ token_exchange:
       jwks_uri: "https://your-app.com/.well-known/jwks.json"
       allowed_algorithms: ["RS256"]
       cache_ttl: 3600
-      claims_mapping:
-        sub: "sub"
-        email: "email"
-        name: "name"
-        avatar_url: "picture"
+      # claims_mapping 仅在 JWT 使用非标准 claim 名称时才需要配置
+      # 默认映射：email→email, name→name, picture→avatar_url
+      # 如果你的 JWT 使用了不同的 claim 名称，例如：
+      # claims_mapping:
+      #   email: "email_address"    # 从 JWT 的 email_address 读取邮箱
+      #   name: "display_name"      # 从 JWT 的 display_name 读取名称
 ```
 
 ### 3. Client 端实现

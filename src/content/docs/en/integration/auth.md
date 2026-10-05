@@ -43,11 +43,9 @@ token_exchange:
       jwks_uri: "https://your-app.com/.well-known/jwks.json"  # JWKS endpoint
       allowed_algorithms: ["RS256"]             # Allowed signing algorithms
       cache_ttl: 3600                           # JWKS cache TTL (seconds)
-      claims_mapping:                           # JWT claims mapping (optional)
-        sub: "sub"                              # User unique identifier
-        email: "email"                          # User email
-        name: "name"                            # User display name
-        avatar_url: "picture"                   # User avatar
+      # claims_mapping is only needed when your JWT uses non-standard claim names
+      # Default mapping already covers common names: email->email, name->name, picture->avatar_url
+      # sub is always read from the JWT's "sub" claim and cannot be changed via claims_mapping
 ```
 
 ### Step 2: Configure AuthProvider in Your Frontend
@@ -438,8 +436,8 @@ interface AuthProvider {
   // Authentication mode: fixed to 'token-exchange'
   type: 'token-exchange';
   
-  // Return external JWT (JWT issued by your system)
-  getExchangeToken(): Promise<string>;
+  // Return external JWT (JWT issued by your system) (sync or async)
+  getExchangeToken(): string | Promise<string>;
   
   // Check if user is logged in (synchronous)
   isLoggedIn(): boolean;
@@ -568,11 +566,8 @@ token_exchange:
       jwks_uri: "https://your-app.com/.well-known/jwks.json"
       allowed_algorithms: ["RS256", "ES256"]    # Allowed signing algorithms
       cache_ttl: 3600                           # JWKS cache TTL (seconds)
-      claims_mapping:                           # JWT claims mapping
-        sub: "sub"                              # User unique identifier
-        email: "email"                          # User email
-        name: "name"                            # User display name
-        avatar_url: "picture"                   # User avatar
+      # claims_mapping is only needed when your JWT uses non-standard claim names
+      # Default mapping already covers common names: email->email, name->name, picture->avatar_url
 ```
 
 **Configuration Description**:
@@ -630,14 +625,25 @@ token_exchange:
 
 #### Claims Mapping
 
-`claims_mapping` allows you to map custom claims in JWTs to RTC Agent standard fields:
+`claims_mapping` allows you to map custom claim names in your JWTs to RTC Agent standard fields. The configuration format is `standard_field: claim_name_in_jwt`.
+
+**Default Mapping** (works without configuration):
+
+| Standard Field | JWT Claim Read By Default | Description |
+|----------------|:-------------------------:|-------------|
+| `email` | `email` | User email |
+| `name` | `name` | User display name |
+| `avatar_url` | `picture` | User avatar URL |
+
+> **Note**: `sub` (user unique identifier) is always read from the JWT's `sub` claim and cannot be changed via `claims_mapping`.
+
+Only configure `claims_mapping` when your JWT uses non-standard claim names. For example, if the email field in your JWT is `email_address` and the display name is `display_name`:
 
 ```yaml
 claims_mapping:
-  sub: "user_id"              # Map JWT's user_id to sub
-  email: "email_address"      # Map JWT's email_address to email
-  name: "display_name"        # Map JWT's display_name to name
-  avatar_url: "avatar"        # Map JWT's avatar to avatar_url
+  email: "email_address"      # Read email from JWT's email_address claim
+  name: "display_name"        # Read display name from JWT's display_name claim
+  avatar_url: "avatar"        # Read avatar URL from JWT's avatar claim
 ```
 
 ---

@@ -43,11 +43,9 @@ token_exchange:
       jwks_uri: "https://your-app.com/.well-known/jwks.json"  # JWKS 端点
       allowed_algorithms: ["RS256"]             # 允许的签名算法
       cache_ttl: 3600                           # JWKS 缓存时间（秒）
-      claims_mapping:                           # JWT claims 映射（可选）
-        sub: "sub"                              # 用户唯一标识
-        email: "email"                          # 用户邮箱
-        name: "name"                            # 用户显示名称
-        avatar_url: "picture"                   # 用户头像
+      # claims_mapping 仅在 JWT 使用非标准 claim 名称时才需要配置
+      # 默认映射已覆盖常见名称：email→email, name→name, picture→avatar_url
+      # sub 始终从 JWT 的 "sub" claim 读取，不可通过 claims_mapping 更改
 ```
 
 ### 步骤 2：前端配置 AuthProvider
@@ -438,8 +436,8 @@ interface AuthProvider {
   // 认证模式：固定为 'token-exchange'
   type: 'token-exchange';
   
-  // 返回外部 JWT（你的系统签发的 JWT）
-  getExchangeToken(): Promise<string>;
+  // 返回外部 JWT（你的系统签发的 JWT）（可同步或异步）
+  getExchangeToken(): string | Promise<string>;
   
   // 检查用户是否已登录（同步）
   isLoggedIn(): boolean;
@@ -568,11 +566,8 @@ token_exchange:
       jwks_uri: "https://your-app.com/.well-known/jwks.json"
       allowed_algorithms: ["RS256", "ES256"]    # 允许的签名算法
       cache_ttl: 3600                           # JWKS 缓存时间（秒）
-      claims_mapping:                           # JWT claims 映射
-        sub: "sub"                              # 用户唯一标识
-        email: "email"                          # 用户邮箱
-        name: "name"                            # 用户显示名称
-        avatar_url: "picture"                   # 用户头像
+      # claims_mapping 仅在 JWT 使用非标准 claim 名称时才需要配置
+      # 默认映射已覆盖常见名称：email→email, name→name, picture→avatar_url
 ```
 
 **配置说明**：
@@ -630,14 +625,25 @@ token_exchange:
 
 #### Claims 映射
 
-`claims_mapping` 允许你将 JWT 中的自定义 claim 映射到 RTC Agent 的标准字段：
+`claims_mapping` 允许你将 JWT 中的自定义 claim 名称映射到 RTC Agent 的标准字段。配置格式为 `标准字段: JWT 中的 claim 名称`。
+
+**默认映射**（无需配置即可工作）：
+
+| 标准字段 | 默认读取的 JWT claim | 说明 |
+|----------|:-------------------:|------|
+| `email` | `email` | 用户邮箱 |
+| `name` | `name` | 用户显示名称 |
+| `avatar_url` | `picture` | 用户头像 |
+
+> **注意**：`sub`（用户唯一标识）始终从 JWT 的 `sub` claim 读取，不可通过 `claims_mapping` 更改。
+
+仅当你的 JWT 使用非标准 claim 名称时才需要配置 `claims_mapping`。例如，JWT 中邮箱字段为 `email_address`，显示名称为 `display_name`：
 
 ```yaml
 claims_mapping:
-  sub: "user_id"              # 将 JWT 的 user_id 映射到 sub
-  email: "email_address"      # 将 JWT 的 email_address 映射到 email
-  name: "display_name"        # 将 JWT 的 display_name 映射到 name
-  avatar_url: "avatar"        # 将 JWT 的 avatar 映射到 avatar_url
+  email: "email_address"      # 从 JWT 的 email_address claim 读取邮箱
+  name: "display_name"        # 从 JWT 的 display_name claim 读取显示名称
+  avatar_url: "avatar"        # 从 JWT 的 avatar claim 读取头像 URL
 ```
 
 ---

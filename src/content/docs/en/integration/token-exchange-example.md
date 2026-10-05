@@ -32,7 +32,7 @@ openssl rsa -pubout -in private.pem -out public.pem
 
 ```typescript
 // src/services/jwt-service.ts
-import { SignJWT, importPKCS8, exportJWK } from 'jose';
+import { SignJWT, importPKCS8, importSPKI, exportJWK } from 'jose';
 import { readFileSync } from 'fs';
 import { v4 as uuidv4 } from 'uuid';
 
@@ -100,7 +100,6 @@ export async function getJWKS() {
 import express from 'express';
 import { signJWT, getJWKS } from '../services/jwt-service';
 import { verifyPassword } from '../services/auth-service';
-import { getJWKS } from '../services/jwt-service';
 
 const router = express.Router();
 
@@ -224,11 +223,12 @@ token_exchange:
       jwks_uri: "https://your-app.com/.well-known/jwks.json"
       allowed_algorithms: ["RS256"]
       cache_ttl: 3600
-      claims_mapping:
-        sub: "sub"
-        email: "email"
-        name: "name"
-        avatar_url: "picture"
+      # claims_mapping is only needed when your JWT uses non-standard claim names
+      # Default mapping: email->email, name->name, picture->avatar_url
+      # If your JWT uses different claim names, for example:
+      # claims_mapping:
+      #   email: "email_address"    # Read email from JWT's email_address claim
+      #   name: "display_name"      # Read name from JWT's display_name claim
 ```
 
 ### 3. Client Implementation
