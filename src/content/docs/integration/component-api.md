@@ -289,7 +289,9 @@ agent.destroy();
 
 ## 认证配置
 
-`RtcAgentConfig` 中的 `auth` 字段控制组件如何获取认证凭据。推荐使用 AuthProvider 模式，将认证关注点完全委托给你的 Provider：
+`RtcAgentConfig` 中的 `auth` 字段控制组件如何获取认证凭据。推荐使用 AuthProvider 模式，将认证关注点完全委托给你的 Provider。
+
+> 💡 **推荐方案**：对于企业集成场景，强烈推荐使用 **Token Exchange** 模式。它集成简单、用户体验好，且无需实现完整的 OAuth2 流程。详见 [认证与授权 - Token Exchange 完整指南](/docs/integration/auth/#token-exchange-完整集成指南)。
 
 ### AuthProvider（推荐）
 
@@ -297,31 +299,12 @@ agent.destroy();
 
 AuthProvider 支持两种认证模式：
 
-| 模式 | `type` 值 | 适用场景 |
-| --- | --- | --- |
-| OAuth2 重定向（默认） | `'oauth2-redirect'` | 宿主应用自行管理令牌，组件直接使用 |
-| Token Exchange | `'token-exchange'` | 宿主持有外部 JWT（如 Admin-server），组件通过 RFC 8693 换取 RTC JWT |
+| 模式 | `type` 值 | 推荐度 | 适用场景 |
+| --- | --- | --- | --- |
+| Token Exchange（推荐） | `'token-exchange'` | ⭐⭐⭐⭐⭐ | 企业集成场景，已有认证系统 |
+| OAuth2 重定向 | `'oauth2-redirect'` | ⭐⭐⭐ | 独立应用，需要完整登录流程 |
 
-#### 模式一：OAuth2 重定向（默认）
-
-```ts
-const config: RtcAgentConfig = {
-  // ...其他配置
-  auth: {
-    // type: 'oauth2-redirect',  // 默认值，可省略
-    getToken: async () => myAuthStore.getAccessToken(),
-    refreshToken: async () => myAuthStore.refreshAccessToken(),
-    isLoggedIn: () => myAuthStore.isAuthenticated,
-    logout: async () => { await myAuthStore.signOut(); },
-    getUserId: () => myAuthStore.getUserId(),  // 返回当前用户唯一标识
-    deviceId: 'uuid-from-your-backend',  // 必填，与服务端 JWT 中的 Device ID 一致
-  },
-};
-```
-
-> 💡 **PKCE 自动处理**：OAuth2 重定向模式下，组件内置的登录对话框会自动生成 PKCE `code_verifier` / `code_challenge`（RFC 7636），在授权请求中发送 `code_challenge`，在令牌交换时发送 `code_verifier`。开发者无需手动处理 PKCE 参数——如果使用内置登录流程，PKCE 默认启用。如果宿主应用自行管理 OAuth2 流程（不通过内置登录对话框），则需要自行实现 PKCE。
-
-#### 模式二：Token Exchange（RFC 8693）
+#### Token Exchange（推荐）
 
 当宿主应用持有外部 JWT（如 admin-server 签发的管理员 JWT），组件可以通过 Token Exchange 将其换取 RTC 主服务器的 JWT。适用于 Admin UI 集成等场景。
 
@@ -339,7 +322,28 @@ const config: RtcAgentConfig = {
 };
 ```
 
-> 💡 Token Exchange 模式下不需要 `getToken()` 和 `refreshToken()`——组件内部自动完成 JWT 交换和刷新。主服务器需要在 `config.yaml` 中配置 `token_exchange.external_issuers` 以信任对应的 JWT 签发方。详见 [HTTP API - Admin-server 认证](/docs/protocol/http-api/#admin-server-认证)。
+> 💡 Token Exchange 模式下不需要 `getToken()` 和 `refreshToken()`——组件内部自动完成 JWT 交换和刷新。主服务器需要在 `config.yaml` 中配置 `token_exchange.external_issuers` 以信任对应的 JWT 签发方。
+>
+> 📚 **完整集成指南**：请参阅 [认证与授权 - Token Exchange 完整指南](/docs/integration/auth/#token-exchange-完整集成指南)，包含架构、配置、JWT 签发、JWKS 端点等详细说明。
+
+#### OAuth2 重定向（备选方案）
+
+```ts
+const config: RtcAgentConfig = {
+  // ...其他配置
+  auth: {
+    // type: 'oauth2-redirect',  // 默认值，可省略
+    getToken: async () => myAuthStore.getAccessToken(),
+    refreshToken: async () => myAuthStore.refreshAccessToken(),
+    isLoggedIn: () => myAuthStore.isAuthenticated,
+    logout: async () => { await myAuthStore.signOut(); },
+    getUserId: () => myAuthStore.getUserId(),  // 返回当前用户唯一标识
+    deviceId: 'uuid-from-your-backend',  // 必填，与服务端 JWT 中的 Device ID 一致
+  },
+};
+```
+
+> 💡 **PKCE 自动处理**：OAuth2 重定向模式下，组件内置的登录对话框会自动生成 PKCE `code_verifier` / `code_challenge`（RFC 7636），在授权请求中发送 `code_challenge`，在令牌交换时发送 `code_verifier`。开发者无需手动处理 PKCE 参数——如果使用内置登录流程，PKCE 默认启用。如果宿主应用自行管理 OAuth2 流程（不通过内置登录对话框），则需要自行实现 PKCE。
 
 #### AuthProvider 方法参考
 

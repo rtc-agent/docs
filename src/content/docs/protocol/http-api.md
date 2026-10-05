@@ -181,6 +181,8 @@ sequenceDiagram
 
 `POST /oauth2/token` 同时支持授权码换取令牌和 RFC 8693 Token Exchange 两种模式，通过 `grant_type` 区分。当 `grant_type` 为 `urn:ietf:params:oauth:grant-type:token-exchange` 时，进入 Token Exchange 模式——将外部 JWT（如 admin-server 签发的管理员 JWT）换取 RTC 主服务器的 access_token。
 
+> 💡 **完整集成指南**：本节仅包含 API 协议细节。如需了解完整的 Token Exchange 集成流程（包括如何签发 JWT、配置 JWKS 端点、前端配置等），请参阅 [认证与授权 - Token Exchange 完整指南](/docs/integration/auth/#token-exchange-完整集成指南)。
+
 ### 请求体
 
 ```json
@@ -445,6 +447,8 @@ Prometheus 指标端点，暴露服务运行指标，供监控系统（Prometheu
 ## Admin-server 认证
 
 Admin-server 是独立于主服务器的管理服务，提供管理员登录、用户管理等功能。管理员通过 admin-server 登录后获得 JWT，该 JWT 可通过 RFC 8693 Token Exchange 机制被主服务器识别。
+
+> 💡 **完整集成指南**：本节仅包含 Admin-server 的 API 协议细节。如需了解完整的 Token Exchange 集成流程（包括架构、配置、JWT 签发、JWKS 端点等），请参阅 [认证与授权 - Token Exchange 完整指南](/docs/integration/auth/#token-exchange-完整集成指南)。
 
 ### 架构关系
 

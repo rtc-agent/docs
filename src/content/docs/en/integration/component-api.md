@@ -289,7 +289,9 @@ agent.destroy();
 
 ## Auth Configuration
 
-The `auth` field in `RtcAgentConfig` controls how the component obtains authentication credentials. The recommended approach is AuthProvider mode, which delegates all authentication concerns to your provider:
+The `auth` field in `RtcAgentConfig` controls how the component obtains authentication credentials. The recommended approach is AuthProvider mode, which delegates all authentication concerns to your provider.
+
+> 💡 **Recommended Approach**: For enterprise integration scenarios, **Token Exchange** mode is strongly recommended. It offers simple integration, great user experience, and eliminates the need to implement a full OAuth2 flow. See [Authentication & Authorization - Complete Token Exchange Guide](/docs/en/integration/auth/#complete-token-exchange-integration-guide) for details.
 
 ### AuthProvider (Recommended)
 
@@ -297,31 +299,12 @@ Full control over the authentication lifecycle. Implement this when your host ap
 
 AuthProvider supports two authentication modes:
 
-| Mode | `type` value | Use case |
-| --- | --- | --- |
-| OAuth2 Redirect (default) | `'oauth2-redirect'` | Host application manages tokens directly |
-| Token Exchange | `'token-exchange'` | Host holds an external JWT (e.g., from Admin-server), component exchanges it for an RTC JWT via RFC 8693 |
+| Mode | `type` value | Recommendation | Use case |
+| --- | --- | --- | --- |
+| Token Exchange (Recommended) | `'token-exchange'` | ⭐⭐⭐⭐⭐ | Enterprise integration with existing auth systems |
+| OAuth2 Redirect | `'oauth2-redirect'` | ⭐⭐⭐ | Standalone apps requiring full login flow |
 
-#### Mode 1: OAuth2 Redirect (default)
-
-```ts
-const config: RtcAgentConfig = {
-  // ...other config
-  auth: {
-    // type: 'oauth2-redirect',  // default, can be omitted
-    getToken: async () => myAuthStore.getAccessToken(),
-    refreshToken: async () => myAuthStore.refreshAccessToken(),
-    isLoggedIn: () => myAuthStore.isAuthenticated,
-    logout: async () => { await myAuthStore.signOut(); },
-    getUserId: () => myAuthStore.getUserId(),  // returns the current user's unique ID
-    deviceId: 'uuid-from-your-backend',  // required — must match the Device ID in the server-issued JWT
-  },
-};
-```
-
-> 💡 **PKCE handled automatically**: In OAuth2 redirect mode, the component's built-in login dialog automatically generates PKCE `code_verifier` / `code_challenge` (RFC 7636) — sending `code_challenge` in the authorization request and `code_verifier` during token exchange. Developers do not need to handle PKCE parameters manually — PKCE is enabled by default when using the built-in login flow. If the host application manages the OAuth2 flow independently (without the built-in login dialog), it must implement PKCE on its own.
-
-#### Mode 2: Token Exchange (RFC 8693)
+#### Token Exchange (Recommended)
 
 When the host application holds an external JWT (e.g., an admin JWT issued by admin-server), the component can exchange it for an RTC main-server JWT via Token Exchange. This is suitable for Admin UI integration scenarios.
 
@@ -339,7 +322,28 @@ const config: RtcAgentConfig = {
 };
 ```
 
-> 💡 Token Exchange mode does not require `getToken()` or `refreshToken()` — the component handles JWT exchange and refresh internally. The main server must configure `token_exchange.external_issuers` in `config.yaml` to trust the corresponding JWT issuer. See [HTTP API - Admin-server Authentication](/docs/en/protocol/http-api/#admin-server-authentication).
+> 💡 Token Exchange mode does not require `getToken()` or `refreshToken()` — the component handles JWT exchange and refresh internally. The main server must configure `token_exchange.external_issuers` in `config.yaml` to trust the corresponding JWT issuer.
+>
+> 📚 **Complete Integration Guide**: See [Authentication & Authorization - Complete Token Exchange Integration Guide](/docs/en/integration/auth/#complete-token-exchange-integration-guide) for architecture, configuration, JWT signing, JWKS endpoints, and more.
+
+#### OAuth2 Redirect (Alternative)
+
+```ts
+const config: RtcAgentConfig = {
+  // ...other config
+  auth: {
+    // type: 'oauth2-redirect',  // default, can be omitted
+    getToken: async () => myAuthStore.getAccessToken(),
+    refreshToken: async () => myAuthStore.refreshAccessToken(),
+    isLoggedIn: () => myAuthStore.isAuthenticated,
+    logout: async () => { await myAuthStore.signOut(); },
+    getUserId: () => myAuthStore.getUserId(),  // returns the current user's unique ID
+    deviceId: 'uuid-from-your-backend',  // required — must match the Device ID in the server-issued JWT
+  },
+};
+```
+
+> 💡 **PKCE handled automatically**: In OAuth2 redirect mode, the component's built-in login dialog automatically generates PKCE `code_verifier` / `code_challenge` (RFC 7636) — sending `code_challenge` in the authorization request and `code_verifier` during token exchange. Developers do not need to handle PKCE parameters manually — PKCE is enabled by default when using the built-in login flow. If the host application manages the OAuth2 flow independently (without the built-in login dialog), it must implement PKCE on its own.
 
 #### AuthProvider Method Reference
 

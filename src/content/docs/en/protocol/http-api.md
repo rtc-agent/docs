@@ -181,6 +181,8 @@ sequenceDiagram
 
 `POST /oauth2/token` supports both authorization code exchange and RFC 8693 Token Exchange, dispatched by the `grant_type` parameter. When `grant_type` is `urn:ietf:params:oauth:grant-type:token-exchange`, the endpoint enters Token Exchange mode — exchanging an external JWT (e.g., an admin JWT issued by admin-server) for an RTC main-server access_token.
 
+> 💡 **Complete Integration Guide**: This section only contains API protocol details. For a complete Token Exchange integration guide (including how to issue JWTs, configure JWKS endpoints, frontend configuration, etc.), please refer to [Authentication & Authorization - Complete Token Exchange Integration Guide](/docs/en/integration/auth/#complete-token-exchange-integration-guide).
+
 ### Request Body
 
 ```json
@@ -445,6 +447,8 @@ Export memory data as an OKF (Open Knowledge Format) bundle. Supports filtering 
 ## Admin-server Authentication
 
 Admin-server is an independent management service separate from the Main Server, providing administrator login, user management, and other features. After administrators log in to admin-server, they receive a JWT that can be recognized by the Main Server via the RFC 8693 Token Exchange mechanism.
+
+> 💡 **Complete Integration Guide**: This section only contains Admin-server API protocol details. For a complete Token Exchange integration guide (including architecture, configuration, JWT signing, JWKS endpoints, etc.), please refer to [Authentication & Authorization - Complete Token Exchange Integration Guide](/docs/en/integration/auth/#complete-token-exchange-integration-guide).
 
 ### Architecture
 
