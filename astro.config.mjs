@@ -29,9 +29,9 @@ export default defineConfig({
 				},
 			},
 			head: [
-				{ tag: 'script', attrs: { type: 'module', src: 'https://cdn.jsdelivr.net/npm/@rtc-agent/component@0.3.1-rc.1/dist/index.js' } },
+				{ tag: 'script', attrs: { type: 'module', src: 'https://cdn.jsdelivr.net/npm/@rtc-agent/component@0.3.2/dist/index.js' } },
 				{ tag: 'script', attrs: { type: 'module' }, content: `
-					import { z, withMeta, createRtcAgent } from 'https://cdn.jsdelivr.net/npm/@rtc-agent/component@0.3.1-rc.1/dist/index.js';
+					import { z, withMeta, createRtcAgent } from 'https://cdn.jsdelivr.net/npm/@rtc-agent/component@0.3.2/dist/index.js';
 
 					let DOCS_INDEX = null;
 					const loadIndex = () => DOCS_INDEX || fetch('/docs/docs-index.json').then(r => r.json()).then(d => DOCS_INDEX = d);
@@ -187,6 +187,21 @@ export default defineConfig({
 					],
 				},
 				{
+					label: 'Integration Guide',
+					translations: { 'zh-CN': '集成指南' },
+					items: [
+						{ label: 'Authentication', link: '/integration/auth/', translations: { 'zh-CN': '认证与授权' } },
+						{ label: 'Token Exchange Example', link: '/integration/token-exchange-example/', translations: { 'zh-CN': 'Token Exchange 完整示例' } },
+						{ label: 'Object Storage', link: '/integration/object-storage/', translations: { 'zh-CN': '对象存储 (OSS/S3)' } },
+						{ label: 'Web Component API', link: '/integration/component-api/', translations: { 'zh-CN': 'Web Component API' } },
+						{ label: 'Function Registration', link: '/integration/function-registration/', translations: { 'zh-CN': 'Function 注册指南' } },
+						{ label: 'Scenario Authoring', link: '/integration/scenario-authoring/', translations: { 'zh-CN': 'Scenario 编写指南' } },
+						{ label: 'i18n Integration', link: '/integration/i18n/', translations: { 'zh-CN': '国际化集成指南' } },
+						{ label: 'Integration Tutorial', link: '/integration/integration-tutorial/', translations: { 'zh-CN': '接入实战' } },
+						{ label: 'FAQ', link: '/integration/faq/', translations: { 'zh-CN': '常见问题' } },
+					],
+				},
+				{
 					label: 'Features',
 					translations: { 'zh-CN': '功能' },
 					items: [
@@ -203,18 +218,12 @@ export default defineConfig({
 					],
 				},
 				{
-					label: 'Integration Guide',
-					translations: { 'zh-CN': '集成指南' },
+					label: 'Architecture',
+					translations: { 'zh-CN': '架构' },
 					items: [
-						{ label: 'Authentication', link: '/integration/auth/', translations: { 'zh-CN': '认证与授权' } },
-						{ label: 'Token Exchange Example', link: '/integration/token-exchange-example/', translations: { 'zh-CN': 'Token Exchange 完整示例' } },
-						{ label: 'Object Storage', link: '/integration/object-storage/', translations: { 'zh-CN': '对象存储 (OSS/S3)' } },
-						{ label: 'Web Component API', link: '/integration/component-api/', translations: { 'zh-CN': 'Web Component API' } },
-						{ label: 'Function Registration', link: '/integration/function-registration/', translations: { 'zh-CN': 'Function 注册指南' } },
-						{ label: 'Scenario Authoring', link: '/integration/scenario-authoring/', translations: { 'zh-CN': 'Scenario 编写指南' } },
-						{ label: 'i18n Integration', link: '/integration/i18n/', translations: { 'zh-CN': '国际化集成指南' } },
-						{ label: 'Integration Tutorial', link: '/integration/integration-tutorial/', translations: { 'zh-CN': '接入实战' } },
-						{ label: 'FAQ', link: '/integration/faq/', translations: { 'zh-CN': '常见问题' } },
+						{ label: 'Overview', link: '/architecture/', translations: { 'zh-CN': '架构总览' } },
+						{ label: 'Frontend', link: '/architecture/frontend/', translations: { 'zh-CN': '前端架构' } },
+						{ label: 'Backend', link: '/architecture/backend/', translations: { 'zh-CN': '后端架构' } },
 					],
 				},
 				{
@@ -225,15 +234,6 @@ export default defineConfig({
 						{ label: 'HTTP API', link: '/protocol/http-api/', translations: { 'zh-CN': 'HTTP API' } },
 						{ label: 'WebSocket RPC', link: '/protocol/rpc/', translations: { 'zh-CN': 'WebSocket RPC' } },
 						{ label: 'Real-time Events', link: '/protocol/events/', translations: { 'zh-CN': '实时事件' } },
-					],
-				},
-				{
-					label: 'Architecture',
-					translations: { 'zh-CN': '架构' },
-					items: [
-						{ label: 'Overview', link: '/architecture/', translations: { 'zh-CN': '架构总览' } },
-						{ label: 'Frontend', link: '/architecture/frontend/', translations: { 'zh-CN': '前端架构' } },
-						{ label: 'Backend', link: '/architecture/backend/', translations: { 'zh-CN': '后端架构' } },
 					],
 				},
 				{
@@ -259,6 +259,19 @@ export default defineConfig({
 						{ label: 'Mermaid Live Editor', link: '/showcase/mermaid-live-editor/', translations: { 'zh-CN': 'Mermaid Live Editor' } },
 						{ label: 'Peep', link: '/showcase/peep/', translations: { 'zh-CN': 'Peep 命理工作台' } },
 						{ label: 'RTC Agent Docs', link: '/showcase/rtc-agent-docs/', translations: { 'zh-CN': 'RTC Agent 官方文档站' } },
+					],
+				},
+				{
+					label: 'Admin',
+					translations: { 'zh-CN': '管理后台', 'en': 'Admin' },
+					items: [
+						{ label: 'Overview', link: '/admin/overview/', translations: { 'zh-CN': '概述', 'en': 'Overview' } },
+						{ label: 'Deployment', link: '/admin/deployment/', translations: { 'zh-CN': '部署与运维', 'en': 'Deployment' } },
+						{ label: 'Authentication', link: '/admin/auth/', translations: { 'zh-CN': '管理员认证', 'en': 'Authentication' } },
+						{ label: 'User Management', link: '/admin/user-management/', translations: { 'zh-CN': '用户管理', 'en': 'User Management' } },
+						{ label: 'System Config', link: '/admin/system-config/', translations: { 'zh-CN': '系统配置', 'en': 'System Config' } },
+						{ label: 'Observability', link: '/admin/observability/', translations: { 'zh-CN': '可观测性', 'en': 'Observability' } },
+						{ label: 'API Reference', link: '/admin/api-reference/', translations: { 'zh-CN': 'API 参考', 'en': 'API Reference' } },
 					],
 				},
 				{

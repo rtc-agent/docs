@@ -1,9 +1,9 @@
 ---
 title: 架构总览
-description: RTC Agent 的整体架构——浏览器端虚拟文件系统、服务端 Agent 引擎、LLM 推理的三方协作全景。
+description: RTC Agent 的整体架构——浏览器端虚拟文件系统、服务端 Agent 引擎、Admin 管理后台、LLM 推理的协作全景。
 ---
 
-RTC Agent 的架构由三部分组成：**浏览器 / 前端**（虚拟文件系统 + Web Component）、**RTC Agent Server**（Agent 引擎 + 上下文管理 + 实时通信）、**LLM Provider**（AI 推理）。
+RTC Agent 的架构由四部分组成：**浏览器 / 前端**（虚拟文件系统 + Web Component）、**RTC Agent Server**（Agent 引擎 + 上下文管理 + 实时通信）、**Admin Server**（管理后台）、**LLM Provider**（AI 推理）。
 
 ## 全景架构
 
@@ -12,14 +12,15 @@ flowchart LR
     subgraph BROWSER["🖥️ 浏览器 / 前端"]
         direction TB
         UI["👤 Web Component<br/>&lt;rtc-agent&gt;"]
+        ADMIN_UI["🛠️ Admin UI<br/>管理后台"]
         WS["🔌 WebSocket Client"]
         SCRIPT["🔑 script 工具"]
         TOOLS["⚙️ 基础工具<br/>ls / read / write / edit / grep / find"]
         VFS[("💾 虚拟文件系统<br/>IndexedDB")]
-        FX["📦 Function 库"]
+        FX[" Function 库"]
     end
 
-    subgraph SERVER["⚙️ RTC Agent Server"]
+    subgraph SERVER["⚙️ RTC Agent Server<br/>(Port 8888)"]
         direction TB
         GW["🌐 WebSocket Gateway"]
         AUTH["🔐 认证"]
@@ -27,6 +28,14 @@ flowchart LR
         MEM["🧠 记忆系统"]
         AGENT["🤖 Agent 引擎"]
         REG["📋 Function 注册表"]
+    end
+
+    subgraph ADMIN["🛠️ Admin Server<br/>(Port 8081)"]
+        direction TB
+        ADMIN_AUTH["🔐 管理员认证<br/>Email OTP"]
+        ADMIN_USER[" 用户管理"]
+        ADMIN_CONFIG["️ 系统配置"]
+        ADMIN_OBS["📊 可观测性<br/>Grafana/Prometheus"]
     end
 
     LLM["🧠 LLM Provider"]
@@ -49,8 +58,16 @@ flowchart LR
     AGENT -->|响应| GW
     GW -->|流式输出| UI
 
+    ADMIN_UI -->|HTTPS| ADMIN_AUTH
+    ADMIN_AUTH --> ADMIN_USER
+    ADMIN_AUTH --> ADMIN_CONFIG
+    ADMIN_AUTH --> ADMIN_OBS
+    ADMIN_USER -.->|共享数据库| SERVER
+    ADMIN_CONFIG -.->|共享数据库| SERVER
+
     style BROWSER fill:#e1f5fe,stroke:#0288d1,stroke-width:3px
     style SERVER fill:#f3e5f5,stroke:#7b1fa2,stroke-width:3px
+    style ADMIN fill:#e8f5e9,stroke:#388e3c,stroke-width:3px
     style LLM fill:#fff3e0,stroke:#f57c00,stroke-width:3px
     style VFS fill:#c8e6c9,stroke:#388e3c,stroke-width:2px
     style SCRIPT fill:#ffeb3b,stroke:#f9a825,stroke-width:2px,color:#000
@@ -73,7 +90,7 @@ flowchart LR
 
 ```mermaid
 sequenceDiagram
-    actor User as 👤 用户
+    actor User as  用户
     participant FE as 🖥️ 前端
     participant GW as 🌐 Gateway
     participant CTX as 🗜️ 上下文
@@ -116,26 +133,30 @@ sequenceDiagram
 | **实时通信** | Centrifuge WebSocket | 双向推送 |
 | **AI 框架** | Anthropic SDK + Eino | Agent 引擎 |
 | **前端** | Lit Web Components | 组件化 UI |
-| **可观测** | OpenTelemetry + Jaeger + Prometheus | 追踪 + 指标 |
+| **管理后台** | Gin + Casbin | Admin Server、RBAC 权限 |
+| **可观测** | OpenTelemetry + Jaeger + Prometheus + Grafana | 追踪 + 指标 + 监控 |
 
 ## 架构子页面
 
 ```mermaid
 flowchart LR
-    subgraph PAGES["📖 详细架构文档"]
+    subgraph PAGES[" 详细架构文档"]
         direction TB
         FE_PAGE["🖥️ 前端架构<br/>Web Components<br/>45 个子组件 · 19 个 Controller"]
-        BE_PAGE["⚙️ 后端架构<br/>Go 服务<br/>Gateway · Agent · Context · Memory"]
+        BE_PAGE["️ 后端架构<br/>Go 服务<br/>Gateway · Agent · Context · Memory"]
+        ADMIN_PAGE["🛠️ Admin 架构<br/>管理后台<br/>认证 · 权限 · 监控"]
     end
 
     style PAGES fill:#e3f2fd,stroke:#1565c0,stroke-width:2px
     style FE_PAGE fill:#e1f5fe,stroke:#0288d1,stroke-width:2px
     style BE_PAGE fill:#f3e5f5,stroke:#7b1fa2,stroke-width:2px
+    style ADMIN_PAGE fill:#e8f5e9,stroke:#388e3c,stroke-width:2px
 ```
 
 ## 下一步
 
 - [前端架构](/docs/architecture/frontend) — Web Components 组件体系、状态管理、窗口系统
 - [后端架构](/docs/architecture/backend) — Go 服务分层、Agent 引擎、上下文管理
+- [Admin 服务概述](/docs/admin/overview) — 管理后台功能与部署
 - [Remote Tool Calling](/docs/concepts/rtc) — 了解核心协议的工作机制
 - [协议总览](/docs/protocol) — 了解通信协议的完整定义
