@@ -1,256 +1,151 @@
 ---
-title: 快速开始
-description: 5 分钟部署 RTC Agent Server 并嵌入前端组件，跑通完整链路。
+title: 快速入门
+description: 5 分钟从零启动 RTC Agent Server，跑通完整链路。
 ---
 
-从零到跑通 RTC Agent 只需两步：**部署 Server** → **嵌入前端组件**。
+从零到跑通 RTC Agent 只需五步。无论你想**快速体验**还是**真实接入**，都从这里开始。
 
-## 部署方式选择
-
-| 部署方式 | 适用场景 | 依赖 |
-| --- | --- | --- |
-| **Docker 部署**（推荐） | 快速体验、完整部署 | Docker |
-| [源码构建](/docs/deployment/source-build/) | 本地开发调试 | Go 1.27, PostgreSQL, Redis |
-| [Docker 分布式集群](/docs/deployment/distributed-deploy/) | 多 Worker 测试、生产验证 | Docker |
+> 💡 **RTC Agent 是什么？** 一个 AI 助手后端，通过 Remote Tool Calling 协议让 AI 调用你前端定义的工具。整体架构：
+> - **Server**（本教程启动的）：接收用户消息，调用 LLM，协调工具执行
+> - **前端组件**：嵌入你的网页，提供 AI 对话 UI，注册并执行工具
+> - **SharedWorker**：浏览器后台进程，多个标签页共享一个 WebSocket 连接，避免重复认证
 
 ## 前置条件
 
 - **Docker** — 推荐 Docker Desktop 或等效环境
 - **LLM API Key** — Claude 或 OpenAI 兼容接口的 API 密钥
 
-> 如果选择源码构建，还需 Go 1.27+、PostgreSQL 17+（含 pgvector）、Redis 7+。详见 [源码构建指南](/docs/deployment/source-build/)。
->
-> Docker Compose 包含了 `mock-oauth2` 服务容器，但默认配置中 `providers.mock.enabled` 为 `false`。如需体验 Mock 登录，请编辑 `etc/config.docker.yaml` 将 `mock.enabled` 改为 `true`，并将 `url` 改为 `http://mock-oauth2:10060`（Docker 内部服务名）。生产环境需部署自己的 OAuth2 服务，详见 [认证与授权](/docs/integration/auth/#开发者接入指南)。
-
-## 第一步：部署 Server
-
-### 1. 克隆代码 & 准备配置
+## Step 1: 获取代码
 
 ```bash
 git clone https://github.com/rtc-agent/server.git
 cd server
 ```
 
-编辑 `etc/config.docker.yaml`，确认以下配置正确：
-
-```yaml
-database:
-  dsn: "postgres://rtc_agent:rtc_agent@postgres:5432/rtc_agent?sslmode=disable"
-
-redis:
-  addr: "redis:6379"
-
-llm:
-  provider: "claude"           # 或 "openai"
-  # api_key 通过环境变量 LLM__API_KEY 配置，不在 YAML 中写明文
-  model: "claude-sonnet-4-20250514"  # 示例：使用 Claude 模型，实际默认配置可能不同（如 qwen3.7-plus）
-```
-
-配置 LLM API Key（环境变量方式）：
+## Step 2: 配置环境变量
 
 ```bash
-# 复制 .env 模板
 cp .env.example .env
-
-# 编辑 .env，填入你的 API Key
-echo "LLM__API_KEY=your-api-key-here" >> .env
 ```
 
-> 💡 **环境变量命名规则**：大写字母 + 双下划线 `__` 分隔层级，对应 YAML 配置的层级结构。例如 `llm.api_key` → `LLM__API_KEY`。
->
-> ⚠️ **敏感字段处理**：敏感字段（如 `api_key`、`password`）建议不在 YAML 中写明文，而是通过环境变量配置。环境变量优先级高于配置文件，可以安全地覆盖 YAML 中的值。
+编辑 `.env`，填入你的 LLM API Key：
 
-### 2. 启动
+```bash
+# ========== 必填 ==========
+LLM__API_KEY=sk-ant-xxx...
+
+# ========== 可选：快速体验时需要（详见 /quick-start/） ==========
+# PROVIDERS__GITHUB__ENABLED=true
+# PROVIDERS__GITHUB__CLIENT_ID=your-client-id
+# PROVIDERS__GITHUB__CLIENT_SECRET=your-client-secret
+```
+
+> 💡 **环境变量命名规则**：大写字母 + 双下划线 `__` 分隔层级，对应 YAML 配置的层级结构。例如 `llm.api_key` → `LLM__API_KEY`。如果你只做真实接入（Token Exchange），不需要配置 GitHub OAuth。
+
+## Step 3: 启动 Server
 
 ```bash
 docker compose up -d
 ```
 
-Compose 会自动：
+Compose 会自动启动：
 
-1. 启动 PostgreSQL 和 Redis
-2. 运行数据库迁移（init 容器）
-3. 启动 2 个 Server 容器 + Admin Server 管理服务 + Nginx 负载均衡 + 可观测性栈
+| 服务 | 说明 |
+|------|------|
+| PostgreSQL + Redis | 数据存储 |
+| Server (2 实例) | RTC Agent 主服务 + Nginx 负载均衡 |
+| Admin Server | 管理后台服务 |
+| MinIO | 对象存储（文件上传等，自动启动无需配置） |
+| Prometheus + Grafana | 监控 |
+| Jaeger | 分布式追踪 |
 
-> 💡 **Admin Server** 管理后台可通过 `http://localhost:28081` 访问。首次启动时自动生成 JWT 密钥对。
+> 💡 **镜像来源**：Docker Compose 默认从 GitHub Container Registry (`ghcr.io`) 拉取官方预构建镜像，无需本地编译。
 
-**创建管理员账号**：
+### Docker 镜像
 
-```bash
-# 使用 account 命令创建管理员
-rtc-agent admin account create \
-  --email admin@example.com \
-  --name "Admin"
-```
+RTC Agent 提供官方预构建镜像，托管在 GitHub Container Registry：
 
-该命令会向指定邮箱发送 OTP 验证码，验证后即可登录 Admin 后台。
-
-> 📖 **了解更多**：详见 [Admin 服务概述](/docs/admin/overview/) 和 [管理员认证](/docs/admin/auth/)
-
-### 3. 验证
-
-```bash
-# 通过 Nginx 负载均衡入口访问
-curl http://localhost:28080/healthz
-# {"status":"ok"}
-```
-
-## 第二步：嵌入前端组件
-
-Server 跑起来后，在你的网页中添加 `<rtc-agent>` 组件即可获得 AI 助手能力。
-
-### 快速接入（CDN）
-
-适用于文档站点或快速演示：
-
-```html
-<!-- 引入组件 -->
-<script type="module" src="https://cdn.jsdelivr.net/npm/@rtc-agent/component@0.3.0-rc.4/dist/index.js"></script>
-
-<!-- 最简接入 -->
-<rtc-agent></rtc-agent>
-```
-
-自定义主题和标题：
-
-```html
-<rtc-agent theme="dark" app-label="我的 AI 助手"></rtc-agent>
-```
-
-组件会自动连接当前页面所在域名的 Server（默认 `localhost:28080`）。
-
-### 生产接入（NPM）
-
-对于需要完整控制和多 Tab 支持的生产应用：
+| 镜像 | 地址 | 版本列表 |
+| :--- | :--- | :--- |
+| Server | `ghcr.io/rtc-agent/server` | [查看版本](https://github.com/rtc-agent/server/pkgs/container/server) |
+| MinIO | `ghcr.io/rtc-agent/minio` | [查看版本](https://github.com/rtc-agent/minio/pkgs/container/minio) |
 
 ```bash
-pnpm add @rtc-agent/component
+# 拉取最新版本
+docker pull ghcr.io/rtc-agent/server:latest
+
+# 拉取指定版本（推荐生产环境）
+docker pull ghcr.io/rtc-agent/server:v1.0.0
+
+# MinIO 对象存储镜像
+docker pull ghcr.io/rtc-agent/minio:release.2025-10-15t17-29-55z
 ```
 
-安装 SharedWorker（多 Tab 同步所需）：
-
-```bash
-npx rtc-agent-setup
-```
-
-使用 `createRtcAgent()` 工厂函数：
-
-```typescript
-import { createRtcAgent } from '@rtc-agent/component';
-
-const agent = createRtcAgent({
-  appLabel: '我的 AI 助手',
-  theme: 'system',
-  server: {
-    url: 'https://rtc-agent.cherish.chat',
-    redirectUri: '/auth/callback.html',
-  },
-  workerURL: '/rtc-agent/shared-worker.js',
-  // ... 其他配置
-});
-
-document.body.appendChild(agent);
-
-// 当应用不再需要 agent 时：
-agent.destroy();
-```
-
-`destroy()` 会清理事件监听器和订阅，确保 agent 不再需要时不会发生资源泄漏。
-
-> 完整接入指南：[接入实战](/docs/integration/integration-tutorial/)
->
-> 完整的属性、事件、CSS 变量说明见 [Web Component API](/docs/integration/component-api/)。
-
-## 其他部署方式
-
-### 源码构建
-
-适合需要在 Server 侧开发调试的场景。需要 Go 1.27+ 环境。
-
-→ 详见 [源码构建指南](/docs/deployment/source-build/)
-
-### Docker 分布式集群
-
-与上述 Docker 部署使用同一个 `docker-compose.yml`，额外包含分布式行为验证（Session Affinity、RTC Checkpoint）、重启恢复机制等深入说明。
-
-→ 详见 [分布式集群部署](/docs/deployment/distributed-deploy/)
-
-## 配置参考
-
-完整配置项参见 [etc/config.docker.yaml](https://github.com/rtc-agent/server/blob/main/etc/config.docker.yaml)。
-
-### 必填配置
-
-| 配置 | 说明 | 必填 |
-| --- | --- | --- |
-| `database.dsn` | PostgreSQL 连接字符串 | ✅ |
-| `redis.addr` | Redis 地址 | ✅ |
-| `auth.jwt_secret` | JWT 签名密钥（生产环境务必使用强随机值） | ✅ |
-| `llm.provider` | 模型提供商：`claude` 或 `openai` | ✅ |
-| `llm.api_key` | LLM API 密钥 | ✅ |
-| `llm.model` | 模型名称 | ✅ |
-
-### 可选配置
-
-| 配置 | 说明 | 默认值 |
-| --- | --- | --- |
-| `tracing.enabled` | 启用 OpenTelemetry 追踪 | `false` |
-| `log.level` | 日志级别：`debug` / `info` / `warn` / `error` | `info` |
-| `log.server_log_file` | 服务器日志文件路径（JSON 格式，用于 promtail 采集）。留空则不写文件。日志使用 lumberjack 自动轮转（100MB/文件，保留 3 个，7 天，gzip 压缩） | 空 |
-| `worker.cache_hit_rate_warn_threshold` | 缓存命中率告警阈值（0.0-1.0）。Session 累计缓存命中率低于此值时输出 warn 日志。负数表示禁用告警 | `0.88` |
-| `llm.retry_max_attempts` | 模型调用失败时的最大重试次数。0 表示不重试 | `0` |
-| `llm.retry_base_delay` | 重试的基础退避时间（指数退避：`base_delay * 2^(attempt-1)`） | `1s` |
-| `server.client_queue_max_size` | Centrifuge 客户端消息队列最大字节数 | `52428800`（50MB） |
-| `server.shutdown_timeout` | 优雅关闭超时时间 | `10s` |
-| `server.rpc_timeout` | RPC 处理器上下文超时时间 | `10s` |
-| `debug.enabled` | 是否启用 debug 端点（pprof、goroutines）。生产环境默认禁用 | `false` |
-| `debug.show_raw_errors` | 在日志中显示原始错误详情（含堆栈） | `false` |
-| `debug.goroutine_leak_threshold` | Goroutine 泄漏检测阈值（goroutine 数量） | `1000` |
-| `token_exchange.external_issuers` | 受信任的外部 JWT 签发方列表（用于 RFC 8693 Token Exchange）。详见 [Admin-server 认证](/docs/protocol/http-api/#admin-server-认证) | 空 |
-
-> 💡 **完整配置参考**：`etc/config.yaml.example` 包含所有可配置项及注释说明，是配置的最权威参考。
->
-> 📌 **生产环境校验**：Server 在生产模式下会自动校验：拒绝 Mock OAuth2 Provider、拒绝弱 JWT 密钥（长度不足）、要求配置 `allowed_redirect_uris`。
-
-### 模型定价配置
-
-`llm.pricing` 配置段用于自定义模型价格，以便系统计算每次调用的成本（`total_cost_usd`）。所有价格单位为 **USD / 百万 tokens**。未配置时使用 Claude 3.5 Sonnet 的默认价格。
+如需在 `docker-compose.yml` 中指定版本，修改 `image` 字段即可：
 
 ```yaml
-llm:
-  pricing:
-    input_per_million: 3.0        # 正常 input token 价格
-    output_per_million: 15.0      # output token 价格
-    cached_read_per_million: 0.3  # cache read（cache hit）价格，通常为 input 的 10%
-    cached_write_per_million: 3.75 # cache write（cache creation）价格，通常为 input 的 125%
-    reasoning_per_million: 0.0    # reasoning（thinking）token 价格
+services:
+  server:
+    image: ghcr.io/rtc-agent/server:v1.0.0  # 将 latest 替换为具体版本号
 ```
 
-| 字段 | 说明 | 默认值（Claude 3.5 Sonnet） |
-| --- | --- | --- |
-| `input_per_million` | 正常 input token 价格（USD/百万 tokens） | `3.0` |
-| `output_per_million` | output token 价格（USD/百万 tokens） | `15.0` |
-| `cached_read_per_million` | cache read（cache hit）价格（USD/百万 tokens） | `0.3` |
-| `cached_write_per_million` | cache write（cache creation）价格（USD/百万 tokens） | `3.75` |
-| `reasoning_per_million` | reasoning（thinking）token 价格（USD/百万 tokens） | `0.0` |
+## Step 4: 创建管理员账号
 
-> 💡 使用其他模型时，请参考模型提供商的定价页面，将 `llm.pricing` 配置为对应价格。成本计算会在每次 LLM 调用后累加到 Session 的 `total_cost_usd` 字段，通过 `session.updated` 事件推送给前端。
->
-> 🔐 **生产环境安全提示**：部署到生产环境前，请确保启用 HTTPS、配置正确的 OAuth2 提供商（非 Mock）、使用强随机 `jwt_secret`、设置 CORS 白名单。
+管理员账号用于登录 **Admin 后台**（http://localhost:28081），管理用户、查看系统状态等。
+
+```bash
+docker compose exec server rtc-agent admin account create \
+  --email admin@example.com \
+  --password your-password \  # 至少 8 位
+  --role admin
+```
+
+> 💡 **认证体系说明**：RTC Agent 有两套认证：
+> - **Admin 后台**：使用邮箱+密码或邮箱验证码登录，管理系统配置
+> - **用户端**：使用 GitHub/Google OAuth2 登录，与 AI 助手对话
+> 
+> 管理员账号和普通用户是独立的，GitHub 登录的用户是普通用户。
+
+## Step 5: 验证
+
+```bash
+curl http://localhost:28080/healthz
+# 应返回: {"status":"ok"}
+```
+
+**访问地址**：
+
+| 服务 | 地址 |
+|------|------|
+| RTC Agent Server | http://localhost:28080 |
+| Admin 后台 | http://localhost:28081 |
+| Grafana | http://localhost:3000 |
+| Jaeger | http://localhost:16686 |
+
+## 下一步
+
+选择你的场景：
+
+| 场景 | 说明 | 跳转 |
+|------|------|------|
+| 🚀 **快速体验** | 最小改动，体验 AI 助手能力 | [→ 快速体验](/quick-start/) |
+| 🏗️ **真实接入** | 将 RTC Agent 集成到你的生产应用 | [→ 真实接入](/integration-guide/) |
+| 📦 **源码构建** | 本地开发调试，需要 Go 1.27+ | [→ 源码构建](/deployment/source-build/) |
+| 🌐 **分布式集群** | 多 Worker 测试、生产验证 | [→ 分布式集群](/deployment/distributed-deploy/) |
 
 ## 常见问题
 
 **`curl healthz` 无响应？**
 
-- Docker 部署：检查容器状态 `docker compose ps`，确认所有容器为 `healthy`
-- 查看 Server 日志：`docker compose logs server-1 server-2`
+- 检查容器状态：`docker compose ps`，确认所有容器为 `healthy`
+- 查看 Server 日志：`docker compose logs server-1`
 - 确认端口 28080 未被占用：`lsof -i :28080`
 
 **LLM 调用报错？**
 
-- 检查 `api_key` 是否正确填入（注意 YAML 中不要有多余空格）
-- 确认 `model` 名称与你的 API 计划匹配（如 `claude-sonnet-4-20250514` 需要有效的 Claude API 订阅）
-- 如使用 OpenAI，确认 `provider` 设为 `"openai"` 且 `api_key` 是 OpenAI 的 Key
+- 检查 `.env` 中的 `LLM__API_KEY` 是否正确
+- 确认 API Key 有足够的额度
+- 查看日志：`docker compose logs server-1 | grep -i error`
 
 **PostgreSQL 连接失败？**
 
@@ -261,10 +156,4 @@ llm:
 
 - 确认 Server 和网页在同一域名下，或已配置 CORS
 - 打开浏览器开发者工具，查看 Console 和 Network 面板中的错误信息
-
-## 下一步
-
-- [嵌入前端组件](/docs/integration/component-api/) — 了解 `<rtc-agent>` 的全部属性和事件
-- [注册 Function](/docs/integration/function-registration/) — 让你的网站 API 变成 AI 可调用的工具
-- [工作模式](/docs/concepts/work-modes/) — 理解 AI 操作的五种权限模式
-- [编写 Scenario](/docs/integration/scenario-authoring/) — 给 AI 提供业务上下文
+- 检查 `server.url` 配置是否正确

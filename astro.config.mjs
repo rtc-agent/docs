@@ -170,8 +170,28 @@ export default defineConfig({
 					translations: { 'zh-CN': '开始' },
 					items: [
 						{ label: 'What is RTC Agent', link: '/introduction/', translations: { 'zh-CN': '什么是 RTC Agent' } },
-						{ label: 'Quick Start', link: '/getting-started/', translations: { 'zh-CN': '快速开始' } },
-						{ label: 'Build from Source', link: '/deployment/source-build/', translations: { 'zh-CN': '源码构建' } },
+						{ label: 'Quick Start', link: '/getting-started/', translations: { 'zh-CN': '快速入门' } },
+					],
+				},
+				{
+					label: 'Quick Try',
+					translations: { 'zh-CN': '快速体验' },
+					items: [
+						{ label: 'Overview', link: '/quick-start/', translations: { 'zh-CN': '概述' } },
+					],
+				},
+				{
+					label: 'Production Integration',
+					translations: { 'zh-CN': '真实接入' },
+					items: [
+						{ label: 'Overview', link: '/integration-guide/', translations: { 'zh-CN': '概述' } },
+					],
+				},
+				{
+					label: 'Deployment',
+					translations: { 'zh-CN': '部署' },
+					items: [
+						{ label: 'Source Build', link: '/deployment/source-build/', translations: { 'zh-CN': '源码构建' } },
 						{ label: 'CDN Integration', link: '/deployment/cdn/', translations: { 'zh-CN': 'CDN 接入' } },
 						{ label: 'Distributed Cluster', link: '/deployment/distributed-deploy/', translations: { 'zh-CN': '分布式集群' } },
 					],

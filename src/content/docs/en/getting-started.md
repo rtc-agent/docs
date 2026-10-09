@@ -1,264 +1,159 @@
 ---
 title: Getting Started
-description: Deploy RTC Agent Server and embed the frontend component in 5 minutes — run the full pipeline end to end.
+description: Get RTC Agent Server running from scratch in 5 minutes.
 ---
 
-Getting RTC Agent up and running takes two steps: **deploy the Server** → **embed the frontend component**.
+From zero to running RTC Agent takes five steps. Whether you want a **quick try** or **production integration**, start here.
 
-## Choose a Deployment
-
-| Deployment | Use Case | Dependencies |
-| --- | --- | --- |
-| **Docker Deployment** (recommended) | Quick demo, full deployment | Docker |
-| [Build from Source](/docs/en/deployment/source-build/) | Local development & debugging | Go 1.27, PostgreSQL, Redis |
-| [Docker Distributed Cluster](/docs/en/deployment/distributed-deploy/) | Multi-Worker testing, production validation | Docker |
+> 💡 **What is RTC Agent?** An AI assistant backend that lets AI call tools defined in your frontend via Remote Tool Calling protocol. Architecture overview:
+> - **Server** (what this tutorial starts): Receives user messages, calls LLM, coordinates tool execution
+> - **Frontend component**: Embeds in your web page, provides AI chat UI, registers and executes tools
+> - **SharedWorker**: Background browser process, shares one WebSocket connection across tabs to avoid re-authentication
 
 ## Prerequisites
 
-- **Docker** — Docker Desktop or equivalent recommended
+- **Docker** — Docker Desktop or equivalent
 - **LLM API Key** — Claude or OpenAI-compatible API key
 
-> For source builds, you also need Go 1.27+, PostgreSQL 17+ (with pgvector), and Redis 7+. See the [Source Build Guide](/docs/en/deployment/source-build/).
->
-> Docker Compose includes a `mock-oauth2` service container, but `providers.mock.enabled` defaults to `false` in the config. To try Mock login, edit `etc/config.docker.yaml` and set `mock.enabled` to `true`, and change `url` to `http://mock-oauth2:10060` (the internal Docker service name). Production environments require your own OAuth2 service — see [Authentication](/docs/en/integration/auth/#developer-integration-guide) for details.
-
-## Step 1: Deploy the Server
-
-### 1. Clone & Prepare Configuration
+## Step 1: Get the Code
 
 ```bash
 git clone https://github.com/rtc-agent/server.git
 cd server
 ```
 
-Edit `etc/config.docker.yaml` and verify the following configuration:
-
-```yaml
-database:
-  dsn: "postgres://rtc_agent:rtc_agent@postgres:5432/rtc_agent?sslmode=disable"
-
-redis:
-  addr: "redis:6379"
-
-llm:
-  provider: "claude"           # or "openai"
-  # api_key configured via LLM__API_KEY environment variable, not in YAML
-  model: "claude-sonnet-4-20250514"  # Example: using Claude model; actual default may differ (e.g., qwen3.7-plus)
-```
-
-Configure LLM API Key (via environment variable):
+## Step 2: Configure Environment Variables
 
 ```bash
-# Copy .env template
 cp .env.example .env
-
-# Edit .env and fill in your API Key
-echo "LLM__API_KEY=your-api-key-here" >> .env
 ```
 
-> 💡 **Environment variable naming**: Uppercase letters + double underscore `__` to separate hierarchy levels, matching YAML config structure. For example, `llm.api_key` → `LLM__API_KEY`.
->
-> ⚠️ **Sensitive field handling**: Sensitive fields (like `api_key`, `password`) should not be written in plaintext in YAML; instead, configure them via environment variables. Environment variables have higher priority than config files and can safely override YAML values.
+Edit `.env` and fill in your LLM API Key:
 
-### 2. Start
+```bash
+# ========== Required ==========
+LLM__API_KEY=sk-ant-xxx...
+
+# ========== Optional: Only needed for Quick Try (see /en/quick-start/) ==========
+# PROVIDERS__GITHUB__ENABLED=true
+# PROVIDERS__GITHUB__CLIENT_ID=your-client-id
+# PROVIDERS__GITHUB__CLIENT_SECRET=your-client-secret
+```
+
+> 💡 **Environment variable naming**: Uppercase + double underscore `__` separates hierarchy levels, matching YAML config. Example: `llm.api_key` → `LLM__API_KEY`. If you're doing production integration (Token Exchange), you don't need GitHub OAuth config.
+
+## Step 3: Start the Server
 
 ```bash
 docker compose up -d
 ```
 
-Compose will automatically:
+Compose automatically starts:
 
-1. Start PostgreSQL and Redis
-2. Run database migration (init container)
-3. Start 2 Server containers + Admin-server management service + Nginx load balancing + observability stack
+| Service | Description |
+| :--- | :--- |
+| PostgreSQL + Redis | Data storage |
+| Server (2 instances) | RTC Agent + Nginx load balancer |
+| Admin Server | Admin dashboard |
+| MinIO | Object storage (file uploads, auto-started no config needed) |
+| Prometheus + Grafana | Monitoring |
+| Jaeger | Distributed tracing |
 
-> 💡 **Admin-server** admin panel is accessible at `http://localhost:28081`. A JWT key pair is automatically generated on first startup. Create an administrator account with:
->
-> ```bash
-> docker compose exec admin-server ./rtc-agent admin account create \
->   --email admin@example.com \
->   --password your-password \
->   --name "Admin"
-> ```
+> 💡 **Image source**: Docker Compose pulls official pre-built images from GitHub Container Registry (`ghcr.io`) by default — no local compilation needed.
 
-### 3. Verify
+### Docker Images
 
-```bash
-# Access via Nginx load balancer entry point
-curl http://localhost:28080/healthz
-# {"status":"ok"}
-```
+RTC Agent provides official pre-built images hosted on GitHub Container Registry:
 
-## Step 2: Embed the Frontend Component
-
-With the Server running, add the `<rtc-agent>` component to your web page to get an AI assistant.
-
-### Quick Start (CDN)
-
-For documentation sites or quick demos:
-
-```html
-<!-- Import the component -->
-<script type="module" src="https://cdn.jsdelivr.net/npm/@rtc-agent/component@0.3.0-rc.4/dist/index.js"></script>
-
-<!-- Minimal setup -->
-<rtc-agent></rtc-agent>
-```
-
-Customize theme and title:
-
-```html
-<rtc-agent theme="dark" app-label="My AI Assistant"></rtc-agent>
-```
-
-The component automatically connects to the Server on the current page's domain (defaults to `localhost:28080`).
-
-### Production Integration (NPM)
-
-For production applications with full control and multi-tab support:
+| Image | Address | Versions |
+| :--- | :--- | :--- |
+| Server | `ghcr.io/rtc-agent/server` | [View versions](https://github.com/rtc-agent/server/pkgs/container/server) |
+| MinIO | `ghcr.io/rtc-agent/minio` | [View versions](https://github.com/rtc-agent/minio/pkgs/container/minio) |
 
 ```bash
-pnpm add @rtc-agent/component
+# Pull latest version
+docker pull ghcr.io/rtc-agent/server:latest
+
+# Pull specific version (recommended for production)
+docker pull ghcr.io/rtc-agent/server:v1.0.0
+
+# MinIO object storage image
+docker pull ghcr.io/rtc-agent/minio:release.2025-10-15t17-29-55z
 ```
 
-Setup SharedWorker (required for multi-tab synchronization):
-
-```bash
-npx rtc-agent-setup
-```
-
-Use the `createRtcAgent()` factory function:
-
-```typescript
-import { createRtcAgent } from '@rtc-agent/component';
-
-const agent = createRtcAgent({
-  appLabel: 'My AI Assistant',
-  theme: 'system',
-  server: {
-    url: 'https://rtc-agent.cherish.chat',
-    redirectUri: '/auth/callback.html',
-  },
-  workerURL: '/rtc-agent/shared-worker.js',
-  // ... other configuration
-});
-
-document.body.appendChild(agent);
-
-// When your app unmounts the agent:
-agent.destroy();
-```
-
-`destroy()` cleans up all event listeners and subscriptions, ensuring no resource leaks when the agent is no longer needed.
-
-> Full integration guide: [Integration Tutorial](/docs/en/integration/integration-tutorial/)
->
-> Full attribute, event, and CSS variable reference: [Web Component API](/docs/en/integration/component-api/).
-
-## Other Deployment Options
-
-### Build from Source
-
-For scenarios where you need to develop and debug on the Server side. Requires Go 1.27+.
-
-→ See [Source Build Guide](/docs/en/deployment/source-build/)
-
-### Docker Distributed Cluster
-
-Uses the same `docker-compose.yml` as the Docker deployment above, with additional guidance on distributed behavior validation (Session Affinity, RTC Checkpoint) and restart recovery mechanisms.
-
-→ See [Distributed Cluster Deployment](/docs/en/deployment/distributed-deploy/)
-
-## Configuration Reference
-
-For the full configuration options, see [etc/config.docker.yaml](https://github.com/rtc-agent/server/blob/main/etc/config.docker.yaml).
-
-### Required Configuration
-
-| Config | Description | Required |
-| --- | --- | --- |
-| `database.dsn` | PostgreSQL connection string | ✅ |
-| `redis.addr` | Redis address | ✅ |
-| `auth.jwt_secret` | JWT signing key (use a strong random value in production) | ✅ |
-| `llm.provider` | Model provider: `claude` or `openai` | ✅ |
-| `llm.api_key` | LLM API key | ✅ |
-| `llm.model` | Model name | ✅ |
-
-### Optional Configuration
-
-| Config | Description | Default |
-| --- | --- | --- |
-| `tracing.enabled` | Enable OpenTelemetry tracing | `false` |
-| `log.level` | Log level: `debug` / `info` / `warn` / `error` | `info` |
-| `log.server_log_file` | Server log file path (JSON format, for promtail collection). Leave empty to disable file logging. Logs use lumberjack auto-rotation (100MB/file, retain 3, 7 days, gzip compression) | empty |
-| `worker.cache_hit_rate_warn_threshold` | Cache hit rate warning threshold (0.0-1.0). A warn log is emitted when the session's cumulative cache hit rate drops below this value. Negative values disable the warning | `0.88` |
-| `llm.retry_max_attempts` | Maximum retry attempts on model call failure. 0 means no retry | `0` |
-| `llm.retry_base_delay` | Base delay for retry backoff (exponential: `base_delay * 2^(attempt-1)`) | `1s` |
-| `server.client_queue_max_size` | Maximum Centrifuge client message queue size in bytes | `52428800` (50MB) |
-| `server.shutdown_timeout` | Graceful shutdown timeout | `10s` |
-| `server.rpc_timeout` | RPC handler context timeout | `10s` |
-| `debug.enabled` | Whether to enable debug endpoints (pprof, goroutines). Disabled by default in production | `false` |
-| `debug.show_raw_errors` | Show raw error details (with stack traces) in logs | `false` |
-| `debug.goroutine_leak_threshold` | Goroutine leak detection threshold (number of goroutines) | `1000` |
-| `token_exchange.external_issuers` | List of trusted external JWT issuers (for RFC 8693 Token Exchange). See [Admin-server Authentication](/docs/en/protocol/http-api/#admin-server-authentication) | empty |
-
-> 💡 **Full Configuration Reference**: `etc/config.yaml.example` contains all configurable options with comments — it is the authoritative configuration reference.
->
-> 📌 **Production Validation**: In production mode, the Server automatically validates: rejects Mock OAuth2 Provider, rejects weak JWT secrets (insufficient length), requires `allowed_redirect_uris` to be configured.
-
-### Model Pricing Configuration
-
-The `llm.pricing` section allows customizing model costs so the system can calculate per-invocation cost (`total_cost_usd`). All prices are in **USD per million tokens**. Defaults to Claude 3.5 Sonnet pricing when not configured.
+To pin a specific version in `docker-compose.yml`, change the `image` field:
 
 ```yaml
-llm:
-  pricing:
-    input_per_million: 3.0        # Normal input token price
-    output_per_million: 15.0      # Output token price
-    cached_read_per_million: 0.3  # Cache read (cache hit) price, typically 10% of input
-    cached_write_per_million: 3.75 # Cache write (cache creation) price, typically 125% of input
-    reasoning_per_million: 0.0    # Reasoning (thinking) token price
+services:
+  server:
+    image: ghcr.io/rtc-agent/server:v1.0.0  # Replace latest with a specific version
 ```
 
-| Field | Description | Default (Claude 3.5 Sonnet) |
-| --- | --- | --- |
-| `input_per_million` | Normal input token price (USD/million tokens) | `3.0` |
-| `output_per_million` | Output token price (USD/million tokens) | `15.0` |
-| `cached_read_per_million` | Cache read (cache hit) price (USD/million tokens) | `0.3` |
-| `cached_write_per_million` | Cache write (cache creation) price (USD/million tokens) | `3.75` |
-| `reasoning_per_million` | Reasoning (thinking) token price (USD/million tokens) | `0.0` |
+## Step 4: Create Admin Account
 
-> 💡 When using a different model, refer to your model provider's pricing page and set `llm.pricing` accordingly. Cost calculation accumulates after each LLM call into the Session's `total_cost_usd` field, which is pushed to the frontend via `session.updated` events.
->
-> 🔐 **Production security**: Before deploying to production, ensure HTTPS is enabled, configure a proper OAuth2 provider (not Mock), use a strong random `jwt_secret`, and set CORS allowlists.
+The admin account is used to log in to the **Admin dashboard** (http://localhost:28081) for managing users and system status.
 
-## Troubleshooting
+```bash
+docker compose exec server rtc-agent admin account create \
+  --email admin@example.com \
+  --password your-password \  # At least 8 characters
+  --role admin
+```
+
+> 💡 **Authentication systems**: RTC Agent has two auth systems:
+> - **Admin dashboard**: Email + password or OTP login, for system management
+> - **User-facing**: GitHub/Google OAuth2 login, for chatting with AI assistant
+> 
+> Admin accounts and regular users are separate — GitHub login users are regular users.
+
+## Step 5: Verify
+
+```bash
+curl http://localhost:28080/healthz
+# Should return: {"status":"ok"}
+```
+
+**Access URLs**:
+
+| Service | URL |
+| :--- | :--- |
+| RTC Agent Server | http://localhost:28080 |
+| Admin Dashboard | http://localhost:28081 |
+| Grafana | http://localhost:3000 |
+| Jaeger | http://localhost:16686 |
+
+## Next Steps
+
+Choose your scenario:
+
+| Scenario | Description | Link |
+| :--- | :--- | :--- |
+| 🚀 **Quick Try** | Minimal changes, try AI assistant | [→ Quick Try](/en/quick-start/) |
+| 🏗️ **Production Integration** | Integrate RTC Agent into your production app | [→ Integration Guide](/en/integration-guide/) |
+| 📦 **Source Build** | Local development, requires Go 1.27+ | [→ Source Build](/en/deployment/source-build/) |
+| 🌐 **Distributed Cluster** | Multi-Worker testing, production validation | [→ Distributed Cluster](/en/deployment/distributed-deploy/) |
+
+## FAQ
 
 **`curl healthz` not responding?**
 
-- Docker deployment: Check container status with `docker compose ps`, confirm all containers are `healthy`
-- Check Server logs: `docker compose logs server-1 server-2`
+- Check container status: `docker compose ps`, confirm all containers are `healthy`
+- Check Server logs: `docker compose logs server-1`
 - Confirm port 28080 is not in use: `lsof -i :28080`
 
 **LLM call errors?**
 
-- Check that `api_key` is correctly filled in (no extra spaces in YAML)
-- Confirm `model` name matches your API plan (e.g., `claude-sonnet-4-20250514` requires a valid Claude API subscription)
-- If using OpenAI, confirm `provider` is set to `"openai"` and `api_key` is an OpenAI key
+- Check `LLM__API_KEY` in `.env` is correct
+- Confirm API key has sufficient quota
+- Check logs: `docker compose logs server-1 | grep -i error`
 
 **PostgreSQL connection failed?**
 
-- In Docker deployment, the `dsn` hostname should be `postgres` (Docker service name), not `localhost`
-- Confirm the PostgreSQL container is running: `docker compose ps postgres`
+- In Docker deployment, `dsn` hostname should be `postgres` (Docker service name), not `localhost`
+- Confirm PostgreSQL container is running: `docker compose ps postgres`
 
 **Frontend component cannot connect to Server?**
 
-- Confirm the Server and web page are on the same domain, or CORS is configured
-- Open browser DevTools and check Console and Network panels for errors
-
-## Next Steps
-
-- [Embed Frontend Component](/docs/en/integration/component-api/) — Learn all `<rtc-agent>` attributes and events
-- [Register Functions](/docs/en/integration/function-registration/) — Turn your website APIs into AI-callable tools
-- [Work Modes](/docs/en/concepts/work-modes/) — Understand the five permission modes for AI operations
-- [Author Scenarios](/docs/en/integration/scenario-authoring/) — Provide business context to the AI
+- Confirm Server and web page are on the same domain, or CORS is configured
+- Open browser DevTools, check Console and Network panels for errors
+- Check `server.url` configuration is correct

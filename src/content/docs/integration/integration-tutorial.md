@@ -3,6 +3,13 @@ title: 接入实战
 description: 从零开始在 Astro 文档站点中集成 RTC Agent Web Component 的完整实战指南
 ---
 
+:::note[提示]
+如果你是第一次接入 RTC Agent，建议先阅读：
+- [快速入门](/getting-started/) — 5 分钟跑通 Server
+- [快速体验](/quick-start/) — 不修改宿主应用的快速体验
+- [真实接入](/integration-guide/) — 集成到生产应用的完整指南
+:::
+
 本文档以本项目的 docs 站点为例，演示如何在 Astro 文档站点中集成 RTC Agent Web Component。
 
 ## 环境信息
